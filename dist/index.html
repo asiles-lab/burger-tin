@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#faf7f4">
+  <meta name="description" content="GlowRo: una forma más simple y linda de descubrir tu rutina de skincare. Descubrí productos Dr. Duval y comprá en nuestra tienda de Mercado Libre.">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="GlowRo — Tu piel, tu ritmo, tu glow">
+  <meta property="og:description" content="Skincare para elegir con calma, descubrir tu rutina y sentirte vos.">
+  <meta property="og:image" content="assets/social-card.svg">
+  <meta name="color-scheme" content="light">
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="catalog.js"></script>
+  <script defer src="app.js"></script>
+  <title>GlowRo — Tu piel, tu ritmo, tu glow</title>
+</head>
+<body>
+<a class="skip-link" href="#main">Ir al contenido</a>
+<svg class="svg-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></symbol>
+  <symbol id="i-arrow-up" viewBox="0 0 24 24"><path d="M5 19 19 5M8 5h11v11"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 5 5L20 7"/></symbol>
+  <symbol id="i-bag" viewBox="0 0 24 24"><path d="M4 8h16l-1 12H5L4 8Zm4 0V6a4 4 0 0 1 8 0v2"/></symbol>
+  <symbol id="i-instagram" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r=".7" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="m5 5 14 14M19 5 5 19"/></symbol>
+  <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="m12 2 2.4 7.6L22 12l-7.6 2.4L12 22l-2.4-7.6L2 12l7.6-2.4L12 2Z"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+  <symbol id="i-heart" viewBox="0 0 24 24"><path d="M20.5 8.5c0 5.2-8.5 11-8.5 11s-8.5-5.8-8.5-11a5 5 0 0 1 8.5-3.5 5 5 0 0 1 8.5 3.5Z"/></symbol>
+</svg>
+<div class="topbar"><span class="topbar-star">✦</span> Cosmética profesional · Comprá en Mercado Libre <span class="topbar-star">✦</span></div>
+<header class="site-header" id="inicio">
+  <div class="nav-shell container">
+    <a href="#inicio" class="brand" aria-label="GlowRo, ir al inicio">glow<span>ro</span><i aria-hidden="true">.</i></a>
+    <nav class="desktop-nav" aria-label="Navegación principal">
+      <a href="#coleccion">Explorar</a>
+      <a href="#tu-rutina">Mi rutina</a>
+      <a href="#filosofia">Nuestra esencia</a>
+      <a href="#preguntas">Preguntas</a>
+    </nav>
+    <div class="header-actions">
+      <a class="nav-instagram" href="https://instagram.com/glowro_/" target="_blank" rel="noopener noreferrer" aria-label="Ver Instagram de GlowRo"><svg class="icon"><use href="#i-instagram"/></svg></a>
+      <button class="selection-btn" id="open-drawer" type="button" aria-label="Ver mi selección" aria-haspopup="dialog"><svg class="icon"><use href="#i-bag"/></svg><span class="selection-text">Mi selección</span><span class="selection-count" id="selection-count">0</span></button>
+      <button class="menu-toggle" id="menu-toggle" type="button" aria-expanded="false" aria-controls="mobile-nav" aria-label="Abrir menú"><svg class="icon"><use href="#i-menu"/></svg></button>
+    </div>
+  </div>
+  <nav id="mobile-nav" class="mobile-nav" aria-label="Navegación móvil" hidden>
+    <a href="#coleccion">Explorar</a><a href="#tu-rutina">Mi rutina</a><a href="#filosofia">Nuestra esencia</a><a href="#preguntas">Preguntas</a>
+    <a href="https://instagram.com/glowro_/" target="_blank" rel="noopener noreferrer">Instagram ↗</a>
+  </nav>
+</header>
+<main id="main">
+  <section class="hero-section container" aria-labelledby="hero-title">
+    <div class="hero-copy reveal">
+      <div class="eyebrow"><span class="eyebrow-line"></span> GLOWRO / SKINCARE & BEAUTY</div>
+      <h1 id="hero-title">Tu piel.<br>Tu ritmo.<br><span class="serif-accent">Tu glow.</span></h1>
+      <p class="hero-lead">El cuidado de tu piel no debería ser complicado. Descubrí productos, encontrá tu ritual y disfrutá de ese momento que es solo tuyo.</p>
+      <div class="hero-actions">
+        <a class="btn btn-dark" href="#coleccion">Explorar skincare <svg class="icon"><use href="#i-arrow"/></svg></a>
+        <a class="text-link" href="#tu-rutina">Descubrir mi rutina <svg class="icon"><use href="#i-arrow-up"/></svg></a>
+      </div>
+      <div class="hero-meta"><span class="mini-sparkle">✳</span> Elegí acá. Comprá en nuestra tienda de Mercado Libre.</div>
+    </div>
+    <div class="hero-visual reveal" aria-label="Kit facial BE de Dr. Duval">
+      <img src="https://http2.mlstatic.com/D_Q_NP_2X_879218-MLA110297395762_052026-AB.webp" alt="Kit facial completo BE de Dr. Duval" width="920" height="1050" fetchpriority="high">
+      <div class="hero-photo-label"><span class="tiny-dot"></span> DR. DUVAL / KIT FACIAL BE</div>
+      <div class="hero-bottom-tag"><span>01 / 03</span><span>YOUR SKIN, YOUR STORY</span><svg class="icon"><use href="#i-sparkle"/></svg></div>
+    </div>
+    <div class="hero-bottom-strip"><span>BEAUTY IN YOUR OWN WAY</span><div></div><span>SELF CARE, EVERY DAY</span></div>
+  </section>
+  <section class="intro-statement section-pad" aria-label="Nuestra propuesta">
+    <div class="container statement-inner reveal"><span class="small-caps">LA IDEA DETRÁS DE GLOWRO</span><p>Sentirte bien en tu piel <em>también</em> es parte de tu rutina.</p><span class="statement-star">✳</span></div>
+  </section>
+  <section class="collection-section section-pad" id="coleccion" aria-labelledby="collection-title">
+    <div class="container">
+      <div class="section-heading reveal"><div><p class="eyebrow-section">01 — DESCUBRÍ</p><h2 id="collection-title">Encontrá tu <span>próximo favorito.</span></h2><p class="section-sub">Una selección de productos Dr. Duval de nuestra tienda. Elegí tu favorito y completá tu compra en Mercado Libre.</p></div><a href="https://www.mercadolibre.com.ar/pagina/jcetn5tr" class="all-link" target="_blank" rel="noopener noreferrer">Ver toda la tienda <svg class="icon"><use href="#i-arrow-up"/></svg></a></div>
+      <div class="filter-chips" id="filters" aria-label="Filtrar productos">
+<button type="button" class="filter-chip is-active" data-filter="all" aria-pressed="true">Todos</button><button type="button" class="filter-chip " data-filter="kits" aria-pressed="false">Kits y combos</button><button type="button" class="filter-chip " data-filter="facial" aria-pressed="false">Faciales y sérums</button><button type="button" class="filter-chip " data-filter="corporal" aria-pressed="false">Corporales</button><button type="button" class="filter-chip " data-filter="ofertas" aria-pressed="false">Ofertas consultadas</button></div>
+      <div class="products-grid" id="products-grid"></div><noscript><p>Para ver el catálogo completo, <a href="https://www.mercadolibre.com.ar/pagina/jcetn5tr">visitá la tienda de GlowRo en Mercado Libre</a>.</p></noscript>
+      <p class="catalog-note"><svg class="icon"><use href="#i-sparkle"/></svg> Precios de referencia en pesos argentinos, consultados el 15/10/2026; pueden omitir centavos. Confirmá precio final, descuentos, stock y envío en Mercado Libre.</p>
+    </div>
+  </section>
+  <section class="ritual-section section-pad" id="tu-rutina" aria-labelledby="ritual-title">
+    <div class="container ritual-layout">
+      <div class="ritual-copy reveal"><p class="eyebrow-section">02 — CONOCETE</p><h2 id="ritual-title">Una rutina<br>tan única <em>como vos.</em></h2><p>No necesitás veinte pasos para empezar a cuidarte. Respondé tres preguntas y llevate una guía inicial para conversar con GlowRo.</p><div class="ritual-footnote"><span class="ritual-number">03</span><span>PREGUNTAS<br>Y UN POQUITO MÁS DE CLARIDAD</span></div><div class="ritual-decor">✳</div></div>
+      <div class="quiz-card reveal" id="quiz-card">
+        <div class="quiz-top"><span class="quiz-label"><svg class="icon"><use href="#i-sparkle"/></svg> GLOWRO / SKIN QUIZ</span><span id="quiz-counter">01 / 03</span></div>
+        <div class="quiz-progress" aria-hidden="true"><span id="quiz-progress-bar"></span></div>
+        <div id="quiz-screen" aria-live="polite"></div>
+        <div class="quiz-nav" id="quiz-nav"><button type="button" class="quiz-back" id="quiz-back" disabled>Volver</button><button type="button" class="btn btn-dark quiz-next" id="quiz-next" disabled>Continuar <svg class="icon"><use href="#i-arrow"/></svg></button></div>
+        <p class="quiz-disclaimer">Una orientación general, no un diagnóstico dermatológico. Si tenés una condición de piel, consultá a un profesional.</p>
+      </div>
+    </div>
+  </section>
+  <section class="manifesto-section section-pad" id="filosofia" aria-labelledby="manifesto-title">
+    <div class="container manifesto-layout">
+      <div class="manifesto-art reveal"><img src="assets/story-art.svg" loading="lazy" alt="Ilustración minimalista de productos de autocuidado" width="900" height="850"><div class="art-caption">SLOW DOWN. GLOW MORE. <span>✳</span></div></div>
+      <div class="manifesto-content reveal"><p class="eyebrow-section">03 — NUESTRA ESENCIA</p><h2 id="manifesto-title">El glow empieza <span>cuando te elegís.</span></h2><p>En GlowRo creemos que el skincare puede ser ese ratito del día que te dedicás a vos: sin reglas imposibles, sin apuros y sin comparaciones.</p><p>Una experiencia para descubrir lo que te gusta y crear una rutina a tu manera.</p><div class="manifesto-divider"></div><div class="manifesto-points"><div><span>01.</span><p>Explorá a tu ritmo.</p></div><div><span>02.</span><p>Consultá antes de elegir.</p></div><div><span>03.</span><p>Disfrutá el proceso.</p></div></div><a class="text-link manifesto-link" target="_blank" rel="noopener noreferrer" href="https://instagram.com/glowro_/">Conocé GlowRo en Instagram <svg class="icon"><use href="#i-arrow-up"/></svg></a></div>
+    </div>
+  </section>
+  <section class="how-section section-pad" aria-labelledby="how-title"><div class="container"><div class="section-heading reveal"><div><p class="eyebrow-section">04 — ASÍ DE SIMPLE</p><h2 id="how-title">De la inspiración <span>a tu ritual.</span></h2></div></div><div class="steps-grid"><div class="step reveal"><span class="step-number">01</span><div class="step-icon"><svg class="icon"><use href="#i-sparkle"/></svg></div><h3>Descubrí</h3><p>Explorá productos, kits y precios de referencia para tu cuidado diario.</p></div><div class="step reveal"><span class="step-number">02</span><div class="step-icon"><svg class="icon"><use href="#i-heart"/></svg></div><h3>Elegí</h3><p>Guardá opciones en tu selección o completá nuestra guía de rutina.</p></div><div class="step reveal"><span class="step-number">03</span><div class="step-icon"><svg class="icon"><use href="#i-instagram"/></svg></div><h3>Comprá en Mercado Libre</h3><p>Abrí la publicación del producto. El pago, el pedido y el seguimiento se realizan en Mercado Libre.</p></div></div></div></section>
+  <section class="faq-section section-pad" id="preguntas" aria-labelledby="faq-title"><div class="container faq-layout"><div class="reveal"><p class="eyebrow-section">05 — TE AYUDAMOS</p><h2 id="faq-title">¿Tenés <span>preguntas?</span></h2><p class="faq-sidecopy">Nos gusta hacer las cosas simples. Si necesitás ayuda para elegir, escribinos.</p><a class="btn btn-outline" href="https://ig.me/m/glowro_" target="_blank" rel="noopener noreferrer">Escribir por Instagram <svg class="icon"><use href="#i-arrow-up"/></svg></a></div><div class="faq-list reveal"><details><summary>¿Cómo consulto por un producto?<span class="faq-plus">+</span></summary><p>Cada ficha tiene un botón «Comprar en Mercado Libre». Podés guardar favoritos en «Mi selección» o consultar por Instagram si necesitás ayuda para elegir.</p></details><details><summary>¿La guía de rutina es personalizada?<span class="faq-plus">+</span></summary><p>Es una orientación inicial basada en tus respuestas. Para elegir productos específicos, consultá con GlowRo. Ante condiciones dermatológicas, lo indicado es asesorarte con un profesional de salud.</p></details><details><summary>¿Dónde puedo ver precios y disponibilidad?<span class="faq-plus">+</span></summary><p>Mostramos precios de referencia con fecha de consulta. El precio vigente, las promociones aplicables y la disponibilidad se confirman al abrir la publicación en Mercado Libre.</p></details><details><summary>¿Cómo puedo saber las opciones de entrega y pago?<span class="faq-plus">+</span></summary><p>Mercado Libre te muestra los medios de pago, las cuotas y las opciones de envío según tu cuenta y domicilio antes de confirmar la compra. Podés gestionar el pedido desde Mis compras.</p></details></div></div></section>
+  <section class="closing-section"><div class="container closing-content reveal"><div class="closing-spark">✳</div><p>UN MOMENTO PARA VOS</p><h2>Tu mejor glow<br>es sentirte vos.</h2><a href="https://www.mercadolibre.com.ar/pagina/jcetn5tr" target="_blank" rel="noopener noreferrer" class="btn btn-light">Ir a la tienda en Mercado Libre <svg class="icon"><use href="#i-arrow-up"/></svg></a><span class="closing-watermark" aria-hidden="true">glowro.</span></div></section>
+</main>
+<footer class="site-footer"><div class="container"><div class="footer-top"><div><a class="brand footer-brand" href="#inicio">glow<span>ro</span><i>.</i></a><p>Skincare para cuidarte<br>a tu manera.</p></div><div class="footer-links"><div><h4>EXPLORAR</h4><a href="#coleccion">Productos</a><a href="#tu-rutina">Mi rutina</a><a href="#filosofia">Nuestra esencia</a></div><div><h4>HABLEMOS</h4><a href="https://instagram.com/glowro_/" target="_blank" rel="noopener noreferrer">Instagram ↗</a><a href="https://ig.me/m/glowro_" target="_blank" rel="noopener noreferrer">Mensaje directo ↗</a><a href="#preguntas">Preguntas frecuentes</a></div></div></div><div class="footer-bottom"><span>© <span id="year">2026</span> GlowRo. Hecho para brillar a tu manera.</span><span>LOVE YOUR SKIN. LOVE YOURSELF. <span class="tiny-heart">♥</span></span></div></div></footer>
+<button class="mobile-floating-selection" id="mobile-selection" type="button" aria-label="Abrir mi selección"><svg class="icon"><use href="#i-bag"/></svg><span>Mi selección</span><span class="mobile-count" id="mobile-selection-count">0</span></button>
+<div class="drawer-layer" id="drawer-layer" hidden><div class="drawer-backdrop" id="drawer-backdrop"></div><aside class="selection-drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title" tabindex="-1"><div class="drawer-top"><div><span class="small-caps">GLOWRO / FAVORITOS</span><h2 id="drawer-title">Mi selección <span id="drawer-title-count">(0)</span></h2></div><button id="close-drawer" class="drawer-close" type="button" aria-label="Cerrar selección"><svg class="icon"><use href="#i-close"/></svg></button></div><p class="drawer-intro">Guardá tus favoritos. Abrí cada producto en Mercado Libre para comprarlo o agregarlo al carrito allí. Esta selección no reserva stock.</p><div class="drawer-items" id="drawer-items"></div><div class="drawer-footer"><button class="btn btn-dark drawer-copy" type="button" id="drawer-copy"><svg class="icon"><use href="#i-copy"/></svg> Copiar mi consulta</button><a class="btn btn-outline drawer-ig" href="https://ig.me/m/glowro_" target="_blank" rel="noopener noreferrer">Abrir Instagram <svg class="icon"><use href="#i-arrow-up"/></svg></a><p>El mensaje se copia para que puedas pegarlo en el chat. Instagram no permite enviarlo automáticamente.</p></div></aside></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
