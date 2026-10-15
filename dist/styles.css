@@ -27,3 +27,5 @@
 .essence-product>span{display:flex;justify-content:space-between;gap:6px;font-size:9px;letter-spacing:1px;font-weight:700;padding-top:12px;color:#70605d}.essence-product b{font-size:14px}
 .essence-caption{grid-column:1 / -1;display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:9px;letter-spacing:1.7px;font-weight:800;color:#78625f;padding:5px 3px}.essence-caption span{font-size:23px}
 @media(max-width:540px){.manifesto-art.essence-collage{padding:12px;gap:9px;max-height:none;aspect-ratio:.94}.essence-product{padding:10px}.essence-product>span{font-size:7px;letter-spacing:.6px}.essence-caption{font-size:7px;letter-spacing:1px}}
+
+.drawer-item .favorite-help{font-size:11px;line-height:1.5;margin-top:6px;color:#736c70}.drawer-footer>.btn{width:100%}.drawer-footer{flex-shrink:0}.add-btn.is-selected .icon{fill:currentColor}

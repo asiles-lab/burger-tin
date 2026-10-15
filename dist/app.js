@@ -27,14 +27,14 @@ function renderSelection() {
     btn.classList.toggle('is-selected', active);
     btn.setAttribute('aria-pressed', String(active));
     if (btn.classList.contains('add-btn')) {
-      btn.setAttribute('aria-label', `${active ? 'Quitar' : 'Agregar'} ${ITEMS[btn.dataset.add].name} ${active ? 'de' : 'a'} mi selección`);
+      btn.setAttribute('aria-label', `${active ? 'Quitar' : 'Guardar'} ${ITEMS[btn.dataset.add].name} ${active ? 'de' : 'en'} favoritos`);
     }
   });
   const target = $('drawer-items');
   if (n === 0) {
     target.innerHTML = '<div class="drawer-empty"><svg class="icon"><use href="#i-bag"/></svg><h3>Todavía no elegiste nada.</h3><p>Explorá los productos y guardá tus favoritos.</p></div>';
   } else {
-    target.innerHTML = [...selection].map(id => `<div class="drawer-item"><img src="${ITEMS[id].image}" alt="" width="70" height="75"><div><h3>${escapeHTML(ITEMS[id].name)}</h3><a href="${escapeHTML(ITEMS[id].url)}" target="_blank" rel="noopener noreferrer">Comprar en Mercado Libre ↗</a></div><button type="button" data-remove="${id}" aria-label="Quitar ${escapeHTML(ITEMS[id].name)}">Quitar</button></div>`).join('');
+    target.innerHTML = [...selection].map(id => `<div class="drawer-item"><img src="${ITEMS[id].image}" alt="" width="70" height="75"><div><h3>${escapeHTML(ITEMS[id].name)}</h3><a href="${escapeHTML(ITEMS[id].url)}" target="_blank" rel="noopener noreferrer">Abrir producto en ML ↗</a><p class="favorite-help">Allí, elegí «Agregar al carrito».</p></div><button type="button" data-remove="${id}" aria-label="Quitar ${escapeHTML(ITEMS[id].name)}">Quitar</button></div>`).join('');
   }
   $('drawer-copy').disabled = n === 0;
 }
@@ -43,7 +43,8 @@ function toggleSelection(id) {
   if (selection.has(id)) selection.delete(id);
   else selection.add(id);
   persist(); renderSelection();
-  toast(selection.has(id) ? 'Agregado a tu selección' : 'Quitado de tu selección');
+  toast(selection.has(id) ? 'Guardado en favoritos' : 'Quitado de favoritos');
+  if (selection.has(id)) openDrawer();
 }
 document.addEventListener('click', e => {
   const trigger = e.target.closest('[data-add]');
@@ -177,7 +178,7 @@ function renderQuizResult() {
 const pesos = value => new Intl.NumberFormat('es-AR', {style:'currency', currency:'ARS', maximumFractionDigits:2}).format(value);
 const labels = {kits:'KITS Y COMBOS',facial:'CUIDADO FACIAL',corporal:'CUIDADO CORPORAL'};
 $('products-grid').innerHTML = PRODUCTS.map(p => `<article class="product-card reveal" data-category="${p.category}" data-offer="${Boolean(p.previous)}" data-id="${p.id}">
-<div class="product-image"><a href="${escapeHTML(p.url)}" target="_blank" rel="noopener noreferrer" aria-label="Ver ${escapeHTML(p.name)} en Mercado Libre"><img loading="lazy" src="${escapeHTML(p.image)}" alt="${escapeHTML(p.name)}" width="560" height="630"></a><button type="button" class="add-btn" data-add="${p.id}" aria-label="Guardar ${escapeHTML(p.name)}" aria-pressed="false"><svg class="icon"><use href="#i-plus"/></svg></button></div>
+<div class="product-image"><a href="${escapeHTML(p.url)}" target="_blank" rel="noopener noreferrer" aria-label="Ver ${escapeHTML(p.name)} en Mercado Libre"><img loading="lazy" src="${escapeHTML(p.image)}" alt="${escapeHTML(p.name)}" width="560" height="630"></a><button type="button" class="add-btn" data-add="${p.id}" aria-label="Guardar ${escapeHTML(p.name)}" aria-pressed="false"><svg class="icon"><use href="#i-heart"/></svg></button></div>
 <div class="product-details"><div><span class="product-overline">${labels[p.category]}</span><h3>${escapeHTML(p.name)}</h3><p>${escapeHTML(p.description)}</p><div class="catalog-price">${p.previous?'<s>'+pesos(p.previous)+'</s> ':''}<strong>${pesos(p.price)}</strong></div><p class="price-date">Referencia · ${CATALOG_DATE}</p><a class="btn btn-dark ml-buy" href="${escapeHTML(p.url)}" target="_blank" rel="noopener noreferrer">Comprar en Mercado Libre ↗</a></div></div></article>`).join('');
 
 const revealObserver = 'IntersectionObserver' in window ? new IntersectionObserver((entries, obs) => {
