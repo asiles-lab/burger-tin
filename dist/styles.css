@@ -18,3 +18,12 @@
 
 /* Catálogo real, compra externa en ML */
 .hero-visual{background:#fff}.hero-visual>img{object-fit:contain;padding:55px 15px}.product-image{background:#fff}.product-image>a{display:block;width:100%;height:100%}.product-image img{object-fit:contain;padding:24px}.product-details>div{width:100%}.product-details h3{min-height:3em}.catalog-price{margin-top:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}.catalog-price s{color:#706861;font-size:.9rem}.catalog-price strong{font-size:1.4rem}.product-details .price-date{font-size:.75rem;margin:4px 0 16px}.ml-buy{width:100%;font-size:.82rem;padding:14px 10px}.drawer-item a{font-size:.8rem;text-decoration:underline}.drawer-item img{object-fit:contain}.product-card[hidden]{display:none!important}
+
+/* Nuestra esencia: selección variada de fotografías reales. */
+.manifesto-art.essence-collage{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr auto;gap:14px;padding:20px;background:#f0e5df;aspect-ratio:1.06;max-height:none}
+.essence-product{min-width:0;min-height:0;display:flex;flex-direction:column;background:#fff;border-radius:12px;overflow:hidden;padding:14px;transition:transform .25s}
+.essence-product:hover{transform:translateY(-3px)}.essence-product:focus-visible{outline:3px solid #986868;outline-offset:3px}
+.essence-product-1{grid-row:1 / 3}.manifesto-art .essence-product img{display:block;flex:1;min-height:0;width:100%;height:0;object-fit:contain;mix-blend-mode:multiply}
+.essence-product>span{display:flex;justify-content:space-between;gap:6px;font-size:9px;letter-spacing:1px;font-weight:700;padding-top:12px;color:#70605d}.essence-product b{font-size:14px}
+.essence-caption{grid-column:1 / -1;display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:9px;letter-spacing:1.7px;font-weight:800;color:#78625f;padding:5px 3px}.essence-caption span{font-size:23px}
+@media(max-width:540px){.manifesto-art.essence-collage{padding:12px;gap:9px;max-height:none;aspect-ratio:.94}.essence-product{padding:10px}.essence-product>span{font-size:7px;letter-spacing:.6px}.essence-caption{font-size:7px;letter-spacing:1px}}
