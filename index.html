@@ -10,6 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles-v2.css">
+  <script src="analytics-config.js"></script>
   <script type="module" src="app.mjs"></script>
 </head>
 <body>
@@ -54,11 +55,11 @@
 
     <section class="contact" id="contacto">
       <div><p class="eyebrow">¿Listo para pedir?</p><h2>¡A COMER<br><span>RICO!</span></h2><p class="contact-copy">Tu pedido está a unos clics de distancia.</p></div>
-      <div class="contact-card"><p><small>RETIRO</small><span id="pickup-address-footer">Av. Croacia 2221, José C. Paz</span></p><p><small>ENVÍOS</small><span id="delivery-zones">José C. Paz y alrededores</span></p><p><small>ATENCIÓN</small><span>Solo mensajes o carrito. Horarios a confirmar por WhatsApp.</span></p><a href="https://wa.me/5491127798677" target="_blank" rel="noopener">Hablar por WhatsApp ↗</a></div>
+      <div class="contact-card"><p><small>RETIRO</small><span id="pickup-address-footer">Av. Croacia 2221, José C. Paz</span></p><p><small>ENVÍOS</small><span id="delivery-zones">José C. Paz y alrededores</span></p><p><small>ATENCIÓN</small><span>Solo mensajes o carrito. Horarios a confirmar por WhatsApp.</span></p><a href="https://wa.me/5491127798677" target="_blank" rel="noopener" data-whatsapp-source="contacto">Hablar por WhatsApp ↗</a></div>
     </section>
   </main>
 
-  <footer><img src="assets/logo-burger-tun.png" alt=""><p>Burger Tin · José C. Paz</p><a href="https://wa.me/c/82940499390482" target="_blank" rel="noopener">Catálogo original ↗</a></footer>
+  <footer><img src="assets/logo-burger-tun.png" alt=""><p>Burger Tin · José C. Paz</p><a href="https://wa.me/c/82940499390482" target="_blank" rel="noopener" data-whatsapp-source="catalogo">Catálogo original ↗</a></footer>
 
   <button class="mobile-cart" data-open-cart hidden aria-label="Ver mi pedido"><span class="floating-cart-icon" aria-hidden="true">🛒</span><span>Ver mi pedido <b data-count>0</b></span><strong data-total>$0</strong></button>
   <div class="toast" id="toast" role="status"></div>

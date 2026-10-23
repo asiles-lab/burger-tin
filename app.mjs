@@ -1,4 +1,7 @@
 import { calculateOrder, buildOrderMessage, orderUrl } from './order.mjs';
+import { initAnalytics, trackEvent } from './analytics.mjs';
+
+initAnalytics();
 
 const $ = selector => document.querySelector(selector);
 const money = value => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(value);
@@ -9,6 +12,20 @@ let cart = {};
 let activeCategory = 'Todos';
 let toastTimer;
 const dialog = $('#cart-dialog');
+
+function productEventData(id) {
+  const product = catalog.find(item => item.id === id);
+  return product ? { product_id: product.id, category: product.category, price: product.price } : null;
+}
+
+function cartEventData() {
+  const order = calculateOrder(catalog, cart);
+  return {
+    item_count: order.items.reduce((sum, item) => sum + item.quantity, 0),
+    distinct_products: order.items.length,
+    cart_value: order.subtotal
+  };
+}
 
 function notify(message) {
   $('#toast').textContent = message;
@@ -24,7 +41,7 @@ function renderMenu() {
     const products = catalog.filter(item => item.category === category);
     const featured = products.find(item => item.image);
     const banner = featured ? `<figure class="menu-photo ${index % 2 ? 'photo-right' : ''}"><img src="${escapeHtml(featured.image)}" alt="${escapeHtml(featured.name)}" loading="lazy"><figcaption>${escapeHtml(category)}</figcaption></figure>` : '';
-    return `<section class="menu-group" id="cat-${escapeHtml(category.toLowerCase())}">${banner}<div class="menu-group-head"><span>0${index + 1}</span><h3>${escapeHtml(category)}</h3></div><div class="menu-list">${products.map(product => `<article class="menu-item"><div><h4>${escapeHtml(product.name)}</h4><p>${escapeHtml(product.description)}</p></div><div class="menu-item-action"><strong>${money(product.price)}</strong><button data-add="${escapeHtml(product.id)}" aria-label="Agregar ${escapeHtml(product.name)}">+</button></div></article>`).join('')}</div></section>`;
+    return `<section class="menu-group" id="cat-${escapeHtml(category.toLowerCase())}">${banner}<div class="menu-group-head"><span>0${index + 1}</span><h3>${escapeHtml(category)}</h3></div><div class="menu-list">${products.map(product => `<article class="menu-item" data-product="${escapeHtml(product.id)}"><div><h4>${escapeHtml(product.name)}</h4><p>${escapeHtml(product.description)}</p></div><div class="menu-item-action"><strong>${money(product.price)}</strong><button data-add="${escapeHtml(product.id)}" aria-label="Agregar ${escapeHtml(product.name)}">+</button></div></article>`).join('')}</div></section>`;
   }).join('');
   document.querySelectorAll('[data-filter]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.filter === activeCategory)));
 }
@@ -59,14 +76,35 @@ function changeMethod() {
 
 document.addEventListener('click', event => {
   const add = event.target.closest('[data-add]');
-  if (add) { changeQuantity(add.dataset.add, 1); notify('Sumado a tu pedido.'); return; }
+  if (add) {
+    const product = productEventData(add.dataset.add);
+    if (product) trackEvent('product_selected', { ...product, interaction: 'add_button' });
+    if (changeQuantity(add.dataset.add, 1)) {
+      trackEvent('cart_add', { ...product, quantity: cart[add.dataset.add], ...cartEventData() });
+      notify('Sumado a tu pedido.');
+    }
+    return;
+  }
+  const selectedProduct = event.target.closest('[data-product]');
+  if (selectedProduct) {
+    const product = productEventData(selectedProduct.dataset.product);
+    if (product) trackEvent('product_selected', { ...product, interaction: 'product_card' });
+    return;
+  }
   const filter = event.target.closest('[data-filter]');
   if (filter) { activeCategory = filter.dataset.filter; renderMenu(); $('#menu').scrollIntoView({behavior:'smooth'}); return; }
   const change = event.target.closest('[data-change]');
   if (change) { changeQuantity(change.dataset.change, Number(change.dataset.delta)); return; }
   const remove = event.target.closest('[data-remove]');
   if (remove) { delete cart[remove.dataset.remove]; updateCart(); return; }
-  if (event.target.closest('[data-open-cart]')) { updateCart(); changeMethod(); dialog.showModal(); return; }
+  const openCart = event.target.closest('[data-open-cart]');
+  if (openCart) {
+    updateCart(); changeMethod(); dialog.showModal();
+    trackEvent('cart_open', { source: openCart.classList.contains('mobile-cart') ? 'floating' : 'header', ...cartEventData() });
+    return;
+  }
+  const whatsapp = event.target.closest('[data-whatsapp-source]');
+  if (whatsapp) trackEvent('whatsapp_click', { source: whatsapp.dataset.whatsappSource });
   if (event.target.closest('[data-browse]')) { dialog.close(); $('#menu').scrollIntoView({behavior:'smooth'}); }
 });
 
@@ -77,7 +115,9 @@ $('#checkout-form').addEventListener('submit', event => {
   event.preventDefault();
   try {
     const details = Object.fromEntries(new FormData(event.currentTarget));
-    window.open(orderUrl(buildOrderMessage(catalog, cart, details, store)), '_blank', 'noopener');
+    const url = orderUrl(buildOrderMessage(catalog, cart, details, store));
+    trackEvent('whatsapp_click', { source: 'checkout', fulfillment: details.method, ...cartEventData() });
+    window.open(url, '_blank', 'noopener');
     $('#form-error').textContent = '';
   } catch (error) { $('#form-error').textContent = error.message; }
 });
