@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#fffaf5">
+  <title>Burger Tin · Pedí una buena</title>
+  <meta name="description" content="El menú de Burger Tin. Elegí hamburguesas, promos, sanguches y papas; armá tu pedido y confirmalo por WhatsApp.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles-v2.css">
+  <script type="module" src="app.mjs"></script>
+</head>
+<body>
+  <a class="skip" href="#menu">Ir al menú</a>
+  <header class="site-header">
+    <a class="mini-brand" href="#inicio"><img src="assets/logo-burger-tun.png" alt="Burger Tin"></a>
+    <nav aria-label="Navegación principal"><a href="#menu">Menú</a><a href="#como-pedir">Cómo pedir</a><a href="#contacto">Contacto</a></nav>
+    <button class="cart-trigger" data-open-cart><span>Mi pedido</span><b data-count>0</b></button>
+  </header>
+
+  <main>
+    <section class="hero" id="inicio">
+      <div class="hero-copy">
+        <p class="eyebrow"><span class="spark">✳</span> Burgers para disfrutar <span class="spark">✳</span></p>
+        <h1>¡ESTÁ<br>PARA UNAS<br><span>BURGUER</span><br>TIN!</h1>
+        <p class="hero-description">Hamburguesas, papas y promos para armar un pedido bien a tu gusto. Elegí acá y terminá por WhatsApp.</p>
+        <a class="hero-cta" href="#menu">Explorar el menú <span aria-hidden="true">↗</span></a>
+        <div class="hero-chips"><span>🍔 Mucho sabor</span><span>❤️ Hecho para compartir</span></div>
+      </div>
+      <div class="hero-art"><div class="hero-blob"></div><img class="hero-image" src="assets/burger-campaign-v2.png" alt="Hamburguesa ilustrativa generada para la portada de Burger Tin" fetchpriority="high"><div class="hero-sticker"><span>Riquisimas!</span><small>✦ ✦ ✦</small></div><img class="hero-logo" src="assets/logo-burger-tun.png" alt="Logo de Burger Tin"><small class="hero-image-note">Imagen ilustrativa</small></div>
+    </section>
+
+    <section class="intro">
+      <span class="intro-doodle" aria-hidden="true">✺</span>
+      <p><strong>¡Hola, somos Burger Tin!</strong> Tu antojo empieza acá: mirá la carta, sumá lo que te guste y enviá el pedido por WhatsApp. <span>Atendemos en José C. Paz.</span></p>
+    </section>
+
+    <section class="menu" id="menu" aria-labelledby="menu-title">
+      <div class="section-title"><div><p>Elegí tus favoritos</p><h2 id="menu-title">Nuestro menú <span>✳</span></h2></div><span class="section-aside">Tu próxima favorita<br>está por acá ↓</span></div>
+      <div class="filters" id="filters" aria-label="Filtrar menú"></div>
+      <div id="menu-groups"><p class="loading">Prendiendo la plancha…</p></div>
+      <p class="menu-note">Precios en pesos argentinos tomados del catálogo de WhatsApp el 23/10/2026. Disponibilidad y total final sujetos a confirmación del local.</p>
+    </section>
+
+    <section class="order-story" id="como-pedir">
+      <div class="story-photo"><img src="assets/ranch-doble.jpg" alt="Ranch Doble de Burger Tin" loading="lazy"><span>¡PEDIR ES<br>MUY FÁCIL!</span></div>
+      <div class="steps-wrap">
+        <p class="eyebrow">De la carta a tu mesa</p><h2>Así de <em>fácil.</em></h2>
+        <ol class="steps"><li><b>1</b><div><h3>Elegí</h3><p>Sumá tus burgers, papas y extras.</p></div></li><li><b>2</b><div><h3>Completá</h3><p>Decinos tu nombre y si es envío o retiro.</p></div></li><li><b>3</b><div><h3>Confirmá</h3><p>WhatsApp se abre con todo el pedido escrito.</p></div></li></ol>
+      </div>
+    </section>
+
+    <section class="contact" id="contacto">
+      <div><p class="eyebrow">¿Listo para pedir?</p><h2>¡A COMER<br><span>RICO!</span></h2><p class="contact-copy">Tu pedido está a unos clics de distancia.</p></div>
+      <div class="contact-card"><p><small>RETIRO</small><span id="pickup-address-footer">Av. Croacia 2221, José C. Paz</span></p><p><small>ENVÍOS</small><span id="delivery-zones">José C. Paz y alrededores</span></p><p><small>ATENCIÓN</small><span>Solo mensajes o carrito. Horarios a confirmar por WhatsApp.</span></p><a href="https://wa.me/5491127798677" target="_blank" rel="noopener">Hablar por WhatsApp ↗</a></div>
+    </section>
+  </main>
+
+  <footer><img src="assets/logo-burger-tun.png" alt=""><p>Burger Tin · José C. Paz</p><a href="https://wa.me/c/82940499390482" target="_blank" rel="noopener">Catálogo original ↗</a></footer>
+
+  <button class="mobile-cart" data-open-cart hidden aria-label="Ver mi pedido"><span class="floating-cart-icon" aria-hidden="true">🛒</span><span>Ver mi pedido <b data-count>0</b></span><strong data-total>$0</strong></button>
+  <div class="toast" id="toast" role="status"></div>
+
+  <dialog id="cart-dialog" aria-labelledby="cart-title">
+    <div class="drawer-head"><div><span>Tu selección</span><h2 id="cart-title">Mi pedido</h2></div><button id="close-cart" aria-label="Cerrar pedido">×</button></div>
+    <div class="drawer-body"><div id="cart-items"></div><div id="checkout-area" hidden><div class="subtotal"><span>Subtotal</span><strong data-total></strong></div><p class="checkout-note">Burger Tin confirma disponibilidad, costo de envío y total final por WhatsApp.</p>
+      <form id="checkout-form"><label for="customer-name">Tu nombre</label><input id="customer-name" name="name" autocomplete="name" required minlength="2" maxlength="80" placeholder="¿A nombre de quién?">
+        <fieldset><legend>¿Cómo lo recibís?</legend><div class="method-options"><label><input type="radio" name="method" value="delivery" checked><span>Envío</span></label><label><input type="radio" name="method" value="pickup"><span>Retiro</span></label></div></fieldset>
+        <div id="delivery-fields"><label for="customer-address">Dirección de entrega</label><input id="customer-address" name="address" autocomplete="street-address" required minlength="5" maxlength="250" placeholder="Calle, número y localidad"><p class="field-note">Cobertura y costo de envío a confirmar.</p></div>
+        <div class="pickup-info" id="pickup-fields" hidden><strong>Retirás en</strong><p id="pickup-address"></p></div>
+        <label for="customer-notes">Aclaraciones <span>(opcional)</span></label><textarea id="customer-notes" name="notes" rows="2" maxlength="500" placeholder="Sin cebolla, salsa aparte…"></textarea>
+        <p id="form-error" class="form-error" role="alert"></p><button class="button whatsapp" type="submit">Continuar en WhatsApp ↗</button><p class="privacy-note">Se abrirá WhatsApp con el mensaje listo. Nada se envía hasta que vos lo confirmes.</p>
+      </form></div></div>
+  </dialog>
+</body>
+</html>
