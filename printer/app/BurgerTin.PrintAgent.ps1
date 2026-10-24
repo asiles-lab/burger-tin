@@ -7,6 +7,7 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+Import-Module Microsoft.PowerShell.Security -ErrorAction Stop
 Import-Module (Join-Path $PSScriptRoot 'BurgerTin.AgentCore.psm1') -Force
 
 $dataRoot = Split-Path -Parent $ConfigPath
@@ -39,7 +40,8 @@ function Save-PrintedId {
 function Get-Token {
     param([string]$TokenPath)
     if (-not (Test-Path -LiteralPath $TokenPath)) { return '' }
-    $secure = Get-Content -LiteralPath $TokenPath -Raw | ConvertTo-SecureString
+    $cipherText = (Get-Content -LiteralPath $TokenPath -Raw).Trim()
+    $secure = ConvertTo-SecureString -String $cipherText
     $credential = [Management.Automation.PSCredential]::new('BurgerTinAgent', $secure)
     return $credential.GetNetworkCredential().Password
 }
@@ -85,7 +87,8 @@ $pollSeconds = [Math]::Max(5, [int]$config.pollSeconds)
 do {
     try {
         $job = Invoke-AgentRequest -Method GET -Uri "$baseUrl/api/print-jobs/next?deviceId=$([Uri]::EscapeDataString($config.deviceId))" -Token $token -Body $null
-        if ($job -and $job.id) {
+        $hasJobId = $null -ne $job -and @($job.PSObject.Properties.Name) -contains 'id' -and -not [string]::IsNullOrWhiteSpace([string]$job.id)
+        if ($hasJobId) {
             if (@(Get-PrintedIds) -contains [string]$job.id) {
                 Invoke-AgentRequest -Method POST -Uri "$baseUrl/api/print-jobs/$($job.id)/ack" -Token $token -Body @{ status='already_printed' } | Out-Null
             } else {

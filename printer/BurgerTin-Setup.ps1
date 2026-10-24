@@ -299,6 +299,16 @@ for ($i=0; $i -lt $labels.Count; $i++) {
 }
 $apiText = [Windows.Forms.TextBox]::new(); $apiText.Location=[Drawing.Point]::new(250,140); $apiText.Size=[Drawing.Size]::new(430,28); $apiText.Text='https://burger-tin-orders.burger-tin-orders.workers.dev'; $tabAgent.Controls.Add($apiText)
 $tokenText = [Windows.Forms.TextBox]::new(); $tokenText.Location=[Drawing.Point]::new(250,185); $tokenText.Size=[Drawing.Size]::new(430,28); $tokenText.UseSystemPasswordChar=$true; $tabAgent.Controls.Add($tokenText)
+$bundledTokenPath = Join-Path $script:PackageRoot 'device-token.dpapi'
+if (Test-Path -LiteralPath $bundledTokenPath) {
+    try {
+        $bundledTokenCipher = (Get-Content -LiteralPath $bundledTokenPath -Raw).Trim()
+        $bundledTokenSecure = ConvertTo-SecureString -String $bundledTokenCipher
+        $bundledTokenPointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($bundledTokenSecure)
+        try { $tokenText.Text = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bundledTokenPointer) }
+        finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bundledTokenPointer) }
+    } catch { $tokenText.Clear() }
+}
 $deviceText = [Windows.Forms.TextBox]::new(); $deviceText.Location=[Drawing.Point]::new(250,230); $deviceText.Size=[Drawing.Size]::new(430,28); $deviceText.Text='burger-tin-' + $env:COMPUTERNAME.ToLowerInvariant(); $tabAgent.Controls.Add($deviceText)
 $installButton = [Windows.Forms.Button]::new(); $installButton.Text='Instalar agente'; $installButton.Location=[Drawing.Point]::new(250,274); $installButton.Size=[Drawing.Size]::new(170,38); $tabAgent.Controls.Add($installButton)
 $testButton = [Windows.Forms.Button]::new(); $testButton.Text='Imprimir prueba'; $testButton.Location=[Drawing.Point]::new(435,274); $testButton.Size=[Drawing.Size]::new(170,38); $tabAgent.Controls.Add($testButton)

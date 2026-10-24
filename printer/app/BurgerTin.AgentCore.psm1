@@ -158,7 +158,14 @@ function Send-BurgerTinWindowsDocument {
     $font = [Drawing.Font]::new('Consolas', 10)
     $handler = [Drawing.Printing.PrintPageEventHandler]{
         param($sender, $eventArgs)
-        $eventArgs.Graphics.DrawString($receipt, $font, [Drawing.Brushes]::Black, $eventArgs.MarginBounds)
+        $bounds = $eventArgs.MarginBounds
+        $layout = [Drawing.RectangleF]::new(
+            [single]$bounds.X,
+            [single]$bounds.Y,
+            [single]$bounds.Width,
+            [single]$bounds.Height
+        )
+        $eventArgs.Graphics.DrawString($receipt, $font, [Drawing.Brushes]::Black, $layout)
         $eventArgs.HasMorePages = $false
     }
     $document.add_PrintPage($handler)

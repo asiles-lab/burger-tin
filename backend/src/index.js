@@ -167,29 +167,29 @@ async function confirmOrder(env, orderId, paymentId = null) {
 }
 
 async function listOrders(request, env) {
-  if (!requireBearer(request, env.STAFF_TOKEN)) return json({ error:'No autorizado.' }, 401);
+  if (!requireBearer(request, env.STAFF_TOKEN)) return publicJson(request, env, { error:'No autorizado.' }, 401);
   const result = await env.DB.prepare(`
     SELECT o.*, pj.status AS print_status
     FROM orders o LEFT JOIN print_jobs pj ON pj.order_id = o.id
     ORDER BY o.created_at DESC LIMIT 100
   `).all();
-  return json({ orders: result.results || [] });
+  return publicJson(request, env, { orders: result.results || [] });
 }
 
 async function staffAction(request, env, code, action) {
-  if (!requireBearer(request, env.STAFF_TOKEN)) return json({ error:'No autorizado.' }, 401);
+  if (!requireBearer(request, env.STAFF_TOKEN)) return publicJson(request, env, { error:'No autorizado.' }, 401);
   const order = await env.DB.prepare('SELECT id, status, payment_method FROM orders WHERE code = ?').bind(code).first();
-  if (!order) return json({ error:'Pedido inexistente.' }, 404);
+  if (!order) return publicJson(request, env, { error:'Pedido inexistente.' }, 404);
   if (action === 'confirm') {
-    if (order.payment_method !== 'cash') return json({ error:'Mercado Pago solo se confirma mediante Webhook.' }, 409);
+    if (order.payment_method !== 'cash') return publicJson(request, env, { error:'Mercado Pago solo se confirma mediante Webhook.' }, 409);
     await confirmOrder(env, order.id);
   } else if (action === 'reprint') {
-    if (order.status !== 'confirmed') return json({ error:'El pedido aun no esta confirmado.' }, 409);
+    if (order.status !== 'confirmed') return publicJson(request, env, { error:'El pedido aun no esta confirmado.' }, 409);
     const now = new Date().toISOString();
     await env.DB.prepare("UPDATE print_jobs SET status='queued', device_id=NULL, leased_until=NULL, last_error=NULL, created_at=? WHERE order_id=?")
       .bind(now, order.id).run();
   }
-  return json({ ok:true });
+  return publicJson(request, env, { ok:true });
 }
 
 async function nextPrintJob(request, env) {
