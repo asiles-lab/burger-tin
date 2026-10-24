@@ -171,6 +171,7 @@ async function listOrders(request, env) {
   const result = await env.DB.prepare(`
     SELECT o.*, pj.status AS print_status
     FROM orders o LEFT JOIN print_jobs pj ON pj.order_id = o.id
+    WHERE o.status <> 'cancelled'
     ORDER BY o.created_at DESC LIMIT 100
   `).all();
   return publicJson(request, env, { orders: result.results || [] });
@@ -183,6 +184,9 @@ async function staffAction(request, env, code, action) {
   if (action === 'confirm') {
     if (order.payment_method !== 'cash') return publicJson(request, env, { error:'Mercado Pago solo se confirma mediante Webhook.' }, 409);
     await confirmOrder(env, order.id);
+  } else if (action === 'cancel') {
+    if (!['pending_cash', 'pending_payment'].includes(order.status)) return publicJson(request, env, { error:'Solo se pueden cancelar pedidos pendientes.' }, 409);
+    await env.DB.prepare("UPDATE orders SET status='cancelled' WHERE id=?").bind(order.id).run();
   } else if (action === 'reprint') {
     if (order.status !== 'confirmed') return publicJson(request, env, { error:'El pedido aun no esta confirmado.' }, 409);
     const now = new Date().toISOString();
@@ -249,7 +253,7 @@ export default {
     if (request.method === 'POST' && url.pathname === '/api/orders') return createOrder(request, env);
     if (request.method === 'POST' && url.pathname === '/api/webhooks/mercadopago') return mercadoPagoWebhook(request, env);
     if (request.method === 'GET' && url.pathname === '/api/admin/orders') return listOrders(request, env);
-    const staffMatch = url.pathname.match(/^\/api\/admin\/orders\/([^/]+)\/(confirm|reprint)$/);
+    const staffMatch = url.pathname.match(/^\/api\/admin\/orders\/([^/]+)\/(confirm|reprint|cancel)$/);
     if (request.method === 'POST' && staffMatch) return staffAction(request, env, decodeURIComponent(staffMatch[1]), staffMatch[2]);
     if (request.method === 'GET' && url.pathname === '/api/print-jobs/next') return nextPrintJob(request, env);
     const ackMatch = url.pathname.match(/^\/api\/print-jobs\/([^/]+)\/ack$/);

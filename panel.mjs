@@ -21,8 +21,16 @@ function statusLabel(order) {
   return 'Cancelado';
 }
 
+function orderActions(order) {
+  const actions = [];
+  if (order.status === 'pending_cash') actions.push(`<button data-action="confirm" data-code="${escapeHtml(order.code)}">Confirmar e imprimir</button>`);
+  if (order.status === 'confirmed') actions.push(`<button class="secondary" data-action="reprint" data-code="${escapeHtml(order.code)}">Reimprimir</button>`);
+  if (['pending_cash','pending_payment'].includes(order.status)) actions.push(`<button class="danger" data-action="cancel" data-code="${escapeHtml(order.code)}">Cancelar</button>`);
+  return actions.join('');
+}
+
 function render(orders) {
-  $('#orders').innerHTML = orders.length ? orders.map(order => `<article class="order"><span class="tag">${escapeHtml(statusLabel(order))}</span><h2>${escapeHtml(order.code)}</h2><p><strong>${escapeHtml(order.customer_name)}</strong> · ${order.fulfillment === 'delivery' ? 'Envío' : 'Retiro'}</p><p>${escapeHtml(order.address || '')}</p><p class="total">${money(order.subtotal)}</p><p>${new Date(order.created_at).toLocaleString('es-AR')}</p><footer>${order.status === 'pending_cash' ? `<button data-action="confirm" data-code="${escapeHtml(order.code)}">Confirmar e imprimir</button>` : ''}${order.status === 'confirmed' ? `<button class="secondary" data-action="reprint" data-code="${escapeHtml(order.code)}">Reimprimir</button>` : ''}</footer></article>`).join('') : '<p>No hay pedidos todavía.</p>';
+  $('#orders').innerHTML = orders.length ? orders.map(order => `<article class="order"><span class="tag">${escapeHtml(statusLabel(order))}</span><h2>${escapeHtml(order.code)}</h2><p><strong>${escapeHtml(order.customer_name)}</strong> · ${order.fulfillment === 'delivery' ? 'Envío' : 'Retiro'}</p><p>${escapeHtml(order.address || '')}</p><p class="total">${money(order.subtotal)}</p><p>${new Date(order.created_at).toLocaleString('es-AR')}</p><footer>${orderActions(order)}</footer></article>`).join('') : '<p>No hay pedidos pendientes.</p>';
 }
 
 function showLoginError(message='') {
@@ -62,6 +70,14 @@ $('#login-form').addEventListener('submit',async event=>{
 });
 $('#refresh').addEventListener('click',refresh);
 $('#logout').addEventListener('click',logout);
-$('#orders').addEventListener('click',async event=>{const button=event.target.closest('[data-action]');if(!button)return;button.disabled=true;try{await call(`/api/admin/orders/${encodeURIComponent(button.dataset.code)}/${button.dataset.action}`,{method:'POST'});await refresh();}catch(error){alert(error.message);}finally{button.disabled=false;}});
+$('#orders').addEventListener('click',async event=>{
+  const button=event.target.closest('[data-action]');
+  if(!button)return;
+  if(button.dataset.action==='cancel' && !window.confirm(`¿Cancelar el pedido ${button.dataset.code}? No se imprimirá ninguna comanda.`))return;
+  button.disabled=true;
+  try{await call(`/api/admin/orders/${encodeURIComponent(button.dataset.code)}/${button.dataset.action}`,{method:'POST'});await refresh();}
+  catch(error){alert(error.message);}
+  finally{button.disabled=false;}
+});
 if(token)showOrders();
 setInterval(()=>{if(token)refresh();},15000);
