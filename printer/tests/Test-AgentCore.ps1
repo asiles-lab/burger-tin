@@ -6,7 +6,8 @@ function Assert-Equal($Actual, $Expected, [string]$Message) {
     if ($Actual -ne $Expected) { throw "$Message`nEsperado: $Expected`nObtenido: $Actual" }
 }
 
-Assert-Equal (ConvertTo-SafeReceiptText 'Jamón y rúcula') 'Jamon y rucula' 'Debe normalizar acentos para impresoras ESC/POS basicas.'
+$accented = 'Jam' + [char]0x00F3 + 'n y r' + [char]0x00FA + 'cula'
+Assert-Equal (ConvertTo-SafeReceiptText $accented) 'Jamon y rucula' 'Debe normalizar acentos para impresoras ESC/POS basicas.'
 $line = Format-ReceiptLine -Left '2 x Burger' -Right '$ 10.000' -Width 42
 Assert-Equal $line.Length 42 'La linea debe respetar el ancho.'
 

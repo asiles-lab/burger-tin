@@ -1,21 +1,15 @@
 # Burger Tin: listo para configurar
 
-El código queda preparado sin credenciales y con los cobros online desactivados. GitHub Pages sigue funcionando con el flujo actual de WhatsApp hasta completar estos pasos.
+El servidor de pedidos y la base D1 ya están desplegados. GitHub Pages usa el backend para pedidos en efectivo; Mercado Pago continúa desactivado hasta cargar las credenciales del comercio.
 
 ## Lo que habrá que hacer con las cuentas
 
-### 1. Cloudflare
+### 1. Cloudflare (completado para la prueba)
 
-1. Crear o abrir una cuenta de Cloudflare.
-2. Instalar dependencias en `backend/` con `pnpm install` (o `npm install`).
-3. Crear la base: `npx wrangler d1 create burger-tin-orders`.
-4. Copiar `backend/wrangler.toml.example` como `backend/wrangler.toml` y reemplazar `database_id` y `PUBLIC_API_URL`.
-5. Crear secretos, sin escribirlos en archivos ni Git:
-   - `npx wrangler secret put MP_ACCESS_TOKEN`
-   - `npx wrangler secret put MP_WEBHOOK_SECRET`
-   - `npx wrangler secret put STAFF_TOKEN`
-   - `npx wrangler secret put DEVICE_TOKEN`
-6. Ejecutar `pnpm db:remote` y `pnpm deploy`.
+- Worker: `https://burger-tin-orders.burger-tin-orders.workers.dev`
+- Base D1: `burger-tin-orders`
+- `STAFF_TOKEN` y `DEVICE_TOKEN` configurados.
+- Pendientes únicamente `MP_ACCESS_TOKEN` y `MP_WEBHOOK_SECRET` cuando se habilite Mercado Pago.
 
 ### 2. Mercado Pago
 
@@ -27,16 +21,17 @@ El código queda preparado sin credenciales y con los cobros online desactivados
 
 ### 3. GitHub Pages
 
-Editar únicamente `checkout-config.js`:
+La conexión de GitHub Pages ya está habilitada para efectivo en `checkout-config.js`:
 
 ```js
 window.BURGER_TIN_CHECKOUT = Object.freeze({
   enabled: true,
-  apiBaseUrl: 'https://URL-DEL-WORKER'
+  apiBaseUrl: 'https://burger-tin-orders.burger-tin-orders.workers.dev',
+  mercadoPagoEnabled: false
 });
 ```
 
-Publicar ese cambio. Desde entonces aparecen Efectivo y Mercado Pago en el carrito y queda habilitado `panel.html`.
+Mercado Pago aparecerá solamente después de configurar la cuenta y cambiar `mercadoPagoEnabled` a `true`.
 
 ### 4. Notebook del local
 

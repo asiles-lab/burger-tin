@@ -9,7 +9,7 @@ Este paquete prepara una notebook con Windows 10 u 11 para usar una impresora t�
 3. Verifica tamaño y dos huellas SHA-256 antes de permitir la instalación.
 4. Abre el instalador del fabricante y luego detecta las colas de impresión disponibles.
 5. Instala el agente local, guarda el token con cifrado DPAPI del usuario y crea una tarea que se inicia al entrar a Windows.
-6. Envía una comanda de prueba en formato ESC/POS y acciona el cortador.
+6. Permite probar con una impresora comun de Windows en hoja A4 o con la termica en formato ESC/POS y corte.
 
 ## Uso en la notebook del local
 
@@ -17,7 +17,10 @@ Este paquete prepara una notebook con Windows 10 u 11 para usar una impresora t�
 2. Descomprimir el paquete completo en una carpeta local.
 3. Hacer doble clic en `Instalar-Burger-Tin.cmd`.
 4. Aceptar la elevación de Windows y seguir las pantallas.
-5. Elegir la cola de la impresora y ejecutar la prueba.
+5. Elegir `Prueba: impresora comun de Windows (A4)` para una Canon u otra impresora instalada, o el perfil termico para la OCPP-812.
+6. Elegir la cola de la impresora y ejecutar la prueba.
+
+Para una Canon que ya imprime desde Windows se puede omitir el paso del controlador OCOM. Ese controlador se instala solamente al pasar a la impresora térmica.
 
 No hay que hacer esto en la notebook actual. El paquete puede guardarse y ejecutarse cuando esté disponible el equipo del local.
 

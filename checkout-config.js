@@ -1,4 +1,5 @@
 window.BURGER_TIN_CHECKOUT = Object.freeze({
-  enabled: false,
-  apiBaseUrl: ''
+  enabled: true,
+  apiBaseUrl: 'https://burger-tin-orders.burger-tin-orders.workers.dev',
+  mercadoPagoEnabled: false
 });

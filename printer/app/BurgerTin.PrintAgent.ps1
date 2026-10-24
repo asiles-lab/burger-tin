@@ -57,6 +57,7 @@ function Invoke-AgentRequest {
 
 if (-not (Test-Path -LiteralPath $ConfigPath)) { throw "No existe la configuracion: $ConfigPath" }
 $config = Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json
+$printerMode = if ($config.PSObject.Properties.Name -contains 'printerMode') { [string]$config.printerMode } else { 'escpos' }
 
 if ($TestPrint) {
     $sample = [pscustomobject]@{
@@ -66,7 +67,7 @@ if ($TestPrint) {
             [pscustomobject]@{ quantity=1; name='Papas grandes'; subtotal='$ 4.500'; notes='' }
         )
     }
-    Send-BurgerTinReceipt -PrinterName $config.printerName -Order $sample -Width $config.columns -CutPaper $config.cutPaper
+    Send-BurgerTinPrint -PrinterName $config.printerName -Order $sample -Mode $printerMode -Width $config.columns -CutPaper $config.cutPaper
     Write-AgentLog 'Impresion de prueba enviada.'
     exit 0
 }
@@ -88,7 +89,7 @@ do {
             if (@(Get-PrintedIds) -contains [string]$job.id) {
                 Invoke-AgentRequest -Method POST -Uri "$baseUrl/api/print-jobs/$($job.id)/ack" -Token $token -Body @{ status='already_printed' } | Out-Null
             } else {
-                Send-BurgerTinReceipt -PrinterName $config.printerName -Order $job.order -Width $config.columns -CutPaper $config.cutPaper
+                Send-BurgerTinPrint -PrinterName $config.printerName -Order $job.order -Mode $printerMode -Width $config.columns -CutPaper $config.cutPaper
                 Save-PrintedId -Id ([string]$job.id)
                 Invoke-AgentRequest -Method POST -Uri "$baseUrl/api/print-jobs/$($job.id)/ack" -Token $token -Body @{ status='printed' } | Out-Null
                 Write-AgentLog "Trabajo $($job.id) impreso."

@@ -1,6 +1,7 @@
 {
   "printerName": "",
-  "apiBaseUrl": "",
+  "printerMode": "windows",
+  "apiBaseUrl": "https://burger-tin-orders.burger-tin-orders.workers.dev",
   "deviceId": "",
   "pollSeconds": 8,
   "columns": 42,

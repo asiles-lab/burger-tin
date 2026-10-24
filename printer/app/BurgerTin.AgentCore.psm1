@@ -143,4 +143,46 @@ function Send-BurgerTinReceipt {
     [BurgerTin.RawPrinter]::Send($PrinterName, $bytes, "Burger Tin - $($Order.id)")
 }
 
-Export-ModuleMember -Function ConvertTo-SafeReceiptText, Format-ReceiptLine, ConvertTo-BurgerTinReceipt, ConvertTo-EscPosBytes, Send-BurgerTinReceipt
+function Send-BurgerTinWindowsDocument {
+    param(
+        [Parameter(Mandatory)][string]$PrinterName,
+        [Parameter(Mandatory)]$Order,
+        [ValidateRange(24, 64)][int]$Width = 42
+    )
+    Add-Type -AssemblyName System.Drawing
+    $receipt = ConvertTo-BurgerTinReceipt -Order $Order -Width $Width
+    $document = [Drawing.Printing.PrintDocument]::new()
+    $document.PrinterSettings.PrinterName = $PrinterName
+    if (-not $document.PrinterSettings.IsValid) { throw "La impresora '$PrinterName' no esta disponible en Windows." }
+    $document.DocumentName = "Burger Tin - $($Order.id)"
+    $font = [Drawing.Font]::new('Consolas', 10)
+    $handler = [Drawing.Printing.PrintPageEventHandler]{
+        param($sender, $eventArgs)
+        $eventArgs.Graphics.DrawString($receipt, $font, [Drawing.Brushes]::Black, $eventArgs.MarginBounds)
+        $eventArgs.HasMorePages = $false
+    }
+    $document.add_PrintPage($handler)
+    try { $document.Print() }
+    finally {
+        $document.remove_PrintPage($handler)
+        $font.Dispose()
+        $document.Dispose()
+    }
+}
+
+function Send-BurgerTinPrint {
+    param(
+        [Parameter(Mandatory)][string]$PrinterName,
+        [Parameter(Mandatory)]$Order,
+        [ValidateSet('windows','escpos')][string]$Mode = 'escpos',
+        [ValidateRange(24, 64)][int]$Width = 42,
+        [bool]$CutPaper = $true
+    )
+    if ($Mode -eq 'windows') {
+        Send-BurgerTinWindowsDocument -PrinterName $PrinterName -Order $Order -Width $Width
+        return
+    }
+    Send-BurgerTinReceipt -PrinterName $PrinterName -Order $Order -Width $Width -CutPaper $CutPaper
+}
+
+Export-ModuleMember -Function ConvertTo-SafeReceiptText, Format-ReceiptLine, ConvertTo-BurgerTinReceipt, ConvertTo-EscPosBytes, Send-BurgerTinReceipt, Send-BurgerTinWindowsDocument, Send-BurgerTinPrint

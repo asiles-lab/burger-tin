@@ -169,6 +169,7 @@ function Install-Agent {
     }
     $config = [ordered]@{
         printerName = [string]$printerCombo.SelectedItem
+        printerMode = if ($modeCombo.SelectedIndex -eq 0) { 'windows' } else { 'escpos' }
         apiBaseUrl = $apiUrl
         deviceId = $deviceId
         pollSeconds = 8
@@ -246,7 +247,7 @@ function New-StepTab([string]$Name, [string]$Heading, [string]$Body) {
     return $tab
 }
 
-$tabWelcome = New-StepTab '1. Revisar' 'Preparar la notebook' "Compatible con Windows 10 y 11 de 64 bits.`r`nConecta la OCPP-812 por USB, coloca papel y usa exclusivamente la fuente que vino con la impresora."
+$tabWelcome = New-StepTab '1. Revisar' 'Preparar la notebook' "Compatible con Windows 10 y 11 de 64 bits.`r`nPara la prueba podes usar una impresora comun ya instalada. En produccion conecta la termica por USB, coloca papel y usa su fuente original."
 $checkButton = [Windows.Forms.Button]::new()
 $checkButton.Text = 'Revisar esta notebook'
 $checkButton.Location = [Drawing.Point]::new(28, 170)
@@ -265,15 +266,28 @@ $officialLink.Location = [Drawing.Point]::new(300, 182)
 $officialLink.AutoSize = $true
 $tabDriver.Controls.Add($officialLink)
 
-$tabPrinter = New-StepTab '3. Impresora' 'Elegir la cola de Windows' 'Despues de instalar el controlador, elegi la OCPP-812. Si no aparece, revisa USB y encendido y pulsa Actualizar.'
+$tabPrinter = New-StepTab '3. Impresora' 'Elegir la cola de Windows' 'Para la prueba elegi la Canon u otra impresora comun. Para produccion elegi la OCPP-812 despues de instalar su controlador.'
+$modeLabel = [Windows.Forms.Label]::new()
+$modeLabel.Text = 'Tipo de impresion:'
+$modeLabel.Location = [Drawing.Point]::new(28, 142)
+$modeLabel.Size = [Drawing.Size]::new(180, 24)
+$tabPrinter.Controls.Add($modeLabel)
+$modeCombo = [Windows.Forms.ComboBox]::new()
+$modeCombo.DropDownStyle = 'DropDownList'
+$modeCombo.Location = [Drawing.Point]::new(210, 138)
+$modeCombo.Size = [Drawing.Size]::new(470, 32)
+[void]$modeCombo.Items.Add('Prueba: impresora comun de Windows (A4)')
+[void]$modeCombo.Items.Add('Produccion: impresora termica ESC/POS 80 mm')
+$modeCombo.SelectedIndex = 0
+$tabPrinter.Controls.Add($modeCombo)
 $printerCombo = [Windows.Forms.ComboBox]::new()
 $printerCombo.DropDownStyle = 'DropDownList'
-$printerCombo.Location = [Drawing.Point]::new(28, 160)
+$printerCombo.Location = [Drawing.Point]::new(28, 190)
 $printerCombo.Size = [Drawing.Size]::new(500, 32)
 $tabPrinter.Controls.Add($printerCombo)
 $refreshButton = [Windows.Forms.Button]::new()
 $refreshButton.Text = 'Actualizar'
-$refreshButton.Location = [Drawing.Point]::new(545, 157)
+$refreshButton.Location = [Drawing.Point]::new(545, 187)
 $refreshButton.Size = [Drawing.Size]::new(120, 38)
 $tabPrinter.Controls.Add($refreshButton)
 
@@ -283,7 +297,7 @@ $ys = @(142, 187, 232)
 for ($i=0; $i -lt $labels.Count; $i++) {
     $label = [Windows.Forms.Label]::new(); $label.Text=$labels[$i]; $label.Location=[Drawing.Point]::new(28,$ys[$i]+5); $label.Size=[Drawing.Size]::new(220,24); $tabAgent.Controls.Add($label)
 }
-$apiText = [Windows.Forms.TextBox]::new(); $apiText.Location=[Drawing.Point]::new(250,140); $apiText.Size=[Drawing.Size]::new(430,28); $tabAgent.Controls.Add($apiText)
+$apiText = [Windows.Forms.TextBox]::new(); $apiText.Location=[Drawing.Point]::new(250,140); $apiText.Size=[Drawing.Size]::new(430,28); $apiText.Text='https://burger-tin-orders.burger-tin-orders.workers.dev'; $tabAgent.Controls.Add($apiText)
 $tokenText = [Windows.Forms.TextBox]::new(); $tokenText.Location=[Drawing.Point]::new(250,185); $tokenText.Size=[Drawing.Size]::new(430,28); $tokenText.UseSystemPasswordChar=$true; $tabAgent.Controls.Add($tokenText)
 $deviceText = [Windows.Forms.TextBox]::new(); $deviceText.Location=[Drawing.Point]::new(250,230); $deviceText.Size=[Drawing.Size]::new(430,28); $deviceText.Text='burger-tin-' + $env:COMPUTERNAME.ToLowerInvariant(); $tabAgent.Controls.Add($deviceText)
 $installButton = [Windows.Forms.Button]::new(); $installButton.Text='Instalar agente'; $installButton.Location=[Drawing.Point]::new(250,274); $installButton.Size=[Drawing.Size]::new(170,38); $tabAgent.Controls.Add($installButton)

@@ -204,7 +204,7 @@ try {
   $('#filters').innerHTML = categories.map(category => `<button data-filter="${escapeHtml(category)}" aria-pressed="${category === 'Todos'}">${escapeHtml(category)}</button>`).join('');
   $('#delivery-zones').textContent = store.deliveryZones;
   $('#pickup-address-footer').textContent = store.pickupAddress;
-  document.querySelectorAll('[data-requires-backend]').forEach(node => { node.hidden = !checkoutConfig.enabled; });
+  document.querySelectorAll('[data-requires-mp]').forEach(node => { node.hidden = !checkoutConfig.enabled || !checkoutConfig.mercadoPagoEnabled; });
   const payment = new URLSearchParams(location.search).get('payment');
   if (payment === 'success') notify('Pago recibido. Estamos confirmando tu pedido.');
   if (payment === 'pending') notify('Tu pago quedó pendiente. Te avisaremos cuando se acredite.');
