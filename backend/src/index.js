@@ -277,8 +277,7 @@ async function nextPrintJob(request, env) {
       deliveryMethod: order.fulfillment === 'delivery' ? 'Envio a domicilio' : 'Retiro en el local',
       paymentMethod: order.payment_method === 'cash' ? 'Efectivo confirmado' : 'Mercado Pago aprobado',
       notes: order.notes,
-      total: formatMoney(order.subtotal),
-      items: (items.results || []).map(item => ({ quantity:item.quantity, name:item.name, subtotal:formatMoney(item.subtotal), notes:'' }))
+      items: (items.results || []).map(item => ({ quantity:item.quantity, name:item.name, notes:'' }))
     }
   });
 }

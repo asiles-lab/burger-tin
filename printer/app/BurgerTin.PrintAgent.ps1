@@ -63,10 +63,10 @@ $printerMode = if ($config.PSObject.Properties.Name -contains 'printerMode') { [
 
 if ($TestPrint) {
     $sample = [pscustomobject]@{
-        id='PRUEBA-001'; confirmedAt=(Get-Date).ToString('s'); total='$ 18.500'; deliveryMethod='Retiro en el local'; notes='Prueba de instalacion'
+        id='A-001'; confirmedAt=[DateTimeOffset]::UtcNow.ToString('o'); deliveryMethod='Envio a domicilio'; address='Calle de prueba 123'; notes='Prueba de instalacion'
         items=@(
-            [pscustomobject]@{ quantity=2; name='Burger Tin completa'; subtotal='$ 14.000'; notes='Una sin cebolla' },
-            [pscustomobject]@{ quantity=1; name='Papas grandes'; subtotal='$ 4.500'; notes='' }
+            [pscustomobject]@{ quantity=2; name='Burger Tin completa'; notes='Una sin cebolla' },
+            [pscustomobject]@{ quantity=1; name='Papas grandes'; notes='' }
         )
     }
     Send-BurgerTinPrint -PrinterName $config.printerName -Order $sample -Mode $printerMode -Width $config.columns -CutPaper $config.cutPaper

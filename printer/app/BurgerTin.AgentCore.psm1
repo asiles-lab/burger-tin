@@ -28,6 +28,23 @@ function Format-ReceiptLine {
     return $leftText.PadRight($Width - $rightText.Length) + $rightText
 }
 
+function Format-BurgerTinDateTime {
+    param([AllowNull()][string]$Value)
+    if ([string]::IsNullOrWhiteSpace($Value)) { return '' }
+    try {
+        $instant = [DateTimeOffset]::Parse($Value, [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::RoundtripKind)
+        try {
+            $argentina = [TimeZoneInfo]::FindSystemTimeZoneById('Argentina Standard Time')
+            $local = [TimeZoneInfo]::ConvertTime($instant, $argentina)
+        } catch {
+            $local = $instant.ToOffset([TimeSpan]::FromHours(-3))
+        }
+        return $local.ToString('dd/MM/yy HH:mm')
+    } catch {
+        return ConvertTo-SafeReceiptText $Value
+    }
+}
+
 function ConvertTo-BurgerTinReceipt {
     param(
         [Parameter(Mandatory)]$Order,
@@ -37,28 +54,26 @@ function ConvertTo-BurgerTinReceipt {
     $lines = [Collections.Generic.List[string]]::new()
     $lines.Add('BURGER TIN')
     $lines.Add('COMANDA CONFIRMADA')
-    $lines.Add($separator)
     $lines.Add("Pedido: $($Order.id)")
-    if ($Order.confirmedAt) { $lines.Add("Confirmado: $($Order.confirmedAt)") }
+    $lines.Add($separator)
+    if ($Order.confirmedAt) { $lines.Add("Confirmado: $(Format-BurgerTinDateTime $Order.confirmedAt) hs") }
     if ($Order.PSObject.Properties.Name -contains 'customerName' -and $Order.customerName) { $lines.Add("Cliente: $($Order.customerName)") }
     if ($Order.PSObject.Properties.Name -contains 'paymentMethod' -and $Order.paymentMethod) { $lines.Add("Pago: $($Order.paymentMethod)") }
+    if ($Order.deliveryMethod) { $lines.Add("Entrega: $($Order.deliveryMethod)") }
     if ($Order.PSObject.Properties.Name -contains 'address' -and $Order.address) { $lines.Add("Direccion: $($Order.address)") }
     $lines.Add($separator)
     foreach ($item in @($Order.items)) {
         $quantity = if ($item.quantity) { [int]$item.quantity } else { 1 }
-        $lines.Add((Format-ReceiptLine -Left ("{0} x {1}" -f $quantity, $item.name) -Right $item.subtotal -Width $Width))
+        $lines.Add((Format-ReceiptLine -Left ("{0} x {1}" -f $quantity, $item.name) -Width $Width))
         if ($item.notes) { $lines.Add("  > $($item.notes)") }
     }
-    $lines.Add($separator)
-    if ($Order.total) { $lines.Add((Format-ReceiptLine -Left 'TOTAL' -Right $Order.total -Width $Width)) }
-    if ($Order.deliveryMethod) { $lines.Add("Entrega: $($Order.deliveryMethod)") }
     if ($Order.notes) {
         $lines.Add($separator)
         $lines.Add('NOTAS:')
         $lines.Add([string]$Order.notes)
     }
     $lines.Add('')
-    $lines.Add('Pago validado por el local')
+    $lines.Add('Pago confirmado por el local')
     $lines.Add('')
     return ($lines | ForEach-Object { ConvertTo-SafeReceiptText $_ }) -join "`r`n"
 }
@@ -70,11 +85,24 @@ function ConvertTo-EscPosBytes {
     )
     $bytes = [Collections.Generic.List[byte]]::new()
     $bytes.AddRange([byte[]](0x1B, 0x40))
-    $bytes.AddRange([byte[]](0x1B, 0x61, 0x01))
-    $bytes.AddRange([Text.Encoding]::ASCII.GetBytes("BURGER TIN`r`n"))
-    $bytes.AddRange([byte[]](0x1B, 0x61, 0x00))
-    $body = $Text -replace '^BURGER TIN\r?\n', ''
-    $bytes.AddRange([Text.Encoding]::ASCII.GetBytes($body + "`r`n`r`n`r`n"))
+    foreach ($line in @($Text -split '\r?\n')) {
+        if ($line -eq 'BURGER TIN') {
+            $bytes.AddRange([byte[]](0x1B, 0x61, 0x01))
+            $bytes.AddRange([Text.Encoding]::ASCII.GetBytes("$line`r`n"))
+            continue
+        }
+        if ($line -match '^Pedido:\s*(.+)$') {
+            $bytes.AddRange([byte[]](0x1B, 0x61, 0x01))
+            $bytes.AddRange([byte[]](0x1D, 0x21, 0x11))
+            $bytes.AddRange([Text.Encoding]::ASCII.GetBytes("$($Matches[1])`r`n"))
+            $bytes.AddRange([byte[]](0x1D, 0x21, 0x00))
+            $bytes.AddRange([byte[]](0x1B, 0x61, 0x00))
+            continue
+        }
+        $bytes.AddRange([byte[]](0x1B, 0x61, 0x00))
+        $bytes.AddRange([Text.Encoding]::ASCII.GetBytes("$line`r`n"))
+    }
+    $bytes.AddRange([Text.Encoding]::ASCII.GetBytes("`r`n`r`n"))
     if ($CutPaper) { $bytes.AddRange([byte[]](0x1D, 0x56, 0x41, 0x03)) }
     return $bytes.ToArray()
 }
@@ -151,21 +179,30 @@ function Send-BurgerTinWindowsDocument {
     )
     Add-Type -AssemblyName System.Drawing
     $receipt = ConvertTo-BurgerTinReceipt -Order $Order -Width $Width
+    $bodyLines = @($receipt -split '\r?\n' | Where-Object { $_ -notmatch '^(BURGER TIN|COMANDA CONFIRMADA|Pedido:)' })
+    $body = $bodyLines -join "`r`n"
     $document = [Drawing.Printing.PrintDocument]::new()
     $document.PrinterSettings.PrinterName = $PrinterName
     if (-not $document.PrinterSettings.IsValid) { throw "La impresora '$PrinterName' no esta disponible en Windows." }
     $document.DocumentName = "Burger Tin - $($Order.id)"
     $font = [Drawing.Font]::new('Consolas', 10)
+    $idFont = [Drawing.Font]::new('Consolas', 22, [Drawing.FontStyle]::Bold)
+    $titleFont = [Drawing.Font]::new('Consolas', 10, [Drawing.FontStyle]::Bold)
     $handler = [Drawing.Printing.PrintPageEventHandler]{
         param($sender, $eventArgs)
         $bounds = $eventArgs.MarginBounds
+        $eventArgs.Graphics.DrawString("BURGER TIN`r`nCOMANDA CONFIRMADA", $titleFont, [Drawing.Brushes]::Black, [single]$bounds.X, [single]$bounds.Y)
+        $idSize = $eventArgs.Graphics.MeasureString([string]$Order.id, $idFont)
+        $idX = [single]([Math]::Max($bounds.X, $bounds.Right - $idSize.Width))
+        $eventArgs.Graphics.DrawString([string]$Order.id, $idFont, [Drawing.Brushes]::Black, $idX, [single]$bounds.Y)
+        $bodyY = [single]($bounds.Y + [Math]::Max(48, $idSize.Height + 8))
         $layout = [Drawing.RectangleF]::new(
             [single]$bounds.X,
-            [single]$bounds.Y,
+            $bodyY,
             [single]$bounds.Width,
-            [single]$bounds.Height
+            [single]($bounds.Bottom - $bodyY)
         )
-        $eventArgs.Graphics.DrawString($receipt, $font, [Drawing.Brushes]::Black, $layout)
+        $eventArgs.Graphics.DrawString($body, $font, [Drawing.Brushes]::Black, $layout)
         $eventArgs.HasMorePages = $false
     }
     $document.add_PrintPage($handler)
@@ -173,6 +210,8 @@ function Send-BurgerTinWindowsDocument {
     finally {
         $document.remove_PrintPage($handler)
         $font.Dispose()
+        $idFont.Dispose()
+        $titleFont.Dispose()
         $document.Dispose()
     }
 }
@@ -192,4 +231,4 @@ function Send-BurgerTinPrint {
     Send-BurgerTinReceipt -PrinterName $PrinterName -Order $Order -Width $Width -CutPaper $CutPaper
 }
 
-Export-ModuleMember -Function ConvertTo-SafeReceiptText, Format-ReceiptLine, ConvertTo-BurgerTinReceipt, ConvertTo-EscPosBytes, Send-BurgerTinReceipt, Send-BurgerTinWindowsDocument, Send-BurgerTinPrint
+Export-ModuleMember -Function ConvertTo-SafeReceiptText, Format-ReceiptLine, Format-BurgerTinDateTime, ConvertTo-BurgerTinReceipt, ConvertTo-EscPosBytes, Send-BurgerTinReceipt, Send-BurgerTinWindowsDocument, Send-BurgerTinPrint
