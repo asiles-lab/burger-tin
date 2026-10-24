@@ -18,7 +18,8 @@ test('genera codigos correlativos con letras y tres digitos', () => {
   assert.equal(formatOrderCode(999), 'A-999');
   assert.equal(formatOrderCode(1000), 'B-001');
   assert.equal(formatOrderCode(25974), 'Z-999');
-  assert.equal(formatOrderCode(25975), 'AA-001');
+  assert.equal(formatOrderCode(25975), 'A-001');
+  assert.equal(formatOrderCode(25976), 'A-002');
   assert.throws(() => formatOrderCode(0));
 });
 

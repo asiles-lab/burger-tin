@@ -4,6 +4,7 @@ const $ = selector => document.querySelector(selector);
 const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 const money = value => new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}).format(value);
 let token = sessionStorage.getItem('burger-tin-staff-token') || '';
+let currentView = 'pending';
 
 async function call(path, options={}) {
   if (!config.enabled || !api.startsWith('https://')) throw new Error('El servidor todavía no está configurado.');
@@ -30,7 +31,24 @@ function orderActions(order) {
 }
 
 function render(orders) {
-  $('#orders').innerHTML = orders.length ? orders.map(order => `<article class="order"><span class="tag">${escapeHtml(statusLabel(order))}</span><h2>${escapeHtml(order.code)}</h2><p><strong>${escapeHtml(order.customer_name)}</strong> · ${order.fulfillment === 'delivery' ? 'Envío' : 'Retiro'}</p><p>${escapeHtml(order.address || '')}</p><p class="total">${money(order.subtotal)}</p><p>${new Date(order.created_at).toLocaleString('es-AR')}</p><footer>${orderActions(order)}</footer></article>`).join('') : '<p>No hay pedidos pendientes.</p>';
+  const empty = currentView === 'pending' ? 'No hay pedidos pendientes.' : currentView === 'today' ? 'Todavía no hay pedidos terminados hoy.' : 'No hay pedidos en el historial.';
+  const card = order => `<article class="order"><span class="tag">${escapeHtml(statusLabel(order))}</span><h2>${escapeHtml(order.code)}</h2><p><strong>${escapeHtml(order.customer_name)}</strong> · ${order.fulfillment === 'delivery' ? 'Envío' : 'Retiro'}</p><p>${escapeHtml(order.address || '')}</p><p class="total">${money(order.subtotal)}</p><p>${new Date(order.confirmed_at || order.created_at).toLocaleString('es-AR')}</p><footer>${orderActions(order)}</footer></article>`;
+  if (!orders.length) { $('#orders').className='orders'; $('#orders').innerHTML=`<p class="empty">${empty}</p>`; return; }
+  if (currentView !== 'history') { $('#orders').className='orders'; $('#orders').innerHTML=orders.map(card).join(''); return; }
+  const groups = orders.reduce((map, order) => {
+    const date = new Date(order.confirmed_at || order.created_at).toLocaleDateString('es-AR', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+    if(!map.has(date))map.set(date,[]);
+    map.get(date).push(order);
+    return map;
+  },new Map());
+  $('#orders').className='history-list';
+  $('#orders').innerHTML=[...groups].map(([date, items]) => `<section class="history-day"><h2>${escapeHtml(date)}</h2><div class="orders">${items.map(card).join('')}</div></section>`).join('');
+}
+
+function updateCounts(counts={}) {
+  $('#count-pending').textContent=Number(counts.pending || 0);
+  $('#count-today').textContent=Number(counts.today || 0);
+  $('#count-history').textContent=Number(counts.history || 0);
 }
 
 function showLoginError(message='') {
@@ -38,7 +56,7 @@ function showLoginError(message='') {
 }
 
 async function refresh() {
-  try { const result=await call('/api/admin/orders'); render(result.orders); $('#connection').textContent='Actualizado · '+new Date().toLocaleTimeString('es-AR'); }
+  try { const result=await call(`/api/admin/orders?view=${currentView}`); render(result.orders); updateCounts(result.counts); $('#connection').textContent='Actualizado · '+new Date().toLocaleTimeString('es-AR'); }
   catch(error){ $('#connection').textContent=error.message; if(/autorizado/.test(error.message)) logout('La sesión venció o el token es incorrecto. Volvé a ingresar con el token del local.'); }
 }
 
@@ -70,6 +88,21 @@ $('#login-form').addEventListener('submit',async event=>{
 });
 $('#refresh').addEventListener('click',refresh);
 $('#logout').addEventListener('click',logout);
+document.querySelector('.views').addEventListener('click',event=>{
+  const button=event.target.closest('[data-view]');
+  if(!button)return;
+  currentView=button.dataset.view;
+  document.querySelectorAll('.view').forEach(item=>item.classList.toggle('active',item===button));
+  $('#history-tools').hidden=currentView!=='history';
+  refresh();
+});
+$('#clear-history').addEventListener('click',async()=>{
+  if(!window.confirm('¿Borrar todos los pedidos terminados y cancelados, y reiniciar la numeración en A-001? Esta acción no se puede deshacer.'))return;
+  const button=$('#clear-history');button.disabled=true;
+  try{await call('/api/admin/history',{method:'DELETE'});alert('Historial borrado. El próximo pedido será A-001.');await refresh();}
+  catch(error){alert(error.message);}
+  finally{button.disabled=false;}
+});
 $('#orders').addEventListener('click',async event=>{
   const button=event.target.closest('[data-action]');
   if(!button)return;

@@ -10,13 +10,22 @@
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@500;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="panel.css">
   <script src="checkout-config.js?v=2"></script>
-  <script type="module" src="panel.mjs?v=4"></script>
+  <script type="module" src="panel.mjs?v=5"></script>
 </head>
 <body>
   <header><img src="assets/logo-burger-tun.png" alt="Burger Tin"><div><p>Panel del local</p><h1>Pedidos y comandas</h1></div><button id="refresh">Actualizar</button></header>
   <main>
     <section class="login" id="login"><h2>Ingresar al panel</h2><p>El token se guarda solamente durante esta sesión.</p><form id="login-form"><label>Token del local<input name="token" type="password" required autocomplete="current-password"></label><button>Ingresar</button></form><p class="error" id="login-error"></p></section>
-    <section id="orders-area" hidden><div class="statusbar"><span id="connection">Conectando…</span><button id="logout">Salir</button></div><div id="orders" class="orders"></div></section>
+    <section id="orders-area" hidden>
+      <div class="statusbar"><span id="connection">Conectando…</span><button id="logout">Salir</button></div>
+      <nav class="views" aria-label="Vistas de pedidos">
+        <button class="view active" data-view="pending">Pendientes <span id="count-pending">0</span></button>
+        <button class="view" data-view="today">Terminados hoy <span id="count-today">0</span></button>
+        <button class="view" data-view="history">Historial <span id="count-history">0</span></button>
+      </nav>
+      <div class="history-tools" id="history-tools" hidden><p>Pedidos terminados de días anteriores.</p><button class="danger" id="clear-history">Borrar historial y reiniciar numeración</button></div>
+      <div id="orders" class="orders"></div>
+    </section>
   </main>
 </body>
 </html>

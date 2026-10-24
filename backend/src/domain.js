@@ -30,18 +30,10 @@ export function validateOrderInput(input, products) {
 export function formatOrderCode(sequence) {
   if (!Number.isSafeInteger(sequence) || sequence < 1) throw new Error('Secuencia de pedido invalida.');
 
-  const block = Math.floor((sequence - 1) / 999);
-  const number = ((sequence - 1) % 999) + 1;
-  let alphabetIndex = block + 1;
-  let letters = '';
-
-  while (alphabetIndex > 0) {
-    alphabetIndex -= 1;
-    letters = String.fromCharCode(65 + (alphabetIndex % 26)) + letters;
-    alphabetIndex = Math.floor(alphabetIndex / 26);
-  }
-
-  return `${letters}-${String(number).padStart(3, '0')}`;
+  const cyclePosition = (sequence - 1) % (26 * 999);
+  const letter = String.fromCharCode(65 + Math.floor(cyclePosition / 999));
+  const number = (cyclePosition % 999) + 1;
+  return `${letter}-${String(number).padStart(3, '0')}`;
 }
 
 export function timingSafeEqualText(left, right) {

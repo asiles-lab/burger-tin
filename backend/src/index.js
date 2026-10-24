@@ -12,7 +12,7 @@ function corsHeaders(request, env) {
   if (!origin || origin !== env.ALLOWED_ORIGIN) return {};
   return {
     'access-control-allow-origin': origin,
-    'access-control-allow-methods': 'GET,POST,OPTIONS',
+    'access-control-allow-methods': 'GET,POST,DELETE,OPTIONS',
     'access-control-allow-headers': 'content-type,authorization,x-burger-tin-agent',
     'access-control-max-age': '86400',
     vary: 'Origin'
@@ -51,6 +51,15 @@ async function createOrder(request, env) {
       RETURNING value
     `).first();
     code = formatOrderCode(Number(counter?.value));
+    const previous = await env.DB.prepare('SELECT id, status FROM orders WHERE code = ?').bind(code).first();
+    if (previous) {
+      if (['pending_cash', 'pending_payment'].includes(previous.status)) throw new Error('El numero ciclico aun pertenece a un pedido pendiente.');
+      await env.DB.batch([
+        env.DB.prepare('DELETE FROM print_jobs WHERE order_id = ?').bind(previous.id),
+        env.DB.prepare('DELETE FROM order_items WHERE order_id = ?').bind(previous.id),
+        env.DB.prepare('DELETE FROM orders WHERE id = ?').bind(previous.id)
+      ]);
+    }
   } catch (error) {
     console.error('Order sequence error', error.message);
     return publicJson(request, env, { error: 'No pudimos asignar el numero de pedido. Proba nuevamente.' }, 503);
@@ -180,13 +189,44 @@ async function confirmOrder(env, orderId, paymentId = null) {
 
 async function listOrders(request, env) {
   if (!requireBearer(request, env.STAFF_TOKEN)) return publicJson(request, env, { error:'No autorizado.' }, 401);
-  const result = await env.DB.prepare(`
+  const view = new URL(request.url).searchParams.get('view') || 'pending';
+  const queries = {
+    pending: `o.status IN ('pending_cash', 'pending_payment')`,
+    today: `o.status = 'confirmed' AND date(o.confirmed_at, '-3 hours') = date('now', '-3 hours')`,
+    history: `o.status = 'confirmed' AND date(o.confirmed_at, '-3 hours') < date('now', '-3 hours')`
+  };
+  if (!queries[view]) return publicJson(request, env, { error:'Vista invalida.' }, 400);
+  const direction = view === 'pending' ? 'ASC' : 'DESC';
+  const limit = view === 'history' ? 500 : 250;
+  const [result, counts] = await env.DB.batch([
+    env.DB.prepare(`
     SELECT o.*, pj.status AS print_status
     FROM orders o LEFT JOIN print_jobs pj ON pj.order_id = o.id
-    WHERE o.status <> 'cancelled'
-    ORDER BY o.created_at DESC LIMIT 100
-  `).all();
-  return publicJson(request, env, { orders: result.results || [] });
+    WHERE ${queries[view]}
+    ORDER BY o.created_at ${direction} LIMIT ${limit}
+    `),
+    env.DB.prepare(`
+      SELECT
+        SUM(CASE WHEN status IN ('pending_cash', 'pending_payment') THEN 1 ELSE 0 END) AS pending,
+        SUM(CASE WHEN status = 'confirmed' AND date(confirmed_at, '-3 hours') = date('now', '-3 hours') THEN 1 ELSE 0 END) AS today,
+        SUM(CASE WHEN status = 'confirmed' AND date(confirmed_at, '-3 hours') < date('now', '-3 hours') THEN 1 ELSE 0 END) AS history
+      FROM orders
+    `)
+  ]);
+  return publicJson(request, env, { orders: result.results || [], counts: counts.results?.[0] || {} });
+}
+
+async function clearHistory(request, env) {
+  if (!requireBearer(request, env.STAFF_TOKEN)) return publicJson(request, env, { error:'No autorizado.' }, 401);
+  const pending = await env.DB.prepare("SELECT COUNT(*) AS total FROM orders WHERE status IN ('pending_cash', 'pending_payment')").first();
+  if (Number(pending?.total) > 0) return publicJson(request, env, { error:'Primero confirma o cancela todos los pedidos pendientes.' }, 409);
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM print_jobs WHERE order_id IN (SELECT id FROM orders WHERE status IN ('confirmed', 'cancelled'))"),
+    env.DB.prepare("DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE status IN ('confirmed', 'cancelled'))"),
+    env.DB.prepare("DELETE FROM orders WHERE status IN ('confirmed', 'cancelled')"),
+    env.DB.prepare("UPDATE order_counters SET value = 0 WHERE name = 'orders'")
+  ]);
+  return publicJson(request, env, { ok:true, nextCode:'A-001' });
 }
 
 async function staffAction(request, env, code, action) {
@@ -265,6 +305,7 @@ export default {
     if (request.method === 'POST' && url.pathname === '/api/orders') return createOrder(request, env);
     if (request.method === 'POST' && url.pathname === '/api/webhooks/mercadopago') return mercadoPagoWebhook(request, env);
     if (request.method === 'GET' && url.pathname === '/api/admin/orders') return listOrders(request, env);
+    if (request.method === 'DELETE' && url.pathname === '/api/admin/history') return clearHistory(request, env);
     const staffMatch = url.pathname.match(/^\/api\/admin\/orders\/([^/]+)\/(confirm|reprint|cancel)$/);
     if (request.method === 'POST' && staffMatch) return staffAction(request, env, decodeURIComponent(staffMatch[1]), staffMatch[2]);
     if (request.method === 'GET' && url.pathname === '/api/print-jobs/next') return nextPrintJob(request, env);
