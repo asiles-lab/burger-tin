@@ -1,0 +1,22 @@
+name = "burger-tin-orders"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+
+[vars]
+ALLOWED_ORIGIN = "https://asiles-lab.github.io"
+PUBLIC_SITE_URL = "https://asiles-lab.github.io/burger-tin/"
+PUBLIC_API_URL = "https://burger-tin-orders.YOUR-SUBDOMAIN.workers.dev"
+WHATSAPP_PHONE = "5491127798677"
+PAYMENTS_MODE = "sandbox"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "burger-tin-orders"
+database_id = "REPLACE_AFTER_D1_CREATE"
+migrations_dir = "migrations"
+
+# Secrets (never put values in this file):
+# wrangler secret put MP_ACCESS_TOKEN
+# wrangler secret put MP_WEBHOOK_SECRET
+# wrangler secret put STAFF_TOKEN
+# wrangler secret put DEVICE_TOKEN

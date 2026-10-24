@@ -40,6 +40,9 @@ function ConvertTo-BurgerTinReceipt {
     $lines.Add($separator)
     $lines.Add("Pedido: $($Order.id)")
     if ($Order.confirmedAt) { $lines.Add("Confirmado: $($Order.confirmedAt)") }
+    if ($Order.PSObject.Properties.Name -contains 'customerName' -and $Order.customerName) { $lines.Add("Cliente: $($Order.customerName)") }
+    if ($Order.PSObject.Properties.Name -contains 'paymentMethod' -and $Order.paymentMethod) { $lines.Add("Pago: $($Order.paymentMethod)") }
+    if ($Order.PSObject.Properties.Name -contains 'address' -and $Order.address) { $lines.Add("Direccion: $($Order.address)") }
     $lines.Add($separator)
     foreach ($item in @($Order.items)) {
         $quantity = if ($item.quantity) { [int]$item.quantity } else { 1 }

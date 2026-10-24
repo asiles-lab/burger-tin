@@ -1,0 +1,7 @@
+node_modules/
+.wrangler/
+.wrangler-*/
+.xdg/
+.dev.vars
+wrangler.toml
+*.log

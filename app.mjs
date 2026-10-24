@@ -12,6 +12,7 @@ let cart = {};
 let activeCategory = 'Todos';
 let toastTimer;
 const dialog = $('#cart-dialog');
+const checkoutConfig = window.BURGER_TIN_CHECKOUT || { enabled: false, apiBaseUrl: '' };
 
 function productEventData(id) {
   const product = catalog.find(item => item.id === id);
@@ -74,6 +75,36 @@ function changeMethod() {
   $('#pickup-address').textContent = store.pickupAddress;
 }
 
+function changePaymentMethod() {
+  const paymentMethod = $('#checkout-form').elements.paymentMethod.value;
+  const submit = $('#checkout-submit');
+  submit.textContent = paymentMethod === 'mercadopago' ? 'Pagar con Mercado Pago ↗' : 'Continuar en WhatsApp ↗';
+  $('#checkout-help').textContent = paymentMethod === 'mercadopago'
+    ? 'El pago se realiza de forma segura en Mercado Pago. La comanda se confirma solamente cuando el pago queda aprobado.'
+    : 'Se abrirá WhatsApp con el mensaje listo. El local confirmará el pedido.';
+}
+
+async function createServerOrder(details) {
+  const order = calculateOrder(catalog, cart);
+  const apiBaseUrl = String(checkoutConfig.apiBaseUrl || '').replace(/\/$/, '');
+  if (!checkoutConfig.enabled || !apiBaseUrl.startsWith('https://')) throw new Error('Los pagos online todavía no están habilitados.');
+  const response = await fetch(`${apiBaseUrl}/api/orders`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      name: details.name,
+      fulfillment: details.method,
+      address: details.address,
+      notes: details.notes,
+      paymentMethod: details.paymentMethod,
+      items: order.items.map(item => ({ id:item.id, quantity:item.quantity }))
+    })
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error || 'No pudimos crear el pedido.');
+  return result;
+}
+
 document.addEventListener('click', event => {
   const add = event.target.closest('[data-add]');
   if (add) {
@@ -110,16 +141,34 @@ document.addEventListener('click', event => {
 
 $('#close-cart').addEventListener('click', () => dialog.close());
 dialog.addEventListener('click', event => { if (event.target === dialog) dialog.close(); });
-$('#checkout-form').addEventListener('change', event => { if (event.target.name === 'method') changeMethod(); });
-$('#checkout-form').addEventListener('submit', event => {
+$('#checkout-form').addEventListener('change', event => {
+  if (event.target.name === 'method') changeMethod();
+  if (event.target.name === 'paymentMethod') changePaymentMethod();
+});
+$('#checkout-form').addEventListener('submit', async event => {
   event.preventDefault();
+  const submit = $('#checkout-submit');
   try {
     const details = Object.fromEntries(new FormData(event.currentTarget));
+    submit.disabled = true;
+    submit.textContent = 'Preparando pedido…';
+    if (checkoutConfig.enabled) {
+      const result = await createServerOrder(details);
+      trackEvent('checkout_started', { payment_method: details.paymentMethod, fulfillment: details.method, ...cartEventData() });
+      const destination = details.paymentMethod === 'mercadopago' ? result.checkoutUrl : result.whatsappUrl;
+      if (!destination) throw new Error('El servidor no devolvió el enlace de confirmación.');
+      window.location.assign(destination);
+      return;
+    }
     const url = orderUrl(buildOrderMessage(catalog, cart, details, store));
     trackEvent('whatsapp_click', { source: 'checkout', fulfillment: details.method, ...cartEventData() });
     window.open(url, '_blank', 'noopener');
     $('#form-error').textContent = '';
-  } catch (error) { $('#form-error').textContent = error.message; }
+  } catch (error) {
+    $('#form-error').textContent = error.message;
+    submit.disabled = false;
+    changePaymentMethod();
+  }
 });
 
 try {
@@ -135,7 +184,12 @@ try {
   $('#filters').innerHTML = categories.map(category => `<button data-filter="${escapeHtml(category)}" aria-pressed="${category === 'Todos'}">${escapeHtml(category)}</button>`).join('');
   $('#delivery-zones').textContent = store.deliveryZones;
   $('#pickup-address-footer').textContent = store.pickupAddress;
-  renderMenu(); updateCart(); changeMethod();
+  document.querySelectorAll('[data-requires-backend]').forEach(node => { node.hidden = !checkoutConfig.enabled; });
+  const payment = new URLSearchParams(location.search).get('payment');
+  if (payment === 'success') notify('Pago recibido. Estamos confirmando tu pedido.');
+  if (payment === 'pending') notify('Tu pago quedó pendiente. Te avisaremos cuando se acredite.');
+  if (payment === 'failure') notify('El pago no se completó. Podés intentarlo nuevamente.');
+  renderMenu(); updateCart(); changeMethod(); changePaymentMethod();
 } catch (error) {
   $('#menu-groups').innerHTML = `<p class="load-error">${escapeHtml(error.message)} <a href="https://wa.me/c/82940499390482">Abrir catálogo de WhatsApp</a></p>`;
 }

@@ -11,6 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles-v2.css">
   <script src="analytics-config.js?v=20261023-1"></script>
+  <script src="checkout-config.js?v=1"></script>
   <script type="module" src="app.mjs"></script>
 </head>
 <body>
@@ -69,10 +70,11 @@
     <div class="drawer-body"><div id="cart-items"></div><div id="checkout-area" hidden><div class="subtotal"><span>Subtotal</span><strong data-total></strong></div><p class="checkout-note">Burger Tin confirma disponibilidad, costo de envío y total final por WhatsApp.</p>
       <form id="checkout-form"><label for="customer-name">Tu nombre</label><input id="customer-name" name="name" autocomplete="name" required minlength="2" maxlength="80" placeholder="¿A nombre de quién?">
         <fieldset><legend>¿Cómo lo recibís?</legend><div class="method-options"><label><input type="radio" name="method" value="delivery" checked><span>Envío</span></label><label><input type="radio" name="method" value="pickup"><span>Retiro</span></label></div></fieldset>
+        <fieldset><legend>¿Cómo pagás?</legend><div class="method-options"><label><input type="radio" name="paymentMethod" value="cash" checked><span>Efectivo</span></label><label data-requires-backend hidden><input type="radio" name="paymentMethod" value="mercadopago"><span>Mercado Pago</span></label></div></fieldset>
         <div id="delivery-fields"><label for="customer-address">Dirección de entrega</label><input id="customer-address" name="address" autocomplete="street-address" required minlength="5" maxlength="250" placeholder="Calle, número y localidad"><p class="field-note">Cobertura y costo de envío a confirmar.</p></div>
         <div class="pickup-info" id="pickup-fields" hidden><strong>Retirás en</strong><p id="pickup-address"></p></div>
         <label for="customer-notes">Aclaraciones <span>(opcional)</span></label><textarea id="customer-notes" name="notes" rows="2" maxlength="500" placeholder="Sin cebolla, salsa aparte…"></textarea>
-        <p id="form-error" class="form-error" role="alert"></p><button class="button whatsapp" type="submit">Continuar en WhatsApp ↗</button><p class="privacy-note">Se abrirá WhatsApp con el mensaje listo. Nada se envía hasta que vos lo confirmes.</p>
+        <p id="form-error" class="form-error" role="alert"></p><button class="button whatsapp" type="submit" id="checkout-submit">Continuar en WhatsApp ↗</button><p class="privacy-note" id="checkout-help">Se abrirá WhatsApp con el mensaje listo. Nada se envía hasta que vos lo confirmes.</p>
       </form></div></div>
   </dialog>
 </body>

@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Panel de pedidos · Burger Tin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="panel.css">
+  <script src="checkout-config.js?v=1"></script>
+  <script type="module" src="panel.mjs"></script>
+</head>
+<body>
+  <header><img src="assets/logo-burger-tun.png" alt="Burger Tin"><div><p>Panel del local</p><h1>Pedidos y comandas</h1></div><button id="refresh">Actualizar</button></header>
+  <main>
+    <section class="login" id="login"><h2>Ingresar al panel</h2><p>El token se guarda solamente durante esta sesión.</p><form id="login-form"><label>Token del local<input name="token" type="password" required autocomplete="current-password"></label><button>Ingresar</button></form><p class="error" id="login-error"></p></section>
+    <section id="orders-area" hidden><div class="statusbar"><span id="connection">Conectando…</span><button id="logout">Salir</button></div><div id="orders" class="orders"></div></section>
+  </main>
+</body>
+</html>
