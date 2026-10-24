@@ -27,9 +27,21 @@ export function validateOrderInput(input, products) {
   return { name, fulfillment, address: fulfillment === 'delivery' ? address : '', notes, paymentMethod, items, subtotal };
 }
 
-export function makeOrderCode(now = new Date(), uuid = crypto.randomUUID()) {
-  const date = now.toISOString().slice(2, 10).replaceAll('-', '');
-  return `BT-${date}-${uuid.replaceAll('-', '').slice(0, 6).toUpperCase()}`;
+export function formatOrderCode(sequence) {
+  if (!Number.isSafeInteger(sequence) || sequence < 1) throw new Error('Secuencia de pedido invalida.');
+
+  const block = Math.floor((sequence - 1) / 999);
+  const number = ((sequence - 1) % 999) + 1;
+  let alphabetIndex = block + 1;
+  let letters = '';
+
+  while (alphabetIndex > 0) {
+    alphabetIndex -= 1;
+    letters = String.fromCharCode(65 + (alphabetIndex % 26)) + letters;
+    alphabetIndex = Math.floor(alphabetIndex / 26);
+  }
+
+  return `${letters}-${String(number).padStart(3, '0')}`;
 }
 
 export function timingSafeEqualText(left, right) {

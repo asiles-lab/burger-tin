@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { makeOrderCode, timingSafeEqualText, validateOrderInput } from '../src/domain.js';
+import { formatOrderCode, timingSafeEqualText, validateOrderInput } from '../src/domain.js';
 
 const products = [{ id: 'burger', name: 'Burger', price: 5000 }];
 
@@ -13,8 +13,13 @@ test('rechaza productos duplicados o desconocidos', () => {
   assert.throws(() => validateOrderInput({ name:'Ana', fulfillment:'pickup', paymentMethod:'cash', items:[{id:'x',quantity:1}] }, products));
 });
 
-test('genera codigo legible', () => {
-  assert.match(makeOrderCode(new Date('2026-10-23T00:00:00Z'), 'abcdef00-0000-0000-0000-000000000000'), /^BT-261023-ABCDEF$/);
+test('genera codigos correlativos con letras y tres digitos', () => {
+  assert.equal(formatOrderCode(1), 'A-001');
+  assert.equal(formatOrderCode(999), 'A-999');
+  assert.equal(formatOrderCode(1000), 'B-001');
+  assert.equal(formatOrderCode(25974), 'Z-999');
+  assert.equal(formatOrderCode(25975), 'AA-001');
+  assert.throws(() => formatOrderCode(0));
 });
 
 test('compara tokens', () => {

@@ -1,5 +1,5 @@
 import store from '../../catalog.json' with { type: 'json' };
-import { formatMoney, makeOrderCode, timingSafeEqualText, validateOrderInput } from './domain.js';
+import { formatMoney, formatOrderCode, timingSafeEqualText, validateOrderInput } from './domain.js';
 
 const jsonHeaders = { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' };
 
@@ -42,7 +42,19 @@ async function createOrder(request, env) {
   try { order = validateOrderInput(await readJson(request), store.products); }
   catch (error) { return publicJson(request, env, { error: error.message }, 400); }
 
-  const code = makeOrderCode();
+  let code;
+  try {
+    const counter = await env.DB.prepare(`
+      UPDATE order_counters
+      SET value = value + 1
+      WHERE name = 'orders'
+      RETURNING value
+    `).first();
+    code = formatOrderCode(Number(counter?.value));
+  } catch (error) {
+    console.error('Order sequence error', error.message);
+    return publicJson(request, env, { error: 'No pudimos asignar el numero de pedido. Proba nuevamente.' }, 503);
+  }
   const now = new Date().toISOString();
   const status = order.paymentMethod === 'cash' ? 'pending_cash' : 'pending_payment';
   const inserted = await env.DB.prepare(`
