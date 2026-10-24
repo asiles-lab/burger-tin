@@ -193,7 +193,9 @@ function Send-BurgerTinWindowsDocument {
         $bounds = $eventArgs.MarginBounds
         $eventArgs.Graphics.DrawString("BURGER TIN`r`nCOMANDA CONFIRMADA", $titleFont, [Drawing.Brushes]::Black, [single]$bounds.X, [single]$bounds.Y)
         $idSize = $eventArgs.Graphics.MeasureString([string]$Order.id, $idFont)
-        $idX = [single]([Math]::Max($bounds.X, $bounds.Right - $idSize.Width))
+        $titleSize = $eventArgs.Graphics.MeasureString('COMANDA CONFIRMADA', $titleFont)
+        $preferredIdX = $bounds.X + $titleSize.Width + 32
+        $idX = [single]([Math]::Min($preferredIdX, $bounds.Right - $idSize.Width))
         $eventArgs.Graphics.DrawString([string]$Order.id, $idFont, [Drawing.Brushes]::Black, $idX, [single]$bounds.Y)
         $bodyY = [single]($bounds.Y + [Math]::Max(48, $idSize.Height + 8))
         $layout = [Drawing.RectangleF]::new(
