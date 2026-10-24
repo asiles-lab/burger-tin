@@ -43,7 +43,7 @@
       <div class="section-title"><div><p>Elegí tus favoritos</p><h2 id="menu-title">Nuestro menú <span>✳</span></h2></div><span class="section-aside">Tu próxima favorita<br>está por acá ↓</span></div>
       <div class="filters" id="filters" aria-label="Filtrar menú"></div>
       <div id="menu-groups"><p class="loading">Prendiendo la plancha…</p></div>
-      <p class="menu-note">Precios en pesos argentinos tomados del catálogo de WhatsApp el 23/10/2026. Disponibilidad y total final sujetos a confirmación del local.</p>
+      <p class="menu-note">Precios e imágenes tomados del catálogo de WhatsApp. Algunos productos todavía no incluyen foto. Disponibilidad y total final sujetos a confirmación del local.</p>
     </section>
 
     <section class="order-story" id="como-pedir">
@@ -76,6 +76,12 @@
         <label for="customer-notes">Aclaraciones <span>(opcional)</span></label><textarea id="customer-notes" name="notes" rows="2" maxlength="500" placeholder="Sin cebolla, salsa aparte…"></textarea>
         <p id="form-error" class="form-error" role="alert"></p><button class="button whatsapp" type="submit" id="checkout-submit">Continuar en WhatsApp ↗</button><p class="privacy-note" id="checkout-help">Se abrirá WhatsApp con el mensaje listo. Nada se envía hasta que vos lo confirmes.</p>
       </form></div></div>
+  </dialog>
+
+  <dialog id="product-dialog" class="product-dialog" aria-labelledby="product-preview-name">
+    <button id="close-product-preview" class="product-preview-close" aria-label="Cerrar foto">×</button>
+    <img id="product-preview-image" src="" alt="">
+    <div class="product-preview-copy"><p>Foto del catálogo</p><h2 id="product-preview-name"></h2><span id="product-preview-description"></span><strong id="product-preview-price"></strong></div>
   </dialog>
 </body>
 </html>

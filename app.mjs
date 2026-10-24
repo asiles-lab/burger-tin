@@ -13,6 +13,7 @@ let activeCategory = 'Todos';
 let toastTimer;
 const dialog = $('#cart-dialog');
 const checkoutConfig = window.BURGER_TIN_CHECKOUT || { enabled: false, apiBaseUrl: '' };
+const categoryIcons = { Promos:'🍔', Hamburguesas:'🍔', Sanguches:'🥪', Acompañamientos:'🍟', Extras:'✨' };
 
 function productEventData(id) {
   const product = catalog.find(item => item.id === id);
@@ -40,9 +41,12 @@ function renderMenu() {
   const shown = activeCategory === 'Todos' ? categories : categories.filter(category => category === activeCategory);
   $('#menu-groups').innerHTML = shown.map((category, index) => {
     const products = catalog.filter(item => item.category === category);
-    const featured = products.find(item => item.image);
-    const banner = featured ? `<figure class="menu-photo ${index % 2 ? 'photo-right' : ''}"><img src="${escapeHtml(featured.image)}" alt="${escapeHtml(featured.name)}" loading="lazy"><figcaption>${escapeHtml(category)}</figcaption></figure>` : '';
-    return `<section class="menu-group" id="cat-${escapeHtml(category.toLowerCase())}">${banner}<div class="menu-group-head"><span>0${index + 1}</span><h3>${escapeHtml(category)}</h3></div><div class="menu-list">${products.map(product => `<article class="menu-item" data-product="${escapeHtml(product.id)}"><div><h4>${escapeHtml(product.name)}</h4><p>${escapeHtml(product.description)}</p></div><div class="menu-item-action"><strong>${money(product.price)}</strong><button data-add="${escapeHtml(product.id)}" aria-label="Agregar ${escapeHtml(product.name)}">+</button></div></article>`).join('')}</div></section>`;
+    return `<section class="menu-group" id="cat-${escapeHtml(category.toLowerCase())}"><div class="menu-group-head"><span>0${index + 1}</span><h3>${escapeHtml(category)}</h3></div><div class="menu-list">${products.map(product => {
+      const media = product.image
+        ? `<button class="product-thumb" data-preview="${escapeHtml(product.id)}" aria-label="Ver foto de ${escapeHtml(product.name)}"><img src="${escapeHtml(product.image)}" alt="${escapeHtml(product.name)}" loading="lazy" width="112" height="112"></button>`
+        : `<div class="product-thumb product-thumb-placeholder" role="img" aria-label="Este producto todavía no tiene foto"><span aria-hidden="true">${categoryIcons[product.category] || '🍔'}</span><small>Sin foto</small></div>`;
+      return `<article class="menu-item" data-product="${escapeHtml(product.id)}">${media}<div class="menu-item-copy"><h4>${escapeHtml(product.name)}</h4><p>${escapeHtml(product.description)}</p></div><div class="menu-item-action"><strong>${money(product.price)}</strong><button data-add="${escapeHtml(product.id)}" aria-label="Agregar ${escapeHtml(product.name)}">+</button></div></article>`;
+    }).join('')}</div></section>`;
   }).join('');
   document.querySelectorAll('[data-filter]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.filter === activeCategory)));
 }
@@ -106,6 +110,20 @@ async function createServerOrder(details) {
 }
 
 document.addEventListener('click', event => {
+  const preview = event.target.closest('[data-preview]');
+  if (preview) {
+    const product = catalog.find(item => item.id === preview.dataset.preview && item.image);
+    if (product) {
+      $('#product-preview-image').src = product.image;
+      $('#product-preview-image').alt = product.name;
+      $('#product-preview-name').textContent = product.name;
+      $('#product-preview-description').textContent = product.description;
+      $('#product-preview-price').textContent = money(product.price);
+      $('#product-dialog').showModal();
+      trackEvent('product_selected', { ...productEventData(product.id), interaction:'image_preview' });
+    }
+    return;
+  }
   const add = event.target.closest('[data-add]');
   if (add) {
     const product = productEventData(add.dataset.add);
@@ -141,6 +159,8 @@ document.addEventListener('click', event => {
 
 $('#close-cart').addEventListener('click', () => dialog.close());
 dialog.addEventListener('click', event => { if (event.target === dialog) dialog.close(); });
+$('#close-product-preview').addEventListener('click', () => $('#product-dialog').close());
+$('#product-dialog').addEventListener('click', event => { if (event.target === $('#product-dialog')) $('#product-dialog').close(); });
 $('#checkout-form').addEventListener('change', event => {
   if (event.target.name === 'method') changeMethod();
   if (event.target.name === 'paymentMethod') changePaymentMethod();
