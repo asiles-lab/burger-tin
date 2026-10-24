@@ -1,0 +1,23 @@
+{
+  "manufacturer": "OCOM Technologies Limited",
+  "model": "OCPP-812",
+  "productPage": "https://www.ocominc.com/products/OCPP-812-80MM-Thermal-Receipt-Printer-with-Auto-Cutter.html",
+  "downloadPage": "https://www.ocominc.com/download/Driver.htm",
+  "package": {
+    "name": "Drive for Windows all",
+    "url": "https://www.ocominc.com/download/Drive-for-windows-all.html",
+    "fileName": "ocom-drive-for-windows-all.zip",
+    "size": 5008715,
+    "sha256": "EFA1474163F63D11BDAFB62B91F23D1E2CD49A5840880BF949104DC6435A0F20"
+  },
+  "installer": {
+    "relativePath": "Driver/POS Printer Driver Setup V7.01.exe",
+    "size": 2828710,
+    "sha256": "562DB72D581659480E22D974CCA5216D79A40FE9A434E5388025F6EDAE30954E",
+    "productVersion": "7.01",
+    "signatureStatusObserved": "HashMismatch",
+    "interactiveOnly": true
+  },
+  "verifiedOn": "2026-10-23",
+  "notes": "OCOM publica este paquete como controlador universal para Windows. El instalador interno tiene una firma Authenticode antigua que Windows no valida; por eso solo se permite si coinciden ambas huellas y el usuario confirma la advertencia."
+}

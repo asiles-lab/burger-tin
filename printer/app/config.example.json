@@ -1,0 +1,9 @@
+{
+  "printerName": "",
+  "apiBaseUrl": "",
+  "deviceId": "",
+  "pollSeconds": 8,
+  "columns": 42,
+  "cutPaper": true,
+  "environment": "diagnostic"
+}
