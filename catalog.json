@@ -2,8 +2,8 @@
   "business": "Burger Tin",
   "phone": "5491127798677",
   "pickupAddress": "Av. Croacia 2221, José C. Paz, Buenos Aires",
-  "source": "https://wa.me/c/82940499390482",
-  "verifiedAt": "2026-10-23",
+  "source": "https://wa.me/c/5491127798677",
+  "verifiedAt": "2026-10-24",
   "deliveryZones": "José C. Paz, Cuartel V, Sol y Verde, San Atilio y Alberdi",
   "products": [
     {"id":"promo-doble-cheddar","name":"Doble Cheddar con papas","price":9000,"category":"Promos","description":"Doble cheddar con papas.","image":"assets/doble-cheddar.jpg"},
