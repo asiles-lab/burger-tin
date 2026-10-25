@@ -32,6 +32,43 @@ function requireBearer(request, expected) {
   return Boolean(expected) && timingSafeEqualText(bearer(request), expected);
 }
 
+const ALL_ADMIN_PERMISSIONS = ['orders:view','orders:manage','products:manage','store:manage','reports:view','billing:manage'];
+
+async function sha256(value) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(String(value)));
+  return [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
+function parsePermissions(value) {
+  try {
+    const parsed = JSON.parse(value || '[]');
+    return Array.isArray(parsed) ? parsed.filter(item => ALL_ADMIN_PERMISSIONS.includes(item)) : [];
+  } catch { return []; }
+}
+
+async function adminIdentity(request, env) {
+  const supplied = bearer(request);
+  if (!supplied) return null;
+  if (env.STAFF_TOKEN && timingSafeEqualText(supplied, env.STAFF_TOKEN)) {
+    return { id:'legacy-owner', name:'Administrador', email:'', role:'Propietario', storeId:'burger-tin', permissions:ALL_ADMIN_PERMISSIONS };
+  }
+  const profile = await env.DB.prepare(`
+    SELECT id, store_id, name, email, role, permissions
+    FROM admin_profiles WHERE token_hash = ? AND active = 1
+  `).bind(await sha256(supplied)).first();
+  if (!profile) return null;
+  return { id:profile.id, name:profile.name, email:profile.email, role:profile.role, storeId:profile.store_id, permissions:parsePermissions(profile.permissions) };
+}
+
+async function requireAdmin(request, env, permission) {
+  const identity = await adminIdentity(request, env);
+  return identity?.permissions.includes(permission) ? identity : null;
+}
+
+function requirePlatform(request, env) {
+  return requireBearer(request, env.SUPERADMIN_TOKEN);
+}
+
 async function readJson(request) {
   if (!(request.headers.get('content-type') || '').toLowerCase().includes('application/json')) throw new Error('Se esperaba JSON.');
   return request.json();
@@ -176,12 +213,12 @@ async function getCatalogImage(request, env, id) {
 }
 
 async function adminCatalog(request, env) {
-  if (!requireBearer(request, env.STAFF_TOKEN)) return publicJson(request, env, { error:'No autorizado.' }, 401);
+  if (!(await requireAdmin(request, env, 'products:manage'))) return publicJson(request, env, { error:'No autorizado.' }, 401);
   return publicJson(request, env, { products: await catalogProducts(env) });
 }
 
 async function updateProduct(request, env, id) {
-  if (!requireBearer(request, env.STAFF_TOKEN)) return publicJson(request, env, { error:'No autorizado.' }, 401);
+  if (!(await requireAdmin(request, env, 'products:manage'))) return publicJson(request, env, { error:'No autorizado.' }, 401);
   let body;
   try { body = await readJson(request); }
   catch (error) { return publicJson(request, env, { error:error.message }, 400); }
@@ -196,7 +233,7 @@ async function updateProduct(request, env, id) {
 }
 
 async function addProduct(request, env) {
-  if (!requireBearer(request, env.STAFF_TOKEN)) return publicJson(request, env, { error:'No autorizado.' }, 401);
+  if (!(await requireAdmin(request, env, 'products:manage'))) return publicJson(request, env, { error:'No autorizado.' }, 401);
   let body;
   try { body = await readJson(request); }
   catch (error) { return publicJson(request, env, { error:error.message }, 400); }
@@ -213,7 +250,7 @@ async function addProduct(request, env) {
 }
 
 async function deleteProduct(request, env, id) {
-  if (!requireBearer(request, env.STAFF_TOKEN)) return publicJson(request, env, { error:'No autorizado.' }, 401);
+  if (!(await requireAdmin(request, env, 'products:manage'))) return publicJson(request, env, { error:'No autorizado.' }, 401);
   const result = await env.DB.prepare('UPDATE products SET active = 0, updated_at = ? WHERE id = ? AND active = 1')
     .bind(new Date().toISOString(), id).run();
   if (!result.meta.changes) return publicJson(request, env, { error:'Producto inexistente.' }, 404);
@@ -221,12 +258,12 @@ async function deleteProduct(request, env, id) {
 }
 
 async function adminSettings(request, env) {
-  if (!requireBearer(request, env.STAFF_TOKEN)) return publicJson(request, env, { error:'No autorizado.' }, 401);
+  if (!(await requireAdmin(request, env, 'store:manage'))) return publicJson(request, env, { error:'No autorizado.' }, 401);
   return publicJson(request, env, { settings:await storeSettings(env) });
 }
 
 async function updateSettings(request, env) {
-  if (!requireBearer(request, env.STAFF_TOKEN)) return publicJson(request, env, { error:'No autorizado.' }, 401);
+  if (!(await requireAdmin(request, env, 'store:manage'))) return publicJson(request, env, { error:'No autorizado.' }, 401);
   let body;
   try { body = await readJson(request); }
   catch (error) { return publicJson(request, env, { error:error.message }, 400); }
@@ -266,7 +303,7 @@ async function updateSettings(request, env) {
 }
 
 async function updateProductImage(request, env, id) {
-  if (!requireBearer(request, env.STAFF_TOKEN)) return publicJson(request, env, { error:'No autorizado.' }, 401);
+  if (!(await requireAdmin(request, env, 'products:manage'))) return publicJson(request, env, { error:'No autorizado.' }, 401);
   const type = (request.headers.get('content-type') || '').split(';')[0].toLowerCase();
   if (!['image/jpeg', 'image/png', 'image/webp'].includes(type)) return publicJson(request, env, { error:'Usá una imagen JPG, PNG o WebP.' }, 415);
   const length = Number(request.headers.get('content-length') || 0);
@@ -440,7 +477,7 @@ async function confirmOrder(env, orderId, paymentId = null) {
 }
 
 async function listOrders(request, env) {
-  if (!requireBearer(request, env.STAFF_TOKEN)) return publicJson(request, env, { error:'No autorizado.' }, 401);
+  if (!(await requireAdmin(request, env, 'orders:view'))) return publicJson(request, env, { error:'No autorizado.' }, 401);
   const view = new URL(request.url).searchParams.get('view') || 'pending';
   const queries = {
     pending: `o.status IN ('pending_cash', 'pending_payment')`,
@@ -469,7 +506,7 @@ async function listOrders(request, env) {
 }
 
 async function clearHistory(request, env) {
-  if (!requireBearer(request, env.STAFF_TOKEN)) return publicJson(request, env, { error:'No autorizado.' }, 401);
+  if (!(await requireAdmin(request, env, 'orders:manage'))) return publicJson(request, env, { error:'No autorizado.' }, 401);
   const pending = await env.DB.prepare("SELECT COUNT(*) AS total FROM orders WHERE status IN ('pending_cash', 'pending_payment')").first();
   if (Number(pending?.total) > 0) return publicJson(request, env, { error:'Primero confirma o cancela todos los pedidos pendientes.' }, 409);
   await env.DB.batch([
@@ -482,7 +519,7 @@ async function clearHistory(request, env) {
 }
 
 async function staffAction(request, env, code, action) {
-  if (!requireBearer(request, env.STAFF_TOKEN)) return publicJson(request, env, { error:'No autorizado.' }, 401);
+  if (!(await requireAdmin(request, env, 'orders:manage'))) return publicJson(request, env, { error:'No autorizado.' }, 401);
   const order = await env.DB.prepare('SELECT id, status, payment_method FROM orders WHERE code = ?').bind(code).first();
   if (!order) return publicJson(request, env, { error:'Pedido inexistente.' }, 404);
   if (action === 'confirm') {
@@ -497,6 +534,80 @@ async function staffAction(request, env, code, action) {
     await env.DB.prepare("UPDATE print_jobs SET status='queued', device_id=NULL, leased_until=NULL, last_error=NULL, created_at=? WHERE order_id=?")
       .bind(now, order.id).run();
   }
+  return publicJson(request, env, { ok:true });
+}
+
+async function adminSession(request, env) {
+  const identity = await adminIdentity(request, env);
+  if (!identity) return publicJson(request, env, { error:'No autorizado.' }, 401);
+  return publicJson(request, env, { user:identity });
+}
+
+async function reportSummary(request, env) {
+  if (!(await requireAdmin(request, env, 'reports:view'))) return publicJson(request, env, { error:'No autorizado.' }, 401);
+  const requestedDays = Number(new URL(request.url).searchParams.get('days') || 30);
+  const days = [7, 30, 90].includes(requestedDays) ? requestedDays : 30;
+  const result = await env.DB.prepare(`
+    SELECT
+      COUNT(*) AS orders,
+      COALESCE(SUM(subtotal), 0) AS revenue,
+      COALESCE(AVG(subtotal), 0) AS average_ticket,
+      COALESCE(SUM(CASE WHEN fulfillment = 'delivery' THEN 1 ELSE 0 END), 0) AS delivery_orders,
+      COALESCE(SUM(CASE WHEN payment_method = 'mercadopago' THEN 1 ELSE 0 END), 0) AS online_orders
+    FROM orders
+    WHERE status = 'confirmed' AND datetime(confirmed_at) >= datetime('now', ?)
+  `).bind(`-${days} days`).first();
+  const top = await env.DB.prepare(`
+    SELECT oi.name, SUM(oi.quantity) AS quantity
+    FROM order_items oi JOIN orders o ON o.id = oi.order_id
+    WHERE o.status = 'confirmed' AND datetime(o.confirmed_at) >= datetime('now', ?)
+    GROUP BY oi.name ORDER BY quantity DESC, oi.name LIMIT 5
+  `).bind(`-${days} days`).all();
+  return publicJson(request, env, {
+    days,
+    summary:{
+      orders:Number(result?.orders || 0), revenue:Number(result?.revenue || 0), averageTicket:Math.round(Number(result?.average_ticket || 0)),
+      deliveryOrders:Number(result?.delivery_orders || 0), onlineOrders:Number(result?.online_orders || 0)
+    },
+    topProducts:top.results || []
+  });
+}
+
+async function platformProfiles(request, env) {
+  if (!requirePlatform(request, env)) return publicJson(request, env, { error:'No autorizado.' }, 401);
+  if (request.method === 'GET') {
+    const result = await env.DB.prepare(`SELECT id, store_id, name, email, role, permissions, active, created_at, updated_at FROM admin_profiles ORDER BY name`).all();
+    return publicJson(request, env, { stores:[{ id:'burger-tin', name:'Burger Tin', status:'Activo' }], profiles:(result.results || []).map(profile => ({ ...profile, permissions:parsePermissions(profile.permissions), active:Boolean(profile.active) })) });
+  }
+  let body;
+  try { body = await readJson(request); } catch (error) { return publicJson(request, env, { error:error.message }, 400); }
+  const name = String(body.name || '').trim();
+  const email = String(body.email || '').trim().toLowerCase();
+  const role = String(body.role || '').trim();
+  const permissions = Array.isArray(body.permissions) ? [...new Set(body.permissions.filter(item => ALL_ADMIN_PERMISSIONS.includes(item)))] : [];
+  if (permissions.includes('orders:manage') && !permissions.includes('orders:view')) permissions.push('orders:view');
+  if (name.length < 2 || name.length > 80) return publicJson(request, env, { error:'Ingresá un nombre válido.' }, 400);
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return publicJson(request, env, { error:'Ingresá un email válido.' }, 400);
+  if (role.length < 2 || role.length > 50 || !permissions.length) return publicJson(request, env, { error:'Elegí un rol y al menos un permiso.' }, 400);
+  const plainToken = `BT-${crypto.randomUUID().replaceAll('-', '')}${crypto.randomUUID().replaceAll('-', '').slice(0, 12)}`;
+  const id = crypto.randomUUID();
+  const now = new Date().toISOString();
+  await env.DB.prepare(`INSERT INTO admin_profiles (id, store_id, name, email, role, permissions, token_hash, active, created_at, updated_at) VALUES (?, 'burger-tin', ?, ?, ?, ?, ?, 1, ?, ?)`)
+    .bind(id, name, email, role, JSON.stringify(permissions), await sha256(plainToken), now, now).run();
+  return publicJson(request, env, { ok:true, id, token:plainToken }, 201);
+}
+
+async function updatePlatformProfile(request, env, id) {
+  if (!requirePlatform(request, env)) return publicJson(request, env, { error:'No autorizado.' }, 401);
+  let body;
+  try { body = await readJson(request); } catch (error) { return publicJson(request, env, { error:error.message }, 400); }
+  const current = await env.DB.prepare('SELECT id, permissions, active FROM admin_profiles WHERE id = ?').bind(id).first();
+  if (!current) return publicJson(request, env, { error:'Perfil inexistente.' }, 404);
+  const permissions = Array.isArray(body.permissions) ? [...new Set(body.permissions.filter(item => ALL_ADMIN_PERMISSIONS.includes(item)))] : parsePermissions(current.permissions);
+  if (permissions.includes('orders:manage') && !permissions.includes('orders:view')) permissions.push('orders:view');
+  const active = typeof body.active === 'boolean' ? body.active : Boolean(current.active);
+  await env.DB.prepare('UPDATE admin_profiles SET permissions = ?, active = ?, updated_at = ? WHERE id = ?')
+    .bind(JSON.stringify(permissions), active ? 1 : 0, new Date().toISOString(), id).run();
   return publicJson(request, env, { ok:true });
 }
 
@@ -558,7 +669,9 @@ export default {
     if (request.method === 'GET' && catalogImageMatch) return getCatalogImage(request, env, decodeURIComponent(catalogImageMatch[1]));
     if (request.method === 'POST' && url.pathname === '/api/orders') return createOrder(request, env);
     if (request.method === 'POST' && url.pathname === '/api/webhooks/mercadopago') return mercadoPagoWebhook(request, env);
+    if (request.method === 'GET' && url.pathname === '/api/admin/session') return adminSession(request, env);
     if (request.method === 'GET' && url.pathname === '/api/admin/orders') return listOrders(request, env);
+    if (request.method === 'GET' && url.pathname === '/api/admin/reports/summary') return reportSummary(request, env);
     if (request.method === 'GET' && url.pathname === '/api/admin/catalog') return adminCatalog(request, env);
     if (request.method === 'POST' && url.pathname === '/api/admin/products') return addProduct(request, env);
     if (request.method === 'GET' && url.pathname === '/api/admin/settings') return adminSettings(request, env);
@@ -571,6 +684,9 @@ export default {
     if (request.method === 'DELETE' && url.pathname === '/api/admin/history') return clearHistory(request, env);
     const staffMatch = url.pathname.match(/^\/api\/admin\/orders\/([^/]+)\/(confirm|reprint|cancel)$/);
     if (request.method === 'POST' && staffMatch) return staffAction(request, env, decodeURIComponent(staffMatch[1]), staffMatch[2]);
+    if (['GET','POST'].includes(request.method) && url.pathname === '/api/platform/profiles') return platformProfiles(request, env);
+    const platformProfileMatch = url.pathname.match(/^\/api\/platform\/profiles\/([^/]+)$/);
+    if (request.method === 'PATCH' && platformProfileMatch) return updatePlatformProfile(request, env, decodeURIComponent(platformProfileMatch[1]));
     if (request.method === 'GET' && url.pathname === '/api/print-jobs/next') return nextPrintJob(request, env);
     const ackMatch = url.pathname.match(/^\/api\/print-jobs\/([^/]+)\/ack$/);
     if (request.method === 'POST' && ackMatch) return acknowledgePrint(request, env, decodeURIComponent(ackMatch[1]));
