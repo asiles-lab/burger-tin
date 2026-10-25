@@ -3,8 +3,8 @@ main = "src/index.js"
 compatibility_date = "2026-10-01"
 
 [vars]
-ALLOWED_ORIGIN = "https://asiles-lab.github.io"
-PUBLIC_SITE_URL = "https://asiles-lab.github.io/burger-tin/"
+ALLOWED_ORIGIN = "https://asiles-lab.github.io,https://burger-tin-restia.burger-tin-orders.workers.dev,https://restia-admin.burger-tin-orders.workers.dev,https://burger-tin.restia.net.ar,https://admin.restia.net.ar"
+PUBLIC_SITE_URL = "https://burger-tin.restia.net.ar/"
 PUBLIC_API_URL = "https://burger-tin-orders.YOUR-SUBDOMAIN.workers.dev"
 WHATSAPP_PHONE = "5491127798677"
 PAYMENTS_MODE = "sandbox"

@@ -1,0 +1,13 @@
+{
+  "$schema": "./backend/node_modules/wrangler/config-schema.json",
+  "name": "burger-tin-restia",
+  "compatibility_date": "2026-10-25",
+  "workers_dev": true,
+  "preview_urls": true,
+  "assets": {
+    "directory": "./.cloudflare-dist/burger-tin"
+  },
+  "routes": [
+    { "pattern": "burger-tin.restia.net.ar", "custom_domain": true }
+  ]
+}

@@ -2,14 +2,16 @@
 
 ## Panel del comercio
 
-- URL: `admin.html` (la dirección anterior `panel.html` redirige automáticamente).
+- URL de producción: `https://burger-tin.restia.net.ar/admin/`.
+- El menú público funciona en `https://burger-tin.restia.net.ar/`.
+- GitHub conserva el código y puede mantener una copia de respaldo, pero no es el alojamiento principal.
 - Cada persona ingresa con su usuario y contraseña.
 - Los módulos visibles dependen de los permisos del perfil.
 - No existe un enlace desde el menú público hacia este panel.
 
 ## Panel maestro
 
-- URL: `platform.html`.
+- URL de producción: `https://admin.restia.net.ar/`.
 - El primer Super Admin se inicializa una sola vez con el secreto técnico `SUPERADMIN_TOKEN`.
 - Después, el acceso normal también usa usuario y contraseña.
 - Permite crear perfiles individuales, asignar permisos, restablecer contraseñas y desactivar accesos.
@@ -22,7 +24,13 @@ Esta implementación no requiere contratar hosting, base de datos ni autenticaci
 
 ## Marca y dominio
 
-Los paneles usan la identidad Restia y el lema “Tecnología para crecer”. El dominio `restia.ar` podrá apuntarse más adelante a estas interfaces mediante DNS y dominios personalizados, sin cambiar la lógica de acceso.
+Los paneles usan la identidad Restia y el lema “Tecnología para crecer”. `restia.net.ar` está delegado a Cloudflare mediante `dale.ns.cloudflare.com` y `meadow.ns.cloudflare.com`. El sitio público y el Super Admin se despliegan como Workers con recursos estáticos separados.
+
+Para publicar una nueva versión:
+
+1. Ejecutar `node scripts/build-cloudflare-pages.mjs`.
+2. Desplegar el comercio con `wrangler deploy -c wrangler.burger-tin.jsonc`.
+3. Desplegar el Super Admin con `wrangler deploy -c wrangler.restia-admin.jsonc`.
 
 Permisos disponibles: ver pedidos, gestionar pedidos e impresión, productos, configuración, reportes BI y facturación.
 

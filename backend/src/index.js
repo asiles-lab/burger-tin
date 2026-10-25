@@ -9,7 +9,8 @@ function json(data, status = 200, extraHeaders = {}) {
 
 function corsHeaders(request, env) {
   const origin = request.headers.get('origin') || '';
-  if (!origin || origin !== env.ALLOWED_ORIGIN) return {};
+  const allowedOrigins = String(env.ALLOWED_ORIGIN || '').split(',').map(value => value.trim()).filter(Boolean);
+  if (!origin || !allowedOrigins.includes(origin)) return {};
   return {
     'access-control-allow-origin': origin,
     'access-control-allow-methods': 'GET,POST,PATCH,DELETE,OPTIONS',
