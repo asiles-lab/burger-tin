@@ -8,9 +8,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="panel.css?v=2">
+  <link rel="stylesheet" href="panel.css?v=3">
   <script src="checkout-config.js?v=2"></script>
-  <script type="module" src="panel.mjs?v=5"></script>
+  <script type="module" src="panel.mjs?v=6"></script>
 </head>
 <body>
   <header><img src="assets/logo-burger-tun.png" alt="Burger Tin"><div><p>Panel del local</p><h1>Pedidos y comandas</h1></div><button id="refresh">Actualizar</button></header>
@@ -22,9 +22,15 @@
         <button class="view active" data-view="pending">Pendientes <span id="count-pending">0</span></button>
         <button class="view" data-view="today">Terminados hoy <span id="count-today">0</span></button>
         <button class="view" data-view="history">Historial <span id="count-history">0</span></button>
+        <button class="view" data-view="config">⚙ Configuración</button>
       </nav>
       <div class="history-tools" id="history-tools" hidden><p>Pedidos terminados de días anteriores.</p><button class="danger" id="clear-history">Borrar historial y reiniciar numeración</button></div>
       <div id="orders" class="orders"></div>
+      <section id="catalog-config" class="catalog-config" hidden>
+        <div class="config-intro"><div><p class="eyebrow">Menú digital</p><h2>Fotos y precios</h2><p>Los cambios se ven en la web apenas los guardás.</p></div><button id="reload-catalog" class="secondary">Recargar</button></div>
+        <div id="catalog-status" class="catalog-status" role="status"></div>
+        <div id="catalog-editor" class="catalog-editor"></div>
+      </section>
     </section>
   </main>
 </body>

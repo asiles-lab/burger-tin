@@ -5,6 +5,7 @@ const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&
 const money = value => new Intl.NumberFormat('es-AR',{style:'currency',currency:'ARS',maximumFractionDigits:0}).format(value);
 let token = sessionStorage.getItem('burger-tin-staff-token') || '';
 let currentView = 'pending';
+const pendingImages = new Map();
 
 async function call(path, options={}) {
   if (!config.enabled || !api.startsWith('https://')) throw new Error('El servidor todavía no está configurado.');
@@ -51,11 +52,52 @@ function updateCounts(counts={}) {
   $('#count-history').textContent=Number(counts.history || 0);
 }
 
+function renderCatalog(products) {
+  $('#catalog-editor').innerHTML = products.map(product => `<article class="product-editor" data-product-id="${escapeHtml(product.id)}">
+    <img src="${escapeHtml(product.image)}" alt="${escapeHtml(product.name)}" width="118" height="118">
+    <form>
+      <div><p class="category">${escapeHtml(product.category)}</p><h3>${escapeHtml(product.name)}</h3></div>
+      <label class="price-field"><span>$</span><input name="price" inputmode="numeric" type="number" min="1" max="10000000" step="1" value="${Number(product.price)}" aria-label="Precio de ${escapeHtml(product.name)}" required></label>
+      <label class="photo-button">Cambiar foto<input name="image" type="file" accept="image/jpeg,image/png,image/webp"></label>
+      <footer><button type="submit">Guardar cambios</button></footer>
+      <p class="save-note" aria-live="polite"></p>
+    </form>
+  </article>`).join('');
+}
+
+async function loadCatalog() {
+  $('#catalog-status').textContent='Cargando productos…';
+  try {
+    const result=await call('/api/admin/catalog');
+    renderCatalog(result.products || []);
+    $('#catalog-status').textContent=`${result.products?.length || 0} productos listos para editar.`;
+  } catch(error) {
+    $('#catalog-status').textContent=error.message;
+    if(/autorizado/.test(error.message))logout('La sesión venció o el token es incorrecto.');
+  }
+}
+
+async function optimizeImage(file) {
+  const bitmap=await createImageBitmap(file);
+  const maxSide=800;
+  const scale=Math.min(1,maxSide/Math.max(bitmap.width,bitmap.height));
+  const canvas=document.createElement('canvas');
+  canvas.width=Math.max(1,Math.round(bitmap.width*scale));
+  canvas.height=Math.max(1,Math.round(bitmap.height*scale));
+  canvas.getContext('2d').drawImage(bitmap,0,0,canvas.width,canvas.height);
+  bitmap.close();
+  const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',.8));
+  if(!blob)throw new Error('No pudimos preparar la imagen.');
+  if(blob.size>900000)throw new Error('La foto sigue siendo demasiado pesada. Probá con otra imagen.');
+  return blob;
+}
+
 function showLoginError(message='') {
   $('#login-error').textContent = message;
 }
 
 async function refresh() {
+  if(currentView==='config'){await loadCatalog();return;}
   try { const result=await call(`/api/admin/orders?view=${currentView}`); render(result.orders); updateCounts(result.counts); $('#connection').textContent='Actualizado · '+new Date().toLocaleTimeString('es-AR'); }
   catch(error){ $('#connection').textContent=error.message; if(/autorizado/.test(error.message)) logout('La sesión venció o el token es incorrecto. Volvé a ingresar con el token del local.'); }
 }
@@ -94,7 +136,50 @@ document.querySelector('.views').addEventListener('click',event=>{
   currentView=button.dataset.view;
   document.querySelectorAll('.view').forEach(item=>item.classList.toggle('active',item===button));
   $('#history-tools').hidden=currentView!=='history';
+  $('#orders').hidden=currentView==='config';
+  $('#catalog-config').hidden=currentView!=='config';
   refresh();
+});
+$('#reload-catalog').addEventListener('click',loadCatalog);
+$('#catalog-editor').addEventListener('change',event=>{
+  const card=event.target.closest('.product-editor');
+  if(!card)return;
+  card.classList.add('changed');
+  if(event.target.name==='image' && event.target.files?.[0]){
+    const previous=pendingImages.get(card.dataset.productId);
+    if(previous?.url)URL.revokeObjectURL(previous.url);
+    const file=event.target.files[0];
+    const url=URL.createObjectURL(file);
+    pendingImages.set(card.dataset.productId,{file,url});
+    card.querySelector('img').src=url;
+    card.querySelector('.save-note').textContent='Foto lista para guardar.';
+  }
+});
+$('#catalog-editor').addEventListener('input',event=>{
+  if(event.target.name==='price')event.target.closest('.product-editor')?.classList.add('changed');
+});
+$('#catalog-editor').addEventListener('submit',async event=>{
+  event.preventDefault();
+  const card=event.target.closest('.product-editor');
+  const id=card.dataset.productId;
+  const button=event.target.querySelector('button[type="submit"]');
+  const note=card.querySelector('.save-note');
+  button.disabled=true;button.textContent='Guardando…';note.textContent='';note.style.color='';
+  try{
+    const price=Number(new FormData(event.target).get('price'));
+    await call(`/api/admin/products/${encodeURIComponent(id)}`,{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({price})});
+    const pending=pendingImages.get(id);
+    if(pending){
+      const blob=await optimizeImage(pending.file);
+      const result=await call(`/api/admin/products/${encodeURIComponent(id)}/image`,{method:'POST',headers:{'content-type':blob.type},body:blob});
+      card.querySelector('img').src=result.image;
+      URL.revokeObjectURL(pending.url);
+      pendingImages.delete(id);
+      event.target.elements.image.value='';
+    }
+    card.classList.remove('changed');note.textContent='✓ Cambios publicados';
+  }catch(error){note.textContent=error.message;note.style.color='#b00020';}
+  finally{button.disabled=false;button.textContent='Guardar cambios';}
 });
 $('#clear-history').addEventListener('click',async()=>{
   if(!window.confirm('¿Borrar todos los pedidos terminados y cancelados, y reiniciar la numeración en A-001? Esta acción no se puede deshacer.'))return;
@@ -113,4 +198,4 @@ $('#orders').addEventListener('click',async event=>{
   finally{button.disabled=false;}
 });
 if(token)showOrders();
-setInterval(()=>{if(token)refresh();},15000);
+setInterval(()=>{if(token && currentView!=='config')refresh();},15000);

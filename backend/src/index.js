@@ -12,7 +12,7 @@ function corsHeaders(request, env) {
   if (!origin || origin !== env.ALLOWED_ORIGIN) return {};
   return {
     'access-control-allow-origin': origin,
-    'access-control-allow-methods': 'GET,POST,DELETE,OPTIONS',
+    'access-control-allow-methods': 'GET,POST,PATCH,DELETE,OPTIONS',
     'access-control-allow-headers': 'content-type,authorization,x-burger-tin-agent',
     'access-control-max-age': '86400',
     vary: 'Origin'
@@ -37,9 +37,96 @@ async function readJson(request) {
   return request.json();
 }
 
+async function ensureProducts(env) {
+  const row = await env.DB.prepare('SELECT COUNT(*) AS total FROM products').first();
+  if (Number(row?.total) > 0) return;
+  const now = new Date().toISOString();
+  await env.DB.batch(store.products.map((product, index) => env.DB.prepare(`
+    INSERT OR IGNORE INTO products (id, name, description, category, price, default_image, sort_order, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(product.id, product.name, product.description || '', product.category, product.price, product.image || null, index, now)));
+}
+
+function catalogImage(env, product) {
+  if (!product.image_type) return product.default_image || '';
+  const base = String(env.PUBLIC_API_URL || '').replace(/\/$/, '');
+  return `${base}/api/catalog/images/${encodeURIComponent(product.id)}?v=${encodeURIComponent(product.image_updated_at || product.updated_at)}`;
+}
+
+async function catalogProducts(env) {
+  await ensureProducts(env);
+  const result = await env.DB.prepare(`
+    SELECT id, name, description, category, price, default_image, image_type, image_updated_at, updated_at
+    FROM products ORDER BY sort_order, name
+  `).all();
+  return (result.results || []).map(product => ({
+    id: product.id,
+    name: product.name,
+    description: product.description,
+    category: product.category,
+    price: Number(product.price),
+    image: catalogImage(env, product),
+    customImage: Boolean(product.image_type),
+    updatedAt: product.updated_at
+  }));
+}
+
+async function getCatalog(request, env) {
+  try { return publicJson(request, env, { ...store, products: await catalogProducts(env) }); }
+  catch (error) {
+    console.error('Catalog error', error.message);
+    return publicJson(request, env, { error:'No pudimos cargar el catalogo.' }, 503);
+  }
+}
+
+async function getCatalogImage(request, env, id) {
+  const product = await env.DB.prepare('SELECT image_data, image_type, image_updated_at FROM products WHERE id = ?').bind(id).first();
+  if (!product?.image_data || !product.image_type) return publicJson(request, env, { error:'Imagen inexistente.' }, 404);
+  return new Response(product.image_data, { headers:{
+    'content-type': product.image_type,
+    'cache-control': 'public, max-age=31536000, immutable',
+    etag: `"${product.image_updated_at || id}"`,
+    ...corsHeaders(request, env)
+  }});
+}
+
+async function adminCatalog(request, env) {
+  if (!requireBearer(request, env.STAFF_TOKEN)) return publicJson(request, env, { error:'No autorizado.' }, 401);
+  return publicJson(request, env, { products: await catalogProducts(env) });
+}
+
+async function updateProduct(request, env, id) {
+  if (!requireBearer(request, env.STAFF_TOKEN)) return publicJson(request, env, { error:'No autorizado.' }, 401);
+  let body;
+  try { body = await readJson(request); }
+  catch (error) { return publicJson(request, env, { error:error.message }, 400); }
+  const price = Number(body.price);
+  if (!Number.isInteger(price) || price < 1 || price > 10000000) return publicJson(request, env, { error:'Ingresá un precio válido.' }, 400);
+  const result = await env.DB.prepare('UPDATE products SET price = ?, updated_at = ? WHERE id = ?')
+    .bind(price, new Date().toISOString(), id).run();
+  if (!result.meta.changes) return publicJson(request, env, { error:'Producto inexistente.' }, 404);
+  return publicJson(request, env, { ok:true });
+}
+
+async function updateProductImage(request, env, id) {
+  if (!requireBearer(request, env.STAFF_TOKEN)) return publicJson(request, env, { error:'No autorizado.' }, 401);
+  const type = (request.headers.get('content-type') || '').split(';')[0].toLowerCase();
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(type)) return publicJson(request, env, { error:'Usá una imagen JPG, PNG o WebP.' }, 415);
+  const length = Number(request.headers.get('content-length') || 0);
+  if (length > 900000) return publicJson(request, env, { error:'La imagen supera el máximo de 900 KB.' }, 413);
+  const bytes = await request.arrayBuffer();
+  if (bytes.byteLength < 100 || bytes.byteLength > 900000) return publicJson(request, env, { error:'La imagen está vacía o es demasiado pesada.' }, 400);
+  const now = new Date().toISOString();
+  const result = await env.DB.prepare(`
+    UPDATE products SET image_data = ?, image_type = ?, image_updated_at = ?, updated_at = ? WHERE id = ?
+  `).bind(bytes, type, now, now, id).run();
+  if (!result.meta.changes) return publicJson(request, env, { error:'Producto inexistente.' }, 404);
+  return publicJson(request, env, { ok:true, image:`${String(env.PUBLIC_API_URL || '').replace(/\/$/, '')}/api/catalog/images/${encodeURIComponent(id)}?v=${encodeURIComponent(now)}` });
+}
+
 async function createOrder(request, env) {
   let order;
-  try { order = validateOrderInput(await readJson(request), store.products); }
+  try { order = validateOrderInput(await readJson(request), await catalogProducts(env)); }
   catch (error) { return publicJson(request, env, { error: error.message }, 400); }
 
   let code;
@@ -301,9 +388,17 @@ export default {
     const url = new URL(request.url);
     if (request.method === 'OPTIONS') return new Response('', { status:204, headers:corsHeaders(request, env) });
     if (request.method === 'GET' && url.pathname === '/health') return json({ ok:true, service:'burger-tin-orders' });
+    if (request.method === 'GET' && url.pathname === '/api/catalog') return getCatalog(request, env);
+    const catalogImageMatch = url.pathname.match(/^\/api\/catalog\/images\/([^/]+)$/);
+    if (request.method === 'GET' && catalogImageMatch) return getCatalogImage(request, env, decodeURIComponent(catalogImageMatch[1]));
     if (request.method === 'POST' && url.pathname === '/api/orders') return createOrder(request, env);
     if (request.method === 'POST' && url.pathname === '/api/webhooks/mercadopago') return mercadoPagoWebhook(request, env);
     if (request.method === 'GET' && url.pathname === '/api/admin/orders') return listOrders(request, env);
+    if (request.method === 'GET' && url.pathname === '/api/admin/catalog') return adminCatalog(request, env);
+    const productMatch = url.pathname.match(/^\/api\/admin\/products\/([^/]+)$/);
+    if (request.method === 'PATCH' && productMatch) return updateProduct(request, env, decodeURIComponent(productMatch[1]));
+    const productImageMatch = url.pathname.match(/^\/api\/admin\/products\/([^/]+)\/image$/);
+    if (request.method === 'POST' && productImageMatch) return updateProductImage(request, env, decodeURIComponent(productImageMatch[1]));
     if (request.method === 'DELETE' && url.pathname === '/api/admin/history') return clearHistory(request, env);
     const staffMatch = url.pathname.match(/^\/api\/admin\/orders\/([^/]+)\/(confirm|reprint|cancel)$/);
     if (request.method === 'POST' && staffMatch) return staffAction(request, env, decodeURIComponent(staffMatch[1]), staffMatch[2]);

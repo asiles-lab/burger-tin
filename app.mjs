@@ -192,9 +192,18 @@ $('#checkout-form').addEventListener('submit', async event => {
 });
 
 try {
-  const response = await fetch('./catalog.json', { cache: 'no-store' });
-  if (!response.ok) throw new Error('No pudimos cargar el menú.');
-  store = await response.json();
+  const staticResponse = await fetch('./catalog.json', { cache: 'no-store' });
+  if (!staticResponse.ok) throw new Error('No pudimos cargar el menú.');
+  store = await staticResponse.json();
+  const apiBaseUrl = String(checkoutConfig.apiBaseUrl || '').replace(/\/$/, '');
+  if (checkoutConfig.enabled && apiBaseUrl.startsWith('https://')) {
+    try {
+      const liveResponse = await fetch(`${apiBaseUrl}/api/catalog`, { cache:'no-store' });
+      if (liveResponse.ok) store = await liveResponse.json();
+    } catch (error) {
+      console.warn('Usando catálogo local de respaldo:', error.message);
+    }
+  }
   catalog = store.products || [];
   const saved = JSON.parse(localStorage.getItem('burger-tin-cart-v1') || '{}');
   if (saved && typeof saved === 'object' && !Array.isArray(saved)) {
