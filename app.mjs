@@ -192,7 +192,7 @@ $('#checkout-form').addEventListener('submit', async event => {
 });
 
 try {
-  const response = await fetch('./catalog.json');
+  const response = await fetch('./catalog.json', { cache: 'no-store' });
   if (!response.ok) throw new Error('No pudimos cargar el menú.');
   store = await response.json();
   catalog = store.products || [];
