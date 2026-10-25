@@ -32,11 +32,62 @@ function requireBearer(request, expected) {
   return Boolean(expected) && timingSafeEqualText(bearer(request), expected);
 }
 
-const ALL_ADMIN_PERMISSIONS = ['orders:view','orders:manage','products:manage','store:manage','reports:view','billing:manage'];
+const ALL_ADMIN_PERMISSIONS = ['orders:view','orders:manage','products:manage','store:manage','reports:view','billing:manage','platform:manage'];
+const STORE_PERMISSIONS = ALL_ADMIN_PERMISSIONS.filter(permission => permission !== 'platform:manage');
+const PASSWORD_ITERATIONS = 120000;
 
 async function sha256(value) {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(String(value)));
   return [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
+function randomToken(byteLength = 32) {
+  return bytesToBase64(crypto.getRandomValues(new Uint8Array(byteLength))).replaceAll('+','-').replaceAll('/','_').replaceAll('=','');
+}
+
+function normalizedUsername(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function validCredentialMaterial(verifier, salt) {
+  try {
+    return base64ToBytes(verifier).length === 32 && base64ToBytes(salt).length === 16;
+  } catch { return false; }
+}
+
+async function credentialDigest(env, verifier, salt) {
+  if (!env.SETTINGS_ENCRYPTION_KEY) throw new Error('Falta configurar la clave privada del servidor.');
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(env.SETTINGS_ENCRYPTION_KEY),
+    { name:'HMAC', hash:'SHA-256' },
+    false,
+    ['sign']
+  );
+  const signature = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(`${salt}.${verifier}`));
+  return bytesToBase64(new Uint8Array(signature));
+}
+
+async function verifierRecord(env, verifier, salt) {
+  if (!validCredentialMaterial(verifier, salt)) throw new Error('Material de contraseña inválido.');
+  return { salt, hash:await credentialDigest(env, verifier, salt), iterations:PASSWORD_ITERATIONS };
+}
+
+async function passwordChallenge(request, env) {
+  let body;
+  try { body = await readJson(request); } catch (error) { return publicJson(request, env, { error:error.message }, 400); }
+  const username = normalizedUsername(body.username);
+  const scope = body.scope === 'platform' ? 'platform' : 'store';
+  if (!/^[a-z0-9._-]{3,40}$/.test(username)) return publicJson(request, env, { error:'Ingresá un usuario válido.' }, 400);
+  const profile = await env.DB.prepare('SELECT store_id, permissions, password_salt FROM admin_profiles WHERE lower(username) = ? AND active = 1').bind(username).first();
+  const permissions = parsePermissions(profile?.permissions);
+  const correctScope = scope === 'platform' ? permissions.includes('platform:manage') : profile?.store_id === 'burger-tin' && permissions.some(item => STORE_PERMISSIONS.includes(item));
+  let salt = correctScope && profile?.password_salt ? profile.password_salt : '';
+  if (!salt) {
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`restia:${scope}:${username}`));
+    salt = bytesToBase64(new Uint8Array(digest).slice(0, 16));
+  }
+  return publicJson(request, env, { salt, iterations:PASSWORD_ITERATIONS });
 }
 
 function parsePermissions(value) {
@@ -49,15 +100,13 @@ function parsePermissions(value) {
 async function adminIdentity(request, env) {
   const supplied = bearer(request);
   if (!supplied) return null;
-  if (env.STAFF_TOKEN && timingSafeEqualText(supplied, env.STAFF_TOKEN)) {
-    return { id:'legacy-owner', name:'Administrador', email:'', role:'Propietario', storeId:'burger-tin', permissions:ALL_ADMIN_PERMISSIONS };
-  }
   const profile = await env.DB.prepare(`
-    SELECT id, store_id, name, email, role, permissions
-    FROM admin_profiles WHERE token_hash = ? AND active = 1
-  `).bind(await sha256(supplied)).first();
+    SELECT p.id, p.store_id, p.name, p.email, p.username, p.role, p.permissions, p.must_change_password
+    FROM admin_sessions s JOIN admin_profiles p ON p.id = s.profile_id
+    WHERE s.token_hash = ? AND s.expires_at > ? AND p.active = 1
+  `).bind(await sha256(supplied), new Date().toISOString()).first();
   if (!profile) return null;
-  return { id:profile.id, name:profile.name, email:profile.email, role:profile.role, storeId:profile.store_id, permissions:parsePermissions(profile.permissions) };
+  return { id:profile.id, name:profile.name, email:profile.email, username:profile.username, role:profile.role, storeId:profile.store_id, permissions:parsePermissions(profile.permissions), mustChangePassword:Boolean(profile.must_change_password) };
 }
 
 async function requireAdmin(request, env, permission) {
@@ -65,13 +114,65 @@ async function requireAdmin(request, env, permission) {
   return identity?.permissions.includes(permission) ? identity : null;
 }
 
-function requirePlatform(request, env) {
-  return requireBearer(request, env.SUPERADMIN_TOKEN);
-}
-
 async function readJson(request) {
   if (!(request.headers.get('content-type') || '').toLowerCase().includes('application/json')) throw new Error('Se esperaba JSON.');
   return request.json();
+}
+
+async function login(request, env) {
+  let body;
+  try { body = await readJson(request); } catch (error) { return publicJson(request, env, { error:error.message }, 400); }
+  const username = normalizedUsername(body.username);
+  const passwordVerifier = String(body.passwordVerifier || '');
+  const scope = body.scope === 'platform' ? 'platform' : 'store';
+  if (!/^[a-z0-9._-]{3,40}$/.test(username) || !validCredentialMaterial(passwordVerifier, body.passwordSalt)) return publicJson(request, env, { error:'Usuario o contraseña incorrectos.' }, 401);
+  const profile = await env.DB.prepare(`SELECT * FROM admin_profiles WHERE lower(username) = ? AND active = 1`).bind(username).first();
+  const permissions = parsePermissions(profile?.permissions);
+  const wrongScope = scope === 'platform' ? !permissions.includes('platform:manage') : (profile?.store_id !== 'burger-tin' || !permissions.some(item => STORE_PERMISSIONS.includes(item)));
+  const locked = profile?.locked_until && new Date(profile.locked_until).getTime() > Date.now();
+  let valid = false;
+  if (profile?.password_hash && profile?.password_salt && !locked && !wrongScope) {
+    const calculated = await credentialDigest(env, passwordVerifier, profile.password_salt);
+    valid = timingSafeEqualText(calculated, profile.password_hash);
+  }
+  if (!valid) {
+    if (profile && !locked) {
+      const attempts = Number(profile.failed_attempts || 0) + 1;
+      const lockUntil = attempts >= 5 ? new Date(Date.now() + 15 * 60000).toISOString() : null;
+      await env.DB.prepare('UPDATE admin_profiles SET failed_attempts = ?, locked_until = ? WHERE id = ?').bind(attempts >= 5 ? 0 : attempts, lockUntil, profile.id).run();
+    }
+    return publicJson(request, env, { error:locked?'Acceso bloqueado temporalmente. Intentá nuevamente en unos minutos.':'Usuario o contraseña incorrectos.' }, 401);
+  }
+  const session = randomToken();
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + 12 * 60 * 60000).toISOString();
+  await env.DB.batch([
+    env.DB.prepare('UPDATE admin_profiles SET failed_attempts = 0, locked_until = NULL WHERE id = ?').bind(profile.id),
+    env.DB.prepare('DELETE FROM admin_sessions WHERE expires_at <= ?').bind(now.toISOString()),
+    env.DB.prepare('INSERT INTO admin_sessions (token_hash, profile_id, created_at, expires_at) VALUES (?, ?, ?, ?)').bind(await sha256(session), profile.id, now.toISOString(), expiresAt)
+  ]);
+  return publicJson(request, env, { session, expiresAt, user:{ id:profile.id, name:profile.name, email:profile.email, username:profile.username, role:profile.role, storeId:profile.store_id, permissions, mustChangePassword:Boolean(profile.must_change_password) } });
+}
+
+async function logoutSession(request, env) {
+  const supplied = bearer(request);
+  if (supplied) await env.DB.prepare('DELETE FROM admin_sessions WHERE token_hash = ?').bind(await sha256(supplied)).run();
+  return publicJson(request, env, { ok:true });
+}
+
+async function changePassword(request, env) {
+  const identity = await adminIdentity(request, env);
+  if (!identity) return publicJson(request, env, { error:'No autorizado.' }, 401);
+  let body;
+  try { body = await readJson(request); } catch (error) { return publicJson(request, env, { error:error.message }, 400); }
+  const passwordVerifier = String(body.passwordVerifier || ''), passwordSalt = String(body.passwordSalt || '');
+  if (!validCredentialMaterial(passwordVerifier, passwordSalt)) return publicJson(request, env, { error:'No pudimos proteger la nueva contraseña.' }, 400);
+  const record = await verifierRecord(env, passwordVerifier, passwordSalt);
+  await env.DB.batch([
+    env.DB.prepare('UPDATE admin_profiles SET password_hash = ?, password_salt = ?, password_iterations = ?, must_change_password = 0, updated_at = ? WHERE id = ?').bind(record.hash, record.salt, record.iterations, new Date().toISOString(), identity.id),
+    env.DB.prepare('DELETE FROM admin_sessions WHERE profile_id = ? AND token_hash != ?').bind(identity.id, await sha256(bearer(request)))
+  ]);
+  return publicJson(request, env, { ok:true });
 }
 
 function settingMap(rows) {
@@ -573,32 +674,64 @@ async function reportSummary(request, env) {
   });
 }
 
+async function bootstrapPlatform(request, env) {
+  if (!requireBearer(request, env.SUPERADMIN_TOKEN)) return publicJson(request, env, { error:'No autorizado.' }, 401);
+  const existing = await env.DB.prepare("SELECT id FROM admin_profiles WHERE store_id = 'platform' AND username IS NOT NULL LIMIT 1").first();
+  if (existing) return publicJson(request, env, { error:'El Super Admin ya fue inicializado.' }, 409);
+  let body;
+  try { body = await readJson(request); } catch (error) { return publicJson(request, env, { error:error.message }, 400); }
+  const name = String(body.name || '').trim(), email = String(body.email || '').trim().toLowerCase(), username = normalizedUsername(body.username);
+  const passwordVerifier = String(body.passwordVerifier || ''), passwordSalt = String(body.passwordSalt || '');
+  if (name.length < 2 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !/^[a-z0-9._-]{3,40}$/.test(username) || !validCredentialMaterial(passwordVerifier, passwordSalt)) return publicJson(request, env, { error:'Revisá los datos del Super Admin.' }, 400);
+  const record = await verifierRecord(env, passwordVerifier, passwordSalt), now = new Date().toISOString();
+  await env.DB.prepare(`INSERT INTO admin_profiles (id, store_id, name, email, username, role, permissions, token_hash, password_hash, password_salt, password_iterations, active, must_change_password, created_at, updated_at) VALUES (?, 'platform', ?, ?, ?, 'Superadmin', ?, ?, ?, ?, ?, 1, 1, ?, ?)`)
+    .bind(crypto.randomUUID(), name, email, username, JSON.stringify(['platform:manage']), await sha256(randomToken()), record.hash, record.salt, record.iterations, now, now).run();
+  return publicJson(request, env, { ok:true }, 201);
+}
+
 async function platformProfiles(request, env) {
-  if (!requirePlatform(request, env)) return publicJson(request, env, { error:'No autorizado.' }, 401);
+  if (!(await requireAdmin(request, env, 'platform:manage'))) return publicJson(request, env, { error:'No autorizado.' }, 401);
   if (request.method === 'GET') {
-    const result = await env.DB.prepare(`SELECT id, store_id, name, email, role, permissions, active, created_at, updated_at FROM admin_profiles ORDER BY name`).all();
-    return publicJson(request, env, { stores:[{ id:'burger-tin', name:'Burger Tin', status:'Activo' }], profiles:(result.results || []).map(profile => ({ ...profile, permissions:parsePermissions(profile.permissions), active:Boolean(profile.active) })) });
+    const result = await env.DB.prepare(`SELECT id, store_id, name, email, username, role, permissions, active, must_change_password, created_at, updated_at FROM admin_profiles WHERE username IS NOT NULL ORDER BY store_id, name`).all();
+    return publicJson(request, env, { stores:[{ id:'burger-tin', name:'Burger Tin', status:'Activo' }], profiles:(result.results || []).map(profile => ({ ...profile, permissions:parsePermissions(profile.permissions), active:Boolean(profile.active), mustChangePassword:Boolean(profile.must_change_password) })) });
   }
   let body;
   try { body = await readJson(request); } catch (error) { return publicJson(request, env, { error:error.message }, 400); }
   const name = String(body.name || '').trim();
   const email = String(body.email || '').trim().toLowerCase();
+  const username = normalizedUsername(body.username);
+  const passwordVerifier = String(body.passwordVerifier || '');
+  const passwordSalt = String(body.passwordSalt || '');
   const role = String(body.role || '').trim();
   const permissions = Array.isArray(body.permissions) ? [...new Set(body.permissions.filter(item => ALL_ADMIN_PERMISSIONS.includes(item)))] : [];
+  const scope = body.scope === 'platform' ? 'platform' : 'burger-tin';
+  if (scope === 'platform' && !permissions.includes('platform:manage')) permissions.push('platform:manage');
+  if (scope !== 'platform') {
+    const platformIndex = permissions.indexOf('platform:manage');
+    if (platformIndex >= 0) permissions.splice(platformIndex, 1);
+  }
   if (permissions.includes('orders:manage') && !permissions.includes('orders:view')) permissions.push('orders:view');
   if (name.length < 2 || name.length > 80) return publicJson(request, env, { error:'Ingresá un nombre válido.' }, 400);
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return publicJson(request, env, { error:'Ingresá un email válido.' }, 400);
+  if (!/^[a-z0-9._-]{3,40}$/.test(username)) return publicJson(request, env, { error:'El usuario debe tener entre 3 y 40 caracteres: letras, números, punto, guion o guion bajo.' }, 400);
+  if (!validCredentialMaterial(passwordVerifier, passwordSalt)) return publicJson(request, env, { error:'No pudimos proteger la contraseña inicial.' }, 400);
   if (role.length < 2 || role.length > 50 || !permissions.length) return publicJson(request, env, { error:'Elegí un rol y al menos un permiso.' }, 400);
-  const plainToken = `BT-${crypto.randomUUID().replaceAll('-', '')}${crypto.randomUUID().replaceAll('-', '').slice(0, 12)}`;
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
-  await env.DB.prepare(`INSERT INTO admin_profiles (id, store_id, name, email, role, permissions, token_hash, active, created_at, updated_at) VALUES (?, 'burger-tin', ?, ?, ?, ?, ?, 1, ?, ?)`)
-    .bind(id, name, email, role, JSON.stringify(permissions), await sha256(plainToken), now, now).run();
-  return publicJson(request, env, { ok:true, id, token:plainToken }, 201);
+  const record = await verifierRecord(env, passwordVerifier, passwordSalt);
+  try {
+    await env.DB.prepare(`INSERT INTO admin_profiles (id, store_id, name, email, username, role, permissions, token_hash, password_hash, password_salt, password_iterations, active, must_change_password, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, ?, ?)`)
+      .bind(id, scope, name, email, username, role, JSON.stringify(permissions), await sha256(randomToken()), record.hash, record.salt, record.iterations, now, now).run();
+  } catch (error) {
+    if (/unique/i.test(error.message)) return publicJson(request, env, { error:'Ese nombre de usuario ya existe.' }, 409);
+    throw error;
+  }
+  return publicJson(request, env, { ok:true, id }, 201);
 }
 
 async function updatePlatformProfile(request, env, id) {
-  if (!requirePlatform(request, env)) return publicJson(request, env, { error:'No autorizado.' }, 401);
+  const operator = await requireAdmin(request, env, 'platform:manage');
+  if (!operator) return publicJson(request, env, { error:'No autorizado.' }, 401);
   let body;
   try { body = await readJson(request); } catch (error) { return publicJson(request, env, { error:error.message }, 400); }
   const current = await env.DB.prepare('SELECT id, permissions, active FROM admin_profiles WHERE id = ?').bind(id).first();
@@ -606,8 +739,16 @@ async function updatePlatformProfile(request, env, id) {
   const permissions = Array.isArray(body.permissions) ? [...new Set(body.permissions.filter(item => ALL_ADMIN_PERMISSIONS.includes(item)))] : parsePermissions(current.permissions);
   if (permissions.includes('orders:manage') && !permissions.includes('orders:view')) permissions.push('orders:view');
   const active = typeof body.active === 'boolean' ? body.active : Boolean(current.active);
-  await env.DB.prepare('UPDATE admin_profiles SET permissions = ?, active = ?, updated_at = ? WHERE id = ?')
-    .bind(JSON.stringify(permissions), active ? 1 : 0, new Date().toISOString(), id).run();
+  if (id === operator.id && !active) return publicJson(request, env, { error:'No podés desactivar tu propio usuario.' }, 409);
+  const passwordVerifier = String(body.passwordVerifier || ''), passwordSalt = String(body.passwordSalt || '');
+  const statements = [env.DB.prepare('UPDATE admin_profiles SET permissions = ?, active = ?, updated_at = ? WHERE id = ?').bind(JSON.stringify(permissions), active ? 1 : 0, new Date().toISOString(), id)];
+  if (passwordVerifier || passwordSalt) {
+    if (!validCredentialMaterial(passwordVerifier, passwordSalt)) return publicJson(request, env, { error:'No pudimos proteger la nueva contraseña.' }, 400);
+    const record = await verifierRecord(env, passwordVerifier, passwordSalt);
+    statements.push(env.DB.prepare('UPDATE admin_profiles SET password_hash = ?, password_salt = ?, password_iterations = ?, must_change_password = 1 WHERE id = ?').bind(record.hash, record.salt, record.iterations, id));
+    statements.push(env.DB.prepare('DELETE FROM admin_sessions WHERE profile_id = ?').bind(id));
+  }
+  await env.DB.batch(statements);
   return publicJson(request, env, { ok:true });
 }
 
@@ -668,6 +809,11 @@ export default {
     const catalogImageMatch = url.pathname.match(/^\/api\/catalog\/images\/([^/]+)$/);
     if (request.method === 'GET' && catalogImageMatch) return getCatalogImage(request, env, decodeURIComponent(catalogImageMatch[1]));
     if (request.method === 'POST' && url.pathname === '/api/orders') return createOrder(request, env);
+    if (request.method === 'POST' && url.pathname === '/api/auth/challenge') return passwordChallenge(request, env);
+    if (request.method === 'POST' && url.pathname === '/api/auth/login') return login(request, env);
+    if (request.method === 'POST' && url.pathname === '/api/auth/logout') return logoutSession(request, env);
+    if (request.method === 'POST' && url.pathname === '/api/auth/change-password') return changePassword(request, env);
+    if (request.method === 'POST' && url.pathname === '/api/platform/bootstrap') return bootstrapPlatform(request, env);
     if (request.method === 'POST' && url.pathname === '/api/webhooks/mercadopago') return mercadoPagoWebhook(request, env);
     if (request.method === 'GET' && url.pathname === '/api/admin/session') return adminSession(request, env);
     if (request.method === 'GET' && url.pathname === '/api/admin/orders') return listOrders(request, env);
