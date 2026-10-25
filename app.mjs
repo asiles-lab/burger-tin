@@ -211,5 +211,5 @@ try {
   if (payment === 'failure') notify('El pago no se completó. Podés intentarlo nuevamente.');
   renderMenu(); updateCart(); changeMethod(); changePaymentMethod();
 } catch (error) {
-  $('#menu-groups').innerHTML = `<p class="load-error">${escapeHtml(error.message)} <a href="https://wa.me/c/82940499390482">Abrir catálogo de WhatsApp</a></p>`;
+  $('#menu-groups').innerHTML = `<p class="load-error">${escapeHtml(error.message)} <a href="https://wa.me/c/5491127798677">Abrir catálogo de WhatsApp</a></p>`;
 }
