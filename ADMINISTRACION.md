@@ -14,11 +14,15 @@
 - URL de producción: `https://admin.restia.net.ar/`.
 - El primer Super Admin se inicializa una sola vez con el secreto técnico `SUPERADMIN_TOKEN`.
 - Después, el acceso normal también usa usuario y contraseña.
-- Permite crear perfiles individuales, asignar permisos, restablecer contraseñas y desactivar accesos.
+- Permite crear, editar y eliminar perfiles individuales, asignar permisos, restablecer contraseñas y desactivar accesos.
 
 ## Protección de contraseñas y costo
 
 Para conservar el plan gratuito de Cloudflare Workers, el cálculo PBKDF2-SHA-256 de 120.000 iteraciones se realiza en el navegador. La contraseña nunca se envía al servidor. El backend guarda únicamente un verificador protegido además con HMAC-SHA-256 y una clave privada de Cloudflare (`SETTINGS_ENCRYPTION_KEY`). Las sesiones duran 12 horas y se almacenan con hash; cinco intentos fallidos bloquean temporalmente el usuario.
+
+Las contraseñas no están guardadas en archivos locales ni pueden consultarse desde el panel. En Cloudflare D1 solo se almacena el verificador irreversible. Si alguien pierde su clave, un Super Admin debe usar **Restablecer clave** y entregar una contraseña temporal; el usuario tendrá que reemplazarla en el siguiente ingreso. El navegador conserva únicamente la sesión activa en `sessionStorage`, que se elimina al cerrar sesión.
+
+Por seguridad, un Super Admin no puede eliminar ni desactivar su propio usuario. Tampoco se permite borrar el último Super Admin activo.
 
 Esta implementación no requiere contratar hosting, base de datos ni autenticación. Sigue dentro de GitHub Pages, Cloudflare Workers y D1 gratuitos, sujeto a sus límites de uso.
 

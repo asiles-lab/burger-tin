@@ -735,21 +735,54 @@ async function updatePlatformProfile(request, env, id) {
   if (!operator) return publicJson(request, env, { error:'No autorizado.' }, 401);
   let body;
   try { body = await readJson(request); } catch (error) { return publicJson(request, env, { error:error.message }, 400); }
-  const current = await env.DB.prepare('SELECT id, permissions, active FROM admin_profiles WHERE id = ?').bind(id).first();
+  const current = await env.DB.prepare('SELECT id, store_id, name, email, username, role, permissions, active FROM admin_profiles WHERE id = ?').bind(id).first();
   if (!current) return publicJson(request, env, { error:'Perfil inexistente.' }, 404);
+  const name = body.name === undefined ? current.name : String(body.name || '').trim();
+  const email = body.email === undefined ? current.email : String(body.email || '').trim().toLowerCase();
+  const username = body.username === undefined ? current.username : normalizedUsername(body.username);
+  const role = body.role === undefined ? current.role : String(body.role || '').trim();
   const permissions = Array.isArray(body.permissions) ? [...new Set(body.permissions.filter(item => ALL_ADMIN_PERMISSIONS.includes(item)))] : parsePermissions(current.permissions);
+  if (current.store_id === 'platform' && !permissions.includes('platform:manage')) permissions.push('platform:manage');
+  if (current.store_id !== 'platform') {
+    const platformIndex = permissions.indexOf('platform:manage');
+    if (platformIndex >= 0) permissions.splice(platformIndex, 1);
+  }
   if (permissions.includes('orders:manage') && !permissions.includes('orders:view')) permissions.push('orders:view');
   const active = typeof body.active === 'boolean' ? body.active : Boolean(current.active);
   if (id === operator.id && !active) return publicJson(request, env, { error:'No podés desactivar tu propio usuario.' }, 409);
+  if (name.length < 2 || name.length > 80) return publicJson(request, env, { error:'Ingresá un nombre válido.' }, 400);
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return publicJson(request, env, { error:'Ingresá un email válido.' }, 400);
+  if (!/^[a-z0-9._-]{3,40}$/.test(username)) return publicJson(request, env, { error:'El usuario debe tener entre 3 y 40 caracteres: letras, números, punto, guion o guion bajo.' }, 400);
+  if (role.length < 2 || role.length > 50 || !permissions.length) return publicJson(request, env, { error:'Elegí un rol y al menos un permiso.' }, 400);
   const passwordVerifier = String(body.passwordVerifier || ''), passwordSalt = String(body.passwordSalt || '');
-  const statements = [env.DB.prepare('UPDATE admin_profiles SET permissions = ?, active = ?, updated_at = ? WHERE id = ?').bind(JSON.stringify(permissions), active ? 1 : 0, new Date().toISOString(), id)];
+  const statements = [env.DB.prepare('UPDATE admin_profiles SET name = ?, email = ?, username = ?, role = ?, permissions = ?, active = ?, updated_at = ? WHERE id = ?').bind(name, email, username, role, JSON.stringify(permissions), active ? 1 : 0, new Date().toISOString(), id)];
+  if (!active) statements.push(env.DB.prepare('DELETE FROM admin_sessions WHERE profile_id = ?').bind(id));
   if (passwordVerifier || passwordSalt) {
     if (!validCredentialMaterial(passwordVerifier, passwordSalt)) return publicJson(request, env, { error:'No pudimos proteger la nueva contraseña.' }, 400);
     const record = await verifierRecord(env, passwordVerifier, passwordSalt);
     statements.push(env.DB.prepare('UPDATE admin_profiles SET password_hash = ?, password_salt = ?, password_iterations = ?, must_change_password = 1 WHERE id = ?').bind(record.hash, record.salt, record.iterations, id));
     statements.push(env.DB.prepare('DELETE FROM admin_sessions WHERE profile_id = ?').bind(id));
   }
-  await env.DB.batch(statements);
+  try {
+    await env.DB.batch(statements);
+  } catch (error) {
+    if (/unique/i.test(error.message)) return publicJson(request, env, { error:'Ese nombre de usuario ya existe.' }, 409);
+    throw error;
+  }
+  return publicJson(request, env, { ok:true });
+}
+
+async function deletePlatformProfile(request, env, id) {
+  const operator = await requireAdmin(request, env, 'platform:manage');
+  if (!operator) return publicJson(request, env, { error:'No autorizado.' }, 401);
+  if (id === operator.id) return publicJson(request, env, { error:'No podés eliminar tu propio usuario.' }, 409);
+  const current = await env.DB.prepare('SELECT id, store_id, active FROM admin_profiles WHERE id = ?').bind(id).first();
+  if (!current) return publicJson(request, env, { error:'Perfil inexistente.' }, 404);
+  if (current.store_id === 'platform' && current.active) {
+    const remaining = await env.DB.prepare("SELECT COUNT(*) AS total FROM admin_profiles WHERE store_id = 'platform' AND active = 1 AND id != ?").bind(id).first();
+    if (Number(remaining?.total || 0) < 1) return publicJson(request, env, { error:'Debe quedar al menos un Super Admin activo.' }, 409);
+  }
+  await env.DB.prepare('DELETE FROM admin_profiles WHERE id = ?').bind(id).run();
   return publicJson(request, env, { ok:true });
 }
 
@@ -834,6 +867,7 @@ export default {
     if (['GET','POST'].includes(request.method) && url.pathname === '/api/platform/profiles') return platformProfiles(request, env);
     const platformProfileMatch = url.pathname.match(/^\/api\/platform\/profiles\/([^/]+)$/);
     if (request.method === 'PATCH' && platformProfileMatch) return updatePlatformProfile(request, env, decodeURIComponent(platformProfileMatch[1]));
+    if (request.method === 'DELETE' && platformProfileMatch) return deletePlatformProfile(request, env, decodeURIComponent(platformProfileMatch[1]));
     if (request.method === 'GET' && url.pathname === '/api/print-jobs/next') return nextPrintJob(request, env);
     const ackMatch = url.pathname.match(/^\/api\/print-jobs\/([^/]+)\/ack$/);
     if (request.method === 'POST' && ackMatch) return acknowledgePrint(request, env, decodeURIComponent(ackMatch[1]));
