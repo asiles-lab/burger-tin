@@ -1,36 +1,28 @@
 <!doctype html>
 <html lang="es-AR">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="robots" content="noindex,nofollow">
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow">
   <title>Panel de pedidos · Burger Tin</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="panel.css?v=5">
-  <script src="checkout-config.js?v=2"></script>
-  <script type="module" src="panel.mjs?v=6"></script>
+  <link rel="stylesheet" href="panel.css?v=6"><script src="checkout-config.js?v=2"></script><script type="module" src="panel-admin.mjs?v=1"></script>
 </head>
 <body>
-  <header><img src="assets/logo-burger-tun.png" alt="Burger Tin"><div><p>Panel del local</p><h1>Pedidos y comandas</h1></div><button id="refresh">Actualizar</button></header>
+  <header><img src="assets/logo-burger-tun.png" alt="Burger Tin"><div class="brand-copy"><p>Panel del local</p><h1>Pedidos y comandas</h1></div><div class="header-actions"><button id="refresh">Actualizar</button><button id="logout" hidden>Salir</button><button id="open-settings" class="settings-button" hidden>⚙ Configuración</button></div></header>
   <main>
     <section class="login" id="login"><h2>Ingresar al panel</h2><p>El token se guarda solamente durante esta sesión.</p><form id="login-form"><label>Token del local<input name="token" type="password" required autocomplete="current-password"></label><button>Ingresar</button></form><p class="error" id="login-error"></p></section>
-    <section id="orders-area" hidden>
-      <div class="statusbar"><span id="connection">Conectando…</span><button id="logout">Salir</button></div>
-      <nav class="views" aria-label="Vistas de pedidos">
-        <button class="view active" data-view="pending">Pendientes <span id="count-pending">0</span></button>
-        <button class="view" data-view="today">Terminados hoy <span id="count-today">0</span></button>
-        <button class="view" data-view="history">Historial <span id="count-history">0</span></button>
-        <button class="view" data-view="config">⚙ Configuración</button>
-      </nav>
-      <div class="history-tools" id="history-tools" hidden><p>Pedidos terminados de días anteriores.</p><button class="danger" id="clear-history">Borrar historial y reiniciar numeración</button></div>
-      <div id="orders" class="orders"></div>
-      <section id="catalog-config" class="catalog-config" hidden>
-        <div class="config-intro"><div><p class="eyebrow">Menú digital</p><h2>Fotos y precios</h2><p>Los cambios se ven en la web apenas los guardás.</p></div><button id="reload-catalog" class="secondary">Recargar</button></div>
-        <div id="catalog-status" class="catalog-status" role="status"></div>
-        <div id="catalog-editor" class="catalog-editor"></div>
-      </section>
+    <section id="orders-area" hidden><div class="statusbar"><span id="connection">Conectando…</span></div><nav class="views" aria-label="Vistas de pedidos"><button class="view active" data-view="pending">Pendientes <span id="count-pending">0</span></button><button class="view" data-view="today">Terminados hoy <span id="count-today">0</span></button><button class="view" data-view="history">Historial <span id="count-history">0</span></button></nav><div class="history-tools" id="history-tools" hidden><p>Pedidos terminados de días anteriores.</p><button class="danger" id="clear-history">Borrar historial y reiniciar numeración</button></div><div id="orders" class="orders"></div></section>
+
+    <section id="settings-area" class="settings-area" hidden>
+      <div class="settings-warning"><div><span>⚙</span><div><strong>Estás ingresando a la configuración de la tienda</strong><p>Los cambios que guardes pueden modificar el menú y la forma en que llegan los pedidos.</p></div></div><button id="back-to-orders" class="secondary">← Volver a pedidos</button></div>
+      <nav class="settings-tabs" aria-label="Secciones de configuración"><button class="settings-tab active" data-settings-tab="store">Información del local</button><button class="settings-tab" data-settings-tab="products">Productos</button></nav>
+      <section id="store-settings" class="settings-panel"><form id="store-form" class="store-form">
+        <div class="settings-card"><p class="eyebrow">Datos visibles</p><h2>Información del local</h2><div class="form-grid"><label>Nombre del local<input name="business" required minlength="2" maxlength="80"></label><label>Teléfono de WhatsApp<input name="phone" inputmode="tel" required minlength="10" maxlength="20" placeholder="5491127798677"><small>Con código de país y área, sin + ni espacios. Se muestra en la web y recibe los pedidos.</small></label><label class="wide">Dirección del local<input name="pickupAddress" required minlength="5" maxlength="200"></label><label class="wide">Zonas de entrega<input name="deliveryZones" maxlength="250"></label></div></div>
+        <div class="settings-card"><p class="eyebrow">Apariencia</p><h2>Combinación de colores</h2><p>Estos colores se aplican al panel. Si querés, también pueden aplicarse al menú público.</p><div class="color-grid"><label>Color principal<input type="color" name="adminPrimary" value="#35173f"></label><label>Color de acción<input type="color" name="adminAccent" value="#f52e25"></label></div><label class="check-row"><input type="checkbox" name="applyColorsToStore"><span>Aplicar también esta combinación al menú</span></label></div>
+        <div class="settings-card payment-card"><div class="payment-head"><div><p class="eyebrow">Cobros online</p><h2>Mercado Pago</h2></div><span id="mp-status" class="connection-pill">No configurado</span></div><p>Si no se cargan ambas credenciales, Mercado Pago no aparecerá como medio de pago en el menú.</p><div class="form-grid"><label>Access Token<input type="password" name="mpAccessToken" autocomplete="new-password" placeholder="APP_USR-…"><small>La credencial se cifra y nunca vuelve a mostrarse.</small></label><label>Clave secreta del webhook<input type="password" name="mpWebhookSecret" autocomplete="new-password" placeholder="Firma secreta de notificaciones"></label></div><label class="check-row danger-check"><input type="checkbox" name="disconnectMercadoPago"><span>Desconectar Mercado Pago</span></label></div>
+        <div class="form-actions"><p id="store-save-status" role="status"></p><button type="submit">Guardar configuración</button></div>
+      </form></section>
+      <section id="products-settings" class="settings-panel" hidden><div class="products-head"><div><p class="eyebrow">Menú digital</p><h2>Productos</h2><p>Administrá lo esencial: producto, precio y foto.</p></div><button id="show-add-product">+ Agregar producto</button></div><form id="add-product-form" class="add-product-form" hidden><h3>Nuevo producto</h3><label>Producto<input name="name" required minlength="2" maxlength="100"></label><label>Precio<input name="price" type="number" inputmode="numeric" min="1" max="10000000" required></label><label>Foto<input name="image" type="file" accept="image/jpeg,image/png,image/webp"></label><div><button type="button" class="secondary" id="cancel-add-product">Cancelar</button><button type="submit">Crear producto</button></div><p class="save-note" role="status"></p></form><div class="product-table" role="table" aria-label="Productos del menú"><div class="product-table-head" role="row"><span>Producto</span><span>Precio</span><span>Foto</span><span>Acciones</span></div><div id="catalog-editor"></div></div><p id="catalog-status" class="catalog-status" role="status"></p></section>
     </section>
   </main>
 </body>

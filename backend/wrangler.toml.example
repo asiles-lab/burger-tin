@@ -20,3 +20,4 @@ migrations_dir = "migrations"
 # wrangler secret put MP_WEBHOOK_SECRET
 # wrangler secret put STAFF_TOKEN
 # wrangler secret put DEVICE_TOKEN
+# wrangler secret put SETTINGS_ENCRYPTION_KEY

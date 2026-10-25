@@ -205,6 +205,8 @@ try {
     }
   }
   catalog = store.products || [];
+  if (store.theme?.primary) document.documentElement.style.setProperty('--purple', store.theme.primary);
+  if (store.theme?.accent) document.documentElement.style.setProperty('--red', store.theme.accent);
   const saved = JSON.parse(localStorage.getItem('burger-tin-cart-v1') || '{}');
   if (saved && typeof saved === 'object' && !Array.isArray(saved)) {
     for (const [id, quantity] of Object.entries(saved)) if (catalog.some(item => item.id === id) && Number.isInteger(quantity) && quantity > 0 && quantity <= 30) cart[id] = quantity;
@@ -213,7 +215,12 @@ try {
   $('#filters').innerHTML = categories.map(category => `<button data-filter="${escapeHtml(category)}" aria-pressed="${category === 'Todos'}">${escapeHtml(category)}</button>`).join('');
   $('#delivery-zones').textContent = store.deliveryZones;
   $('#pickup-address-footer').textContent = store.pickupAddress;
-  document.querySelectorAll('[data-requires-mp]').forEach(node => { node.hidden = !checkoutConfig.enabled || !checkoutConfig.mercadoPagoEnabled; });
+  $('#footer-business').textContent = store.business;
+  $('#checkout-business').textContent = store.business;
+  document.querySelectorAll('[data-whatsapp-source]').forEach(link => {
+    link.href = link.dataset.whatsappSource === 'catalogo' ? `https://wa.me/c/${store.phone}` : `https://wa.me/${store.phone}`;
+  });
+  document.querySelectorAll('[data-requires-mp]').forEach(node => { node.hidden = !checkoutConfig.enabled || !store.mercadoPagoEnabled; });
   const payment = new URLSearchParams(location.search).get('payment');
   if (payment === 'success') notify('Pago recibido. Estamos confirmando tu pedido.');
   if (payment === 'pending') notify('Tu pago quedó pendiente. Te avisaremos cuando se acredite.');

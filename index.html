@@ -9,10 +9,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles-v2.css?v=20261024-2">
+  <link rel="stylesheet" href="styles-v2.css?v=20261025-1">
   <script src="analytics-config.js?v=20261023-1"></script>
   <script src="checkout-config.js?v=2"></script>
-  <script type="module" src="app.mjs?v=20261025-1"></script>
+  <script type="module" src="app.mjs?v=20261025-2"></script>
 </head>
 <body>
   <a class="skip" href="#menu">Ir al menú</a>
@@ -60,14 +60,14 @@
     </section>
   </main>
 
-  <footer><img src="assets/logo-burger-tun.png" alt=""><p>Burger Tin · José C. Paz</p><a href="https://wa.me/c/5491127798677" target="_blank" rel="noopener" data-whatsapp-source="catalogo">Catálogo original ↗</a></footer>
+  <footer><img src="assets/logo-burger-tun.png" alt=""><p id="footer-business">Burger Tin · José C. Paz</p><a href="https://wa.me/c/5491127798677" target="_blank" rel="noopener" data-whatsapp-source="catalogo">Catálogo original ↗</a></footer>
 
   <button class="mobile-cart" data-open-cart hidden aria-label="Ver mi pedido"><span class="floating-cart-icon" aria-hidden="true">🛒</span><span>Ver mi pedido <b data-count>0</b></span><strong data-total>$0</strong></button>
   <div class="toast" id="toast" role="status"></div>
 
   <dialog id="cart-dialog" aria-labelledby="cart-title">
     <div class="drawer-head"><div><span>Tu selección</span><h2 id="cart-title">Mi pedido</h2></div><button id="close-cart" aria-label="Cerrar pedido">×</button></div>
-    <div class="drawer-body"><div id="cart-items"></div><div id="checkout-area" hidden><div class="subtotal"><span>Subtotal</span><strong data-total></strong></div><p class="checkout-note">Burger Tin confirma disponibilidad, costo de envío y total final por WhatsApp.</p>
+    <div class="drawer-body"><div id="cart-items"></div><div id="checkout-area" hidden><div class="subtotal"><span>Subtotal</span><strong data-total></strong></div><p class="checkout-note"><span id="checkout-business">Burger Tin</span> confirma disponibilidad, costo de envío y total final por WhatsApp.</p>
       <form id="checkout-form"><label for="customer-name">Tu nombre</label><input id="customer-name" name="name" autocomplete="name" required minlength="2" maxlength="80" placeholder="¿A nombre de quién?">
         <fieldset><legend>¿Cómo lo recibís?</legend><div class="method-options"><label><input type="radio" name="method" value="delivery" checked><span>Envío</span></label><label><input type="radio" name="method" value="pickup"><span>Retiro</span></label></div></fieldset>
         <fieldset><legend>¿Cómo pagás?</legend><div class="method-options"><label><input type="radio" name="paymentMethod" value="cash" checked><span>Efectivo</span></label><label data-requires-mp hidden><input type="radio" name="paymentMethod" value="mercadopago"><span>Mercado Pago</span></label></div></fieldset>
