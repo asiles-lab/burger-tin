@@ -7,7 +7,7 @@ const securityHeaders = {
   'x-frame-options': 'DENY',
   'referrer-policy': 'no-referrer',
   'permissions-policy': 'camera=(), microphone=(), geolocation=(), payment=()',
-  'cross-origin-resource-policy': 'same-site'
+  'strict-transport-security': 'max-age=31536000; includeSubDomains'
 };
 const jsonHeaders = { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', ...securityHeaders };
 
