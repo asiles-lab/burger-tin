@@ -392,12 +392,21 @@ async function getCatalogImage(request, env, id) {
   catch { return publicJson(request, env, { error:'Imagen inexistente.' }, 404); }
   const product = await env.DB.prepare('SELECT image_data, image_type, image_updated_at FROM products WHERE store_id = ? AND id = ?').bind(storeId, id).first();
   if (!product?.image_data || !product.image_type) return publicJson(request, env, { error:'Imagen inexistente.' }, 404);
-  return new Response(product.image_data, { headers:{
+  const imageBytes = productImageBytes(product.image_data);
+  if (!imageBytes.byteLength) return publicJson(request, env, { error:'Imagen inexistente.' }, 404);
+  return new Response(imageBytes, { headers:{
     'content-type': product.image_type,
     'cache-control': 'public, max-age=31536000, immutable',
     etag: `"${product.image_updated_at || id}"`,
     ...await corsHeaders(request, env)
   }});
+}
+
+export function productImageBytes(value) {
+  if (value instanceof ArrayBuffer) return new Uint8Array(value);
+  if (ArrayBuffer.isView(value)) return new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+  if (Array.isArray(value)) return Uint8Array.from(value);
+  return new Uint8Array();
 }
 
 async function adminCatalog(request, env) {

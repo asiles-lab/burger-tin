@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { catalogProducts, publicStoreId } from '../src/index.js';
+import { catalogProducts, productImageBytes, publicStoreId } from '../src/index.js';
 
 function tenantDatabase() {
   const calls = [];
@@ -54,4 +54,11 @@ test('el catálogo consulta únicamente el store indicado', async () => {
 test('el catálogo falla cerrado si falta identificar la empresa', async () => {
   const DB = tenantDatabase();
   await assert.rejects(() => catalogProducts({ DB }, ''), /Falta identificar/);
+});
+
+test('convierte el BLOB de D1 a bytes antes de servir una imagen', () => {
+  const jpegFromD1 = [0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10];
+  const bytes = productImageBytes(jpegFromD1);
+  assert.ok(bytes instanceof Uint8Array);
+  assert.deepEqual([...bytes], jpegFromD1);
 });
