@@ -2,6 +2,7 @@
 
 // GlowRo — catálogo público con respaldo estático; el servidor valida importes y pagos.
 const API = 'https://burger-tin-orders.burger-tin-orders.workers.dev';
+const STORE_ID = 'glowro';
 const CONTACT = {
   instagram: 'https://instagram.com/glowro_/',
   dm: 'https://ig.me/m/glowro_'
@@ -204,7 +205,7 @@ async function loadLiveCatalog() {
     const response = await fetch(`${API}/api/catalog`, {cache:'no-store'});
     if (!response.ok) throw new Error('Catálogo no disponible');
     const data = await response.json();
-    if (!Array.isArray(data.products) || data.business !== 'GlowRo') throw new Error('La tienda aún no está configurada');
+    if (data.id !== STORE_ID || !Array.isArray(data.products) || data.business !== 'GlowRo') throw new Error('Bloqueamos un catálogo que no pertenece a GlowRo.');
     const originals = new Map(PRODUCTS.map(product => [product.id, product]));
     PRODUCTS.splice(0, PRODUCTS.length, ...data.products.map(product => ({...originals.get(product.id), ...product, previous:originals.get(product.id)?.previous || null})));
     for (const id of Object.keys(ITEMS)) delete ITEMS[id];
