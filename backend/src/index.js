@@ -3,17 +3,31 @@ import { checkoutPaymentMethods, formatMoney, formatOrderCode, timingSafeEqualTe
 
 const DEFAULT_STORE_ID = 'burger-tin';
 const GLOWRO_STORE_ID = 'glowro';
-async function publicStoreId(request, env) {
-  const origin = request.headers.get('origin');
-  if (!origin) return DEFAULT_STORE_ID;
-  const parsed = new URL(origin);
-  const host = parsed.hostname;
-  if (parsed.protocol === 'https:' && /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.restia\.net\.ar$/.test(host) && !['admin.restia.net.ar','www.restia.net.ar'].includes(host)) {
-    const row = await env.DB.prepare('SELECT id FROM stores WHERE public_host = ? AND active = 1').bind(host).first();
-    if (!row) throw new Error('La tienda todavía no está disponible.');
-    return row.id;
+async function activeStoreById(env, storeId) {
+  const id = String(storeId || '').trim().toLowerCase();
+  if (!/^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/.test(id)) return null;
+  return env.DB.prepare('SELECT id, public_host FROM stores WHERE id = ? AND active = 1').bind(id).first();
+}
+export async function publicStoreId(request, env, { allowQuery = false } = {}) {
+  const url = new URL(request.url);
+  const requestedId = allowQuery ? String(url.searchParams.get('store') || '').trim().toLowerCase() : '';
+  const origin = request.headers.get('origin') || '';
+  let originStore = null;
+  if (origin) {
+    const parsed = new URL(origin);
+    const host = parsed.hostname;
+    if (parsed.protocol === 'https:' && /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.restia\.net\.ar$/.test(host) && !['admin.restia.net.ar','www.restia.net.ar'].includes(host)) {
+      originStore = await env.DB.prepare('SELECT id, public_host FROM stores WHERE public_host = ? AND active = 1').bind(host).first();
+      if (!originStore) throw new Error('La tienda todavía no está disponible.');
+    } else {
+      const allowedOrigins = String(env.ALLOWED_ORIGIN || '').split(',').map(value => value.trim()).filter(Boolean);
+      if (!allowedOrigins.includes(origin)) throw new Error('No pudimos identificar la empresa del sitio.');
+    }
   }
-  return DEFAULT_STORE_ID;
+  const requestedStore = requestedId ? await activeStoreById(env, requestedId) : null;
+  if (requestedId && !requestedStore) throw new Error('La empresa solicitada no existe o está desactivada.');
+  if (originStore && requestedStore && originStore.id !== requestedStore.id) throw new Error('La empresa solicitada no coincide con el sitio de origen.');
+  return originStore?.id || requestedStore?.id || DEFAULT_STORE_ID;
 }
 const securityHeaders = {
   'x-content-type-options': 'nosniff',
@@ -233,12 +247,14 @@ function settingMap(rows) {
   return Object.fromEntries((rows || []).map(row => [row.key, row.value]));
 }
 
-async function rawSettings(env, storeId = DEFAULT_STORE_ID) {
+async function rawSettings(env, storeId) {
+  if (!storeId) throw new Error('Falta identificar la empresa.');
   const result = await env.DB.prepare('SELECT key, value FROM store_settings WHERE store_id = ?').bind(storeId).all();
   return settingMap(result.results);
 }
 
-async function storeSettings(env, storeId = DEFAULT_STORE_ID) {
+async function storeSettings(env, storeId) {
+  if (!storeId) throw new Error('Falta identificar la empresa.');
   const values = await rawSettings(env, storeId);
   const primary = /^#[0-9a-f]{6}$/i.test(values.admin_primary || '') ? values.admin_primary : '#35173f';
   const accent = /^#[0-9a-f]{6}$/i.test(values.admin_accent || '') ? values.admin_accent : '#f52e25';
@@ -290,7 +306,7 @@ async function decryptSetting(env, value) {
   return new TextDecoder().decode(decrypted);
 }
 
-async function paymentCredentials(env, storeId = DEFAULT_STORE_ID) {
+async function paymentCredentials(env, storeId) {
   const values = await rawSettings(env, storeId);
   return {
     accessToken: values.mp_access_token ? await decryptSetting(env, values.mp_access_token) : (storeId === DEFAULT_STORE_ID ? String(env.MP_ACCESS_TOKEN || '') : ''),
@@ -298,7 +314,8 @@ async function paymentCredentials(env, storeId = DEFAULT_STORE_ID) {
   };
 }
 
-function upsertSetting(env, key, value, secret = 0, storeId = DEFAULT_STORE_ID) {
+function upsertSetting(env, key, value, secret = 0, storeId) {
+  if (!storeId) throw new Error('Falta identificar la empresa.');
   return env.DB.prepare(`
     INSERT INTO store_settings (store_id, key, value, secret, updated_at) VALUES (?, ?, ?, ?, ?)
     ON CONFLICT(store_id, key) DO UPDATE SET value=excluded.value, secret=excluded.secret, updated_at=excluded.updated_at
@@ -326,7 +343,8 @@ function catalogImage(env, product, storeId) {
   return `${base}/api/catalog/images/${encodeURIComponent(product.id)}?store=${encodeURIComponent(storeId)}&v=${encodeURIComponent(product.image_updated_at || product.updated_at)}`;
 }
 
-async function catalogProducts(env, storeId = DEFAULT_STORE_ID) {
+export async function catalogProducts(env, storeId) {
+  if (!storeId) throw new Error('Falta identificar la empresa.');
   if (storeId === DEFAULT_STORE_ID) await ensureProducts(env);
   const result = await env.DB.prepare(`
     SELECT id, name, description, category, price, default_image, image_type, image_updated_at, updated_at
@@ -350,6 +368,7 @@ async function getCatalog(request, env) {
     const settings = await storeSettings(env, storeId);
     return publicJson(request, env, {
       ...(storeId === DEFAULT_STORE_ID ? store : {}),
+      id: storeId,
       business: settings.business,
       phone: settings.phone,
       pickupAddress: settings.pickupAddress,
@@ -368,8 +387,9 @@ async function getCatalog(request, env) {
 }
 
 async function getCatalogImage(request, env, id) {
-  const storeId = new URL(request.url).searchParams.get('store') || DEFAULT_STORE_ID;
-  if (!/^[a-z0-9-]{1,50}$/.test(storeId)) return publicJson(request, env, { error:'Imagen inexistente.' }, 404);
+  let storeId;
+  try { storeId = await publicStoreId(request, env, { allowQuery:true }); }
+  catch { return publicJson(request, env, { error:'Imagen inexistente.' }, 404); }
   const product = await env.DB.prepare('SELECT image_data, image_type, image_updated_at FROM products WHERE store_id = ? AND id = ?').bind(storeId, id).first();
   if (!product?.image_data || !product.image_type) return publicJson(request, env, { error:'Imagen inexistente.' }, 404);
   return new Response(product.image_data, { headers:{
@@ -383,7 +403,7 @@ async function getCatalogImage(request, env, id) {
 async function adminCatalog(request, env) {
   const identity = await requireAdmin(request, env, 'products:manage');
   if (!identity) return publicJson(request, env, { error:'No autorizado.' }, 401);
-  return publicJson(request, env, { products: await catalogProducts(env, identity.storeId) });
+  return publicJson(request, env, { storeId:identity.storeId, products:await catalogProducts(env, identity.storeId) });
 }
 
 function validPrice(price) {
@@ -697,17 +717,17 @@ async function mercadoPagoWebhook(request, env) {
   if (storeId !== webhookStoreId || !/^\d+$/.test(orderId || '')) return new Response('', { status: 200 });
   const order = await env.DB.prepare("SELECT id, code, subtotal, status FROM orders WHERE store_id = ? AND id = ? AND payment_method = 'mercadopago'").bind(storeId, Number(orderId)).first();
   if (!order || order.status !== 'pending_payment' || Math.round(Number(payment.transaction_amount) * 100) !== Math.round(Number(order.subtotal) * 100)) return new Response('', { status: 200 });
-  await confirmOrder(env, order.id, String(payment.id), storeId === DEFAULT_STORE_ID);
+  await confirmOrder(env, storeId, order.id, String(payment.id), storeId === DEFAULT_STORE_ID);
   return new Response('', { status: 200 });
 }
 
-async function confirmOrder(env, orderId, paymentId = null, enqueuePrint = true) {
+async function confirmOrder(env, storeId, orderId, paymentId = null, enqueuePrint = true) {
   const now = new Date().toISOString();
-  const order = await env.DB.prepare('SELECT id, status FROM orders WHERE id = ?').bind(orderId).first();
+  const order = await env.DB.prepare('SELECT id, status FROM orders WHERE store_id = ? AND id = ?').bind(storeId, orderId).first();
   if (!order || order.status === 'cancelled') throw new Error('Pedido inexistente o cancelado.');
   if (order.status !== 'confirmed') {
-    await env.DB.prepare("UPDATE orders SET status = 'confirmed', confirmed_at = ?, mp_payment_id = COALESCE(?, mp_payment_id) WHERE id = ?")
-      .bind(now, paymentId, orderId).run();
+    await env.DB.prepare("UPDATE orders SET status = 'confirmed', confirmed_at = ?, mp_payment_id = COALESCE(?, mp_payment_id) WHERE store_id = ? AND id = ?")
+      .bind(now, paymentId, storeId, orderId).run();
   }
   if (enqueuePrint) {
     const jobId = `print-${orderId}`;
@@ -770,7 +790,7 @@ async function staffAction(request, env, code, action) {
   if (!order) return publicJson(request, env, { error:'Pedido inexistente.' }, 404);
   if (action === 'confirm') {
     if (order.payment_method !== 'cash') return publicJson(request, env, { error:'Mercado Pago solo se confirma mediante Webhook.' }, 409);
-    await confirmOrder(env, order.id);
+    await confirmOrder(env, identity.storeId, order.id);
   } else if (action === 'cancel') {
     if (!['pending_cash', 'pending_payment'].includes(order.status)) return publicJson(request, env, { error:'Solo se pueden cancelar pedidos pendientes.' }, 409);
     await env.DB.prepare("UPDATE orders SET status='cancelled' WHERE id=?").bind(order.id).run();
