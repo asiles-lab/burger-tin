@@ -1,0 +1,25 @@
+name = "burger-tin-orders"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+
+[vars]
+ALLOWED_ORIGIN = "https://asiles-lab.github.io,https://burger-tin-restia.burger-tin-orders.workers.dev,https://restia-admin.burger-tin-orders.workers.dev,https://burger-tin.restia.net.ar,https://admin.restia.net.ar"
+PUBLIC_SITE_URL = "https://burger-tin.restia.net.ar/"
+PUBLIC_API_URL = "https://burger-tin-orders.burger-tin-orders.workers.dev"
+WHATSAPP_PHONE = "5491127798677"
+PAYMENTS_MODE = "sandbox"
+DEVICE_STORE_ID = "burger-tin"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "burger-tin-orders"
+database_id = "38fb94a0-0f41-4ca3-bdf1-c82fdddb9c30"
+migrations_dir = "migrations"
+
+# Secrets (never put values in this file):
+# wrangler secret put MP_ACCESS_TOKEN
+# wrangler secret put MP_WEBHOOK_SECRET
+# Bootstrap técnico inicial; no se usa para el ingreso cotidiano.
+# wrangler secret put SUPERADMIN_TOKEN
+# wrangler secret put DEVICE_TOKEN
+# wrangler secret put SETTINGS_ENCRYPTION_KEY
