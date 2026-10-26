@@ -6,11 +6,12 @@ const GLOWRO_STORE_ID = 'glowro';
 async function publicStoreId(request, env) {
   const origin = request.headers.get('origin');
   if (!origin) return DEFAULT_STORE_ID;
-  const host = new URL(origin).hostname;
-  if (host === 'glowro.restia.net.ar') {
-    const row = await env.DB.prepare('SELECT id FROM stores WHERE id = ? AND public_host = ? AND active = 1').bind(GLOWRO_STORE_ID, host).first();
+  const parsed = new URL(origin);
+  const host = parsed.hostname;
+  if (parsed.protocol === 'https:' && /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.restia\.net\.ar$/.test(host) && !['admin.restia.net.ar','www.restia.net.ar'].includes(host)) {
+    const row = await env.DB.prepare('SELECT id FROM stores WHERE public_host = ? AND active = 1').bind(host).first();
     if (!row) throw new Error('La tienda todavía no está disponible.');
-    return GLOWRO_STORE_ID;
+    return row.id;
   }
   return DEFAULT_STORE_ID;
 }
@@ -366,7 +367,8 @@ async function getCatalog(request, env) {
 }
 
 async function getCatalogImage(request, env, id) {
-  const storeId = new URL(request.url).searchParams.get('store') === GLOWRO_STORE_ID ? GLOWRO_STORE_ID : DEFAULT_STORE_ID;
+  const storeId = new URL(request.url).searchParams.get('store') || DEFAULT_STORE_ID;
+  if (!/^[a-z0-9-]{1,50}$/.test(storeId)) return publicJson(request, env, { error:'Imagen inexistente.' }, 404);
   const product = await env.DB.prepare('SELECT image_data, image_type, image_updated_at FROM products WHERE store_id = ? AND id = ?').bind(storeId, id).first();
   if (!product?.image_data || !product.image_type) return publicJson(request, env, { error:'Imagen inexistente.' }, 404);
   return new Response(product.image_data, { headers:{
@@ -507,7 +509,7 @@ async function updateProductImage(request, env, id) {
   `).bind(bytes, type, now, now, identity.storeId, id).run();
   if (!result.meta.changes) return publicJson(request, env, { error:'Producto inexistente.' }, 404);
   await audit(env, identity, 'product.image.update', 'product', id, { type, bytes:bytes.byteLength });
-  return publicJson(request, env, { ok:true, image:`${String(env.PUBLIC_API_URL || '').replace(/\/$/, '')}/api/catalog/images/${encodeURIComponent(id)}?v=${encodeURIComponent(now)}` });
+  return publicJson(request, env, { ok:true, image:`${String(env.PUBLIC_API_URL || '').replace(/\/$/, '')}/api/catalog/images/${encodeURIComponent(id)}?store=${encodeURIComponent(identity.storeId)}&v=${encodeURIComponent(now)}` });
 }
 
 async function createOrder(request, env) {
