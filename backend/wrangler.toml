@@ -1,0 +1,24 @@
+# Legacy checkout: intentionally cannot overwrite the canonical production Worker.
+# Production source: ../../restia-glowro-commerce/backend
+name = "burger-tin-orders-legacy-do-not-deploy"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+
+[vars]
+ALLOWED_ORIGIN = "https://asiles-lab.github.io,https://burger-tin-restia.burger-tin-orders.workers.dev,https://restia-admin.burger-tin-orders.workers.dev,https://burger-tin.restia.net.ar,https://admin.restia.net.ar"
+PUBLIC_SITE_URL = "https://burger-tin.restia.net.ar/"
+PUBLIC_API_URL = "https://burger-tin-orders.burger-tin-orders.workers.dev"
+WHATSAPP_PHONE = "5491127798677"
+PAYMENTS_MODE = "sandbox"
+WELCOME_EMAIL_ENABLED = "true"
+
+[triggers]
+crons = ["*/5 * * * *"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "burger-tin-orders"
+database_id = "38fb94a0-0f41-4ca3-bdf1-c82fdddb9c30"
+migrations_dir = "migrations"
+
+# Secrets are configured with `wrangler secret put` and are never committed.
