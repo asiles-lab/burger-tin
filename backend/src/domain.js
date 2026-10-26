@@ -4,6 +4,7 @@ export function validateOrderInput(input, products) {
   const fulfillment = String(input.fulfillment || '');
   const address = String(input.address || '').trim();
   const notes = String(input.notes || '').trim();
+  const phone = String(input.phone || '').replace(/\D/g, '');
   const paymentMethod = String(input.paymentMethod || '');
   if (name.length < 2 || name.length > 80) throw new Error('Nombre invalido.');
   if (!['delivery', 'pickup'].includes(fulfillment)) throw new Error('Modalidad invalida.');
@@ -20,11 +21,11 @@ export function validateOrderInput(input, products) {
     const product = productMap.get(id);
     if (!product || seen.has(id) || !Number.isInteger(quantity) || quantity < 1 || quantity > 30) throw new Error('Productos o cantidades invalidos.');
     seen.add(id);
-    return { productId: id, name: product.name, quantity, unitPrice: product.price, subtotal: product.price * quantity };
+    return { productId: id, name: product.name, quantity, unitPrice: product.price, subtotal: Math.round(product.price * quantity * 100) / 100 };
   });
-  const subtotal = items.reduce((sum, item) => sum + item.subtotal, 0);
-  if (!Number.isSafeInteger(subtotal) || subtotal <= 0) throw new Error('Total invalido.');
-  return { name, fulfillment, address: fulfillment === 'delivery' ? address : '', notes, paymentMethod, items, subtotal };
+  const subtotal = Math.round(items.reduce((sum, item) => sum + item.subtotal, 0) * 100) / 100;
+  if (!Number.isFinite(subtotal) || subtotal <= 0 || subtotal > 100000000) throw new Error('Total invalido.');
+  return { name, phone, fulfillment, address: fulfillment === 'delivery' ? address : '', notes, paymentMethod, items, subtotal };
 }
 
 export function formatOrderCode(sequence) {

@@ -2,6 +2,18 @@ import store from '../../catalog.json' with { type: 'json' };
 import { formatMoney, formatOrderCode, timingSafeEqualText, validateOrderInput } from './domain.js';
 
 const DEFAULT_STORE_ID = 'burger-tin';
+const GLOWRO_STORE_ID = 'glowro';
+async function publicStoreId(request, env) {
+  const origin = request.headers.get('origin');
+  if (!origin) return DEFAULT_STORE_ID;
+  const host = new URL(origin).hostname;
+  if (host === 'glowro.restia.net.ar') {
+    const row = await env.DB.prepare('SELECT id FROM stores WHERE id = ? AND public_host = ? AND active = 1').bind(GLOWRO_STORE_ID, host).first();
+    if (!row) throw new Error('La tienda todavía no está disponible.');
+    return GLOWRO_STORE_ID;
+  }
+  return DEFAULT_STORE_ID;
+}
 const securityHeaders = {
   'x-content-type-options': 'nosniff',
   'x-frame-options': 'DENY',
@@ -240,7 +252,9 @@ async function storeSettings(env, storeId = DEFAULT_STORE_ID) {
     applyColorsToStore: applyToStore,
     storePrimary: applyToStore ? primary : '#341747',
     storeAccent: applyToStore ? accent : '#f5251b',
-    mercadoPagoEnabled: Boolean((values.mp_access_token && values.mp_webhook_secret) || (storeId === DEFAULT_STORE_ID && env.MP_ACCESS_TOKEN && env.MP_WEBHOOK_SECRET))
+    mercadoPagoEnabled: Boolean((values.mp_access_token && values.mp_webhook_secret) || (storeId === DEFAULT_STORE_ID && env.MP_ACCESS_TOKEN && env.MP_WEBHOOK_SECRET)),
+    deliveryFee: values.delivery_fee === undefined ? null : Number(values.delivery_fee),
+    paymentMode: storeId === GLOWRO_STORE_ID ? (values.mp_mode || 'sandbox') : (env.PAYMENTS_MODE || 'sandbox')
   };
 }
 
@@ -274,11 +288,11 @@ async function decryptSetting(env, value) {
   return new TextDecoder().decode(decrypted);
 }
 
-async function paymentCredentials(env) {
-  const values = await rawSettings(env);
+async function paymentCredentials(env, storeId = DEFAULT_STORE_ID) {
+  const values = await rawSettings(env, storeId);
   return {
-    accessToken: values.mp_access_token ? await decryptSetting(env, values.mp_access_token) : String(env.MP_ACCESS_TOKEN || ''),
-    webhookSecret: values.mp_webhook_secret ? await decryptSetting(env, values.mp_webhook_secret) : String(env.MP_WEBHOOK_SECRET || '')
+    accessToken: values.mp_access_token ? await decryptSetting(env, values.mp_access_token) : (storeId === DEFAULT_STORE_ID ? String(env.MP_ACCESS_TOKEN || '') : ''),
+    webhookSecret: values.mp_webhook_secret ? await decryptSetting(env, values.mp_webhook_secret) : (storeId === DEFAULT_STORE_ID ? String(env.MP_WEBHOOK_SECRET || '') : '')
   };
 }
 
@@ -304,25 +318,25 @@ async function ensureProducts(env) {
   `).bind(product.id, product.name, product.description || '', product.category, product.price, product.image || null, index, now, DEFAULT_STORE_ID)));
 }
 
-function catalogImage(env, product) {
+function catalogImage(env, product, storeId) {
   if (!product.image_type) return product.default_image || '';
   const base = String(env.PUBLIC_API_URL || '').replace(/\/$/, '');
-  return `${base}/api/catalog/images/${encodeURIComponent(product.id)}?v=${encodeURIComponent(product.image_updated_at || product.updated_at)}`;
+  return `${base}/api/catalog/images/${encodeURIComponent(product.id)}?store=${encodeURIComponent(storeId)}&v=${encodeURIComponent(product.image_updated_at || product.updated_at)}`;
 }
 
-async function catalogProducts(env) {
-  await ensureProducts(env);
+async function catalogProducts(env, storeId = DEFAULT_STORE_ID) {
+  if (storeId === DEFAULT_STORE_ID) await ensureProducts(env);
   const result = await env.DB.prepare(`
     SELECT id, name, description, category, price, default_image, image_type, image_updated_at, updated_at
     FROM products WHERE store_id = ? AND active = 1 ORDER BY sort_order, name
-  `).bind(DEFAULT_STORE_ID).all();
+  `).bind(storeId).all();
   return (result.results || []).map(product => ({
     id: product.id,
     name: product.name,
     description: product.description,
     category: product.category,
     price: Number(product.price),
-    image: catalogImage(env, product),
+    image: catalogImage(env, product, storeId),
     customImage: Boolean(product.image_type),
     updatedAt: product.updated_at
   }));
@@ -330,16 +344,19 @@ async function catalogProducts(env) {
 
 async function getCatalog(request, env) {
   try {
-    const settings = await storeSettings(env);
+    const storeId = await publicStoreId(request, env);
+    const settings = await storeSettings(env, storeId);
     return publicJson(request, env, {
-      ...store,
+      ...(storeId === DEFAULT_STORE_ID ? store : {}),
       business: settings.business,
       phone: settings.phone,
       pickupAddress: settings.pickupAddress,
       deliveryZones: settings.deliveryZones,
       mercadoPagoEnabled: settings.mercadoPagoEnabled,
+      paymentMode: settings.paymentMode,
+      deliveryFee: settings.deliveryFee,
       theme: { primary:settings.storePrimary, accent:settings.storeAccent },
-      products: await catalogProducts(env)
+      products: await catalogProducts(env, storeId)
     });
   }
   catch (error) {
@@ -349,7 +366,8 @@ async function getCatalog(request, env) {
 }
 
 async function getCatalogImage(request, env, id) {
-  const product = await env.DB.prepare('SELECT image_data, image_type, image_updated_at FROM products WHERE store_id = ? AND id = ?').bind(DEFAULT_STORE_ID, id).first();
+  const storeId = new URL(request.url).searchParams.get('store') === GLOWRO_STORE_ID ? GLOWRO_STORE_ID : DEFAULT_STORE_ID;
+  const product = await env.DB.prepare('SELECT image_data, image_type, image_updated_at FROM products WHERE store_id = ? AND id = ?').bind(storeId, id).first();
   if (!product?.image_data || !product.image_type) return publicJson(request, env, { error:'Imagen inexistente.' }, 404);
   return new Response(product.image_data, { headers:{
     'content-type': product.image_type,
@@ -360,8 +378,13 @@ async function getCatalogImage(request, env, id) {
 }
 
 async function adminCatalog(request, env) {
-  if (!(await requireAdmin(request, env, 'products:manage'))) return publicJson(request, env, { error:'No autorizado.' }, 401);
-  return publicJson(request, env, { products: await catalogProducts(env) });
+  const identity = await requireAdmin(request, env, 'products:manage');
+  if (!identity) return publicJson(request, env, { error:'No autorizado.' }, 401);
+  return publicJson(request, env, { products: await catalogProducts(env, identity.storeId) });
+}
+
+function validPrice(price) {
+  return Number.isFinite(price) && price >= 1 && price <= 10000000 && Math.abs(Math.round(price * 100) - price * 100) < 0.000001;
 }
 
 async function updateProduct(request, env, id) {
@@ -371,11 +394,13 @@ async function updateProduct(request, env, id) {
   try { body = await readJson(request); }
   catch (error) { return publicJson(request, env, { error:error.message }, 400); }
   const name = String(body.name || '').trim();
+  const description = body.description === undefined ? null : String(body.description || '').trim();
   const price = Number(body.price);
   if (name.length < 2 || name.length > 100) return publicJson(request, env, { error:'Ingresá un nombre válido.' }, 400);
-  if (!Number.isInteger(price) || price < 1 || price > 10000000) return publicJson(request, env, { error:'Ingresá un precio válido.' }, 400);
-  const result = await env.DB.prepare('UPDATE products SET name = ?, price = ?, updated_at = ? WHERE store_id = ? AND id = ? AND active = 1')
-    .bind(name, price, new Date().toISOString(), identity.storeId, id).run();
+  if (description !== null && description.length > 500) return publicJson(request, env, { error:'La descripción es demasiado larga.' }, 400);
+  if (!validPrice(price)) return publicJson(request, env, { error:'Ingresá un precio válido.' }, 400);
+  const result = await env.DB.prepare('UPDATE products SET name = ?, description = COALESCE(?, description), price = ?, updated_at = ? WHERE store_id = ? AND id = ? AND active = 1')
+    .bind(name, description, price, new Date().toISOString(), identity.storeId, id).run();
   if (!result.meta.changes) return publicJson(request, env, { error:'Producto inexistente.' }, 404);
   await audit(env, identity, 'product.update', 'product', id, { name, price });
   return publicJson(request, env, { ok:true });
@@ -388,14 +413,15 @@ async function addProduct(request, env) {
   try { body = await readJson(request); }
   catch (error) { return publicJson(request, env, { error:error.message }, 400); }
   const name = String(body.name || '').trim();
+  const description = String(body.description || '').trim();
   const price = Number(body.price);
-  if (name.length < 2 || name.length > 100 || !Number.isInteger(price) || price < 1 || price > 10000000) return publicJson(request, env, { error:'Revisá el nombre y el precio.' }, 400);
+  if (name.length < 2 || name.length > 100 || description.length > 500 || !validPrice(price)) return publicJson(request, env, { error:'Revisá nombre, descripción y precio.' }, 400);
   const id = `product-${crypto.randomUUID().slice(0, 8)}`;
   const order = await env.DB.prepare('SELECT COALESCE(MAX(sort_order), -1) + 1 AS next_order FROM products WHERE store_id = ?').bind(identity.storeId).first();
   await env.DB.prepare(`
     INSERT INTO products (id, name, description, category, price, default_image, sort_order, updated_at, active, store_id)
-    VALUES (?, ?, '', 'Productos', ?, NULL, ?, ?, 1, ?)
-  `).bind(id, name, price, Number(order?.next_order || 0), new Date().toISOString(), identity.storeId).run();
+    VALUES (?, ?, ?, 'Productos', ?, NULL, ?, ?, 1, ?)
+  `).bind(id, name, description, price, Number(order?.next_order || 0), new Date().toISOString(), identity.storeId).run();
   await audit(env, identity, 'product.create', 'product', id, { name, price });
   return publicJson(request, env, { ok:true, id }, 201);
 }
@@ -429,8 +455,8 @@ async function updateSettings(request, env) {
   const adminPrimary = String(body.adminPrimary || '').toLowerCase();
   const adminAccent = String(body.adminAccent || '').toLowerCase();
   if (business.length < 2 || business.length > 80) return publicJson(request, env, { error:'Ingresá un nombre de local válido.' }, 400);
-  if (pickupAddress.length < 5 || pickupAddress.length > 200) return publicJson(request, env, { error:'Ingresá una dirección válida.' }, 400);
-  if (phone.length < 10 || phone.length > 15) return publicJson(request, env, { error:'Ingresá el teléfono con código de país y área.' }, 400);
+  if ((identity.storeId !== GLOWRO_STORE_ID && pickupAddress.length < 5) || pickupAddress.length > 200) return publicJson(request, env, { error:'Ingresá una dirección válida.' }, 400);
+  if ((identity.storeId !== GLOWRO_STORE_ID && phone.length < 10) || (phone && (phone.length < 10 || phone.length > 15))) return publicJson(request, env, { error:'Ingresá el teléfono con código de país y área.' }, 400);
   if (deliveryZones.length > 250) return publicJson(request, env, { error:'Las zonas de entrega son demasiado largas.' }, 400);
   if (!/^#[0-9a-f]{6}$/.test(adminPrimary) || !/^#[0-9a-f]{6}$/.test(adminAccent)) return publicJson(request, env, { error:'Elegí colores válidos.' }, 400);
   const statements = [
@@ -442,6 +468,14 @@ async function updateSettings(request, env) {
     upsertSetting(env, 'admin_accent', adminAccent, 0, identity.storeId),
     upsertSetting(env, 'apply_colors_to_store', body.applyColorsToStore ? '1' : '0', 0, identity.storeId)
   ];
+  if (identity.storeId === GLOWRO_STORE_ID && body.deliveryFee !== undefined) {
+    const fee = Number(body.deliveryFee);
+    if (!Number.isFinite(fee) || fee < 0 || fee > 1000000 || Math.abs(Math.round(fee * 100) - fee * 100) > 0.000001) return publicJson(request, env, { error:'Ingresá un costo de envío válido.' }, 400);
+    statements.push(upsertSetting(env, 'delivery_fee', String(fee), 0, identity.storeId));
+  }
+  if (identity.storeId === GLOWRO_STORE_ID && body.enableLivePayments !== undefined) {
+    statements.push(upsertSetting(env, 'mp_mode', body.enableLivePayments ? 'production' : 'sandbox', 0, identity.storeId));
+  }
   if (body.disconnectMercadoPago) {
     statements.push(env.DB.prepare("DELETE FROM store_settings WHERE store_id = ? AND key IN ('mp_access_token','mp_webhook_secret')").bind(identity.storeId));
   } else {
@@ -479,10 +513,20 @@ async function updateProductImage(request, env, id) {
 async function createOrder(request, env) {
   let order;
   let settings;
+  let storeId;
   try {
-    settings = await storeSettings(env);
-    order = validateOrderInput(await readJson(request), await catalogProducts(env));
-    if (order.paymentMethod === 'mercadopago' && !settings.mercadoPagoEnabled) throw new Error('Mercado Pago no está habilitado. Elegí efectivo.');
+    storeId = await publicStoreId(request, env);
+    settings = await storeSettings(env, storeId);
+    order = validateOrderInput(await readJson(request), await catalogProducts(env, storeId));
+    if (storeId === GLOWRO_STORE_ID) {
+      if (order.paymentMethod !== 'mercadopago' || order.fulfillment !== 'delivery') throw new Error('GlowRo acepta únicamente envíos con Mercado Pago.');
+      if (settings.paymentMode !== 'production') throw new Error('Los pagos de GlowRo todavía no están activados.');
+      if (order.phone.length < 10 || order.phone.length > 15) throw new Error('Ingresá un teléfono de contacto para el envío.');
+      if (settings.deliveryFee === null) throw new Error('El costo de envío todavía no está configurado.');
+      order.shippingFee = settings.deliveryFee;
+      order.subtotal = Math.round((order.subtotal + settings.deliveryFee) * 100) / 100;
+    }
+    if (order.paymentMethod === 'mercadopago' && !settings.mercadoPagoEnabled) throw new Error('Mercado Pago todavía no está conectado para esta tienda.');
   }
   catch (error) { return publicJson(request, env, { error: error.message }, 400); }
 
@@ -493,9 +537,9 @@ async function createOrder(request, env) {
       SET value = value + 1
       WHERE store_id = ? AND name = 'orders'
       RETURNING value
-    `).bind(DEFAULT_STORE_ID).first();
-    code = formatOrderCode(Number(counter?.value));
-    const previous = await env.DB.prepare('SELECT id, status FROM orders WHERE store_id = ? AND code = ?').bind(DEFAULT_STORE_ID, code).first();
+    `).bind(storeId).first();
+    code = storeId === GLOWRO_STORE_ID ? `GR-${String(Number(counter?.value)).padStart(6, '0')}` : formatOrderCode(Number(counter?.value));
+    const previous = await env.DB.prepare('SELECT id, status FROM orders WHERE store_id = ? AND code = ?').bind(storeId, code).first();
     if (previous) {
       if (['pending_cash', 'pending_payment'].includes(previous.status)) throw new Error('El numero ciclico aun pertenece a un pedido pendiente.');
       await env.DB.batch([
@@ -511,9 +555,9 @@ async function createOrder(request, env) {
   const now = new Date().toISOString();
   const status = order.paymentMethod === 'cash' ? 'pending_cash' : 'pending_payment';
   const inserted = await env.DB.prepare(`
-    INSERT INTO orders (code, customer_name, fulfillment, address, notes, payment_method, status, subtotal, created_at, store_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).bind(code, order.name, order.fulfillment, order.address || null, order.notes || null, order.paymentMethod, status, order.subtotal, now, DEFAULT_STORE_ID).run();
+    INSERT INTO orders (code, customer_name, fulfillment, address, notes, payment_method, status, subtotal, created_at, store_id, customer_phone)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(code, order.name, order.fulfillment, order.address || null, order.notes || null, order.paymentMethod, status, order.subtotal, now, storeId, order.phone || null).run();
   const orderId = inserted.meta.last_row_id;
   await env.DB.batch(order.items.map(item => env.DB.prepare(`
     INSERT INTO order_items (order_id, product_id, name, quantity, unit_price, subtotal)
@@ -522,13 +566,13 @@ async function createOrder(request, env) {
 
   if (order.paymentMethod === 'mercadopago') {
     try {
-      const checkout = await createMercadoPagoCheckout(env, orderId, code, order);
+      const checkout = await createMercadoPagoCheckout(env, storeId, orderId, code, order, settings.paymentMode);
       await env.DB.prepare('UPDATE orders SET mp_preference_id = ? WHERE id = ?').bind(checkout.preferenceId, orderId).run();
       return publicJson(request, env, { code, status, paymentMethod: order.paymentMethod, checkoutUrl: checkout.url }, 201);
     } catch (error) {
       await env.DB.prepare("UPDATE orders SET status = 'cancelled' WHERE id = ?").bind(orderId).run();
       console.error('Mercado Pago preference error', error.message);
-      return publicJson(request, env, { error: 'No pudimos iniciar Mercado Pago. Proba nuevamente o elegi efectivo.' }, 502);
+      return publicJson(request, env, { error: 'No pudimos iniciar Mercado Pago. Probá nuevamente.' }, 502);
     }
   }
 
@@ -540,9 +584,10 @@ async function createOrder(request, env) {
   }, 201);
 }
 
-async function createMercadoPagoCheckout(env, orderId, code, order) {
-  const credentials = await paymentCredentials(env);
-  if (!credentials.accessToken || !env.PUBLIC_API_URL || !env.PUBLIC_SITE_URL) throw new Error('Mercado Pago no esta configurado.');
+async function createMercadoPagoCheckout(env, storeId, orderId, code, order, paymentMode) {
+  const credentials = await paymentCredentials(env, storeId);
+  const siteUrl = storeId === GLOWRO_STORE_ID ? 'https://glowro.restia.net.ar/' : env.PUBLIC_SITE_URL;
+  if (!credentials.accessToken || !env.PUBLIC_API_URL || !siteUrl) throw new Error('Mercado Pago no esta configurado.');
   const body = {
     items: order.items.map(item => ({
       id: item.productId,
@@ -550,26 +595,26 @@ async function createMercadoPagoCheckout(env, orderId, code, order) {
       currency_id: 'ARS',
       quantity: item.quantity,
       unit_price: item.unitPrice
-    })),
-    external_reference: `${DEFAULT_STORE_ID}:${orderId}`,
-    notification_url: `${env.PUBLIC_API_URL.replace(/\/$/, '')}/api/webhooks/mercadopago`,
+    })).concat(order.shippingFee > 0 ? [{id:'delivery',title:'Envío a domicilio',currency_id:'ARS',quantity:1,unit_price:order.shippingFee}] : []),
+    external_reference: `${storeId}:${orderId}`,
+    notification_url: `${env.PUBLIC_API_URL.replace(/\/$/, '')}/api/webhooks/mercadopago?store=${encodeURIComponent(storeId)}`,
     back_urls: {
-      success: `${env.PUBLIC_SITE_URL}?payment=success&order=${encodeURIComponent(code)}`,
-      pending: `${env.PUBLIC_SITE_URL}?payment=pending&order=${encodeURIComponent(code)}`,
-      failure: `${env.PUBLIC_SITE_URL}?payment=failure&order=${encodeURIComponent(code)}`
+      success: `${siteUrl}?payment=success&order=${encodeURIComponent(code)}`,
+      pending: `${siteUrl}?payment=pending&order=${encodeURIComponent(code)}`,
+      failure: `${siteUrl}?payment=failure&order=${encodeURIComponent(code)}`
     },
     auto_return: 'approved',
-    statement_descriptor: 'BURGER TIN',
-    metadata: { restia_store:DEFAULT_STORE_ID, restia_order_id:String(orderId), public_order_code:code }
+    statement_descriptor: storeId === GLOWRO_STORE_ID ? 'GLOWRO' : 'BURGER TIN',
+    metadata: { restia_store:storeId, restia_order_id:String(orderId), public_order_code:code }
   };
   const response = await fetch('https://api.mercadopago.com/checkout/preferences', {
     method: 'POST',
-    headers: { authorization: `Bearer ${credentials.accessToken}`, 'content-type':'application/json', 'x-idempotency-key':code },
+    headers: { authorization: `Bearer ${credentials.accessToken}`, 'content-type':'application/json', 'x-idempotency-key':`${storeId}-${orderId}` },
     body: JSON.stringify(body)
   });
   const result = await response.json();
   if (!response.ok || !result.id) throw new Error(`Mercado Pago HTTP ${response.status}`);
-  const url = env.PAYMENTS_MODE === 'production' ? result.init_point : (result.sandbox_init_point || result.init_point);
+  const url = paymentMode === 'production' ? result.init_point : (result.sandbox_init_point || result.init_point);
   return { preferenceId: result.id, url };
 }
 
@@ -586,11 +631,11 @@ function buildWhatsAppUrl(settings, code, order) {
   return `https://wa.me/${settings.phone}?text=${encodeURIComponent(lines.join('\n'))}`;
 }
 
-async function verifyWebhook(request, env, dataId) {
+async function verifyWebhook(request, env, dataId, storeId) {
   const signature = request.headers.get('x-signature') || '';
   const requestId = request.headers.get('x-request-id') || '';
   const parts = Object.fromEntries(signature.split(',').map(part => part.trim().split('=', 2)));
-  const credentials = await paymentCredentials(env);
+  const credentials = await paymentCredentials(env, storeId);
   if (!parts.ts || !parts.v1 || !requestId || !dataId || !credentials.webhookSecret) return false;
   const manifest = `id:${dataId};request-id:${requestId};ts:${parts.ts};`;
   const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(credentials.webhookSecret), { name:'HMAC', hash:'SHA-256' }, false, ['sign']);
@@ -601,13 +646,15 @@ async function verifyWebhook(request, env, dataId) {
 
 async function mercadoPagoWebhook(request, env) {
   const url = new URL(request.url);
+  const webhookStoreId = url.searchParams.get('store') || DEFAULT_STORE_ID;
+  if (![DEFAULT_STORE_ID, GLOWRO_STORE_ID].includes(webhookStoreId)) return new Response('', { status: 401 });
   let body = {};
   try { body = await request.json(); } catch {}
   const dataId = url.searchParams.get('data.id') || String(body?.data?.id || '');
-  if (!(await verifyWebhook(request, env, dataId))) return new Response('', { status: 401 });
+  if (!(await verifyWebhook(request, env, dataId, webhookStoreId))) return new Response('', { status: 401 });
   if (!dataId) return new Response('', { status: 200 });
 
-  const credentials = await paymentCredentials(env);
+  const credentials = await paymentCredentials(env, webhookStoreId);
   const paymentResponse = await fetch(`https://api.mercadopago.com/v1/payments/${encodeURIComponent(dataId)}`, {
     headers: { authorization:`Bearer ${credentials.accessToken}` }
   });
@@ -616,14 +663,14 @@ async function mercadoPagoWebhook(request, env) {
   if (payment.status !== 'approved' || payment.currency_id !== 'ARS' || !payment.external_reference) return new Response('', { status: 200 });
 
   const [storeId, orderId] = String(payment.external_reference).split(':', 2);
-  if (storeId !== DEFAULT_STORE_ID || !/^\d+$/.test(orderId || '')) return new Response('', { status: 200 });
+  if (storeId !== webhookStoreId || !/^\d+$/.test(orderId || '')) return new Response('', { status: 200 });
   const order = await env.DB.prepare("SELECT id, code, subtotal, status FROM orders WHERE store_id = ? AND id = ? AND payment_method = 'mercadopago'").bind(storeId, Number(orderId)).first();
-  if (!order || order.status !== 'pending_payment' || Number(payment.transaction_amount) !== Number(order.subtotal)) return new Response('', { status: 200 });
-  await confirmOrder(env, order.id, String(payment.id));
+  if (!order || order.status !== 'pending_payment' || Math.round(Number(payment.transaction_amount) * 100) !== Math.round(Number(order.subtotal) * 100)) return new Response('', { status: 200 });
+  await confirmOrder(env, order.id, String(payment.id), storeId === DEFAULT_STORE_ID);
   return new Response('', { status: 200 });
 }
 
-async function confirmOrder(env, orderId, paymentId = null) {
+async function confirmOrder(env, orderId, paymentId = null, enqueuePrint = true) {
   const now = new Date().toISOString();
   const order = await env.DB.prepare('SELECT id, status FROM orders WHERE id = ?').bind(orderId).first();
   if (!order || order.status === 'cancelled') throw new Error('Pedido inexistente o cancelado.');
@@ -631,9 +678,11 @@ async function confirmOrder(env, orderId, paymentId = null) {
     await env.DB.prepare("UPDATE orders SET status = 'confirmed', confirmed_at = ?, mp_payment_id = COALESCE(?, mp_payment_id) WHERE id = ?")
       .bind(now, paymentId, orderId).run();
   }
-  const jobId = `print-${orderId}`;
-  await env.DB.prepare("INSERT OR IGNORE INTO print_jobs (id, order_id, status, created_at) VALUES (?, ?, 'queued', ?)")
-    .bind(jobId, orderId, now).run();
+  if (enqueuePrint) {
+    const jobId = `print-${orderId}`;
+    await env.DB.prepare("INSERT OR IGNORE INTO print_jobs (id, order_id, status, created_at) VALUES (?, ?, 'queued', ?)")
+      .bind(jobId, orderId, now).run();
+  }
 }
 
 async function listOrders(request, env) {
@@ -650,7 +699,8 @@ async function listOrders(request, env) {
   const limit = view === 'history' ? 500 : 250;
   const [result, counts] = await env.DB.batch([
     env.DB.prepare(`
-    SELECT o.*, pj.status AS print_status
+    SELECT o.*, pj.status AS print_status,
+      (SELECT json_group_array(json_object('name', oi.name, 'quantity', oi.quantity)) FROM order_items oi WHERE oi.order_id = o.id) AS items_json
     FROM orders o LEFT JOIN print_jobs pj ON pj.order_id = o.id
     WHERE o.store_id = ? AND ${queries[view]}
     ORDER BY o.created_at ${direction} LIMIT ${limit}
@@ -678,13 +728,14 @@ async function clearHistory(request, env) {
     env.DB.prepare("UPDATE order_counters SET value = 0 WHERE store_id = ? AND name = 'orders'").bind(identity.storeId)
   ]);
   await audit(env, identity, 'orders.history.clear', 'store', identity.storeId);
-  return publicJson(request, env, { ok:true, nextCode:'A-001' });
+  return publicJson(request, env, { ok:true, nextCode:identity.storeId === GLOWRO_STORE_ID ? 'GR-000001' : 'A-001' });
 }
 
 async function staffAction(request, env, code, action) {
   const identity = await requireAdmin(request, env, 'orders:manage');
   if (!identity) return publicJson(request, env, { error:'No autorizado.' }, 401);
   const order = await env.DB.prepare('SELECT id, status, payment_method FROM orders WHERE store_id = ? AND code = ?').bind(identity.storeId, code).first();
+  if (identity.storeId === GLOWRO_STORE_ID && action === 'cancel' && order?.status === 'pending_payment') return publicJson(request, env, { error:'Este pedido podría estar en proceso de pago. Verificá su estado en Mercado Pago antes de cancelarlo.' }, 409);
   if (!order) return publicJson(request, env, { error:'Pedido inexistente.' }, 404);
   if (action === 'confirm') {
     if (order.payment_method !== 'cash') return publicJson(request, env, { error:'Mercado Pago solo se confirma mediante Webhook.' }, 409);
