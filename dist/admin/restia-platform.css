@@ -30,3 +30,8 @@ button:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(17,19,25,.12)
 /* Campos de descripción del catálogo GlowRo. */
 .product-cell textarea{display:block;width:100%;min-height:54px;margin-top:8px;border:1px solid #d9e0e6;border-radius:8px;padding:8px;font:inherit;font-size:12px;resize:vertical}
 .add-product-form textarea{display:block;width:100%;min-height:80px;border:1px solid #d9e0e6;border-radius:8px;padding:10px;font:inherit;resize:vertical}
+.payment-guide{margin:12px 0 18px;padding:12px 14px;border:1px solid #d9e0e6;border-radius:10px;background:#f8fafc;font-size:13px;line-height:1.55}
+.payment-guide summary{cursor:pointer;font-weight:700}
+.payment-guide ol{padding-left:20px;margin:12px 0 0}
+.payment-guide li+li{margin-top:8px}
+.payment-guide code{display:block;overflow-wrap:anywhere;margin-top:5px;padding:8px;border-radius:6px;background:#eef2f6;font-size:11px}
