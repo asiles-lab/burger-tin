@@ -102,8 +102,8 @@ export function initAnalytics() {
     if (consent !== 'rejected') {
       const notice = document.createElement('aside');
       notice.className = 'consent-banner';
-      notice.setAttribute('aria-label', 'Preferencias de analítica');
-      notice.innerHTML = '<p><strong>Analítica respetuosa</strong><span>Usamos métricas anónimas para mejorar el menú. No grabamos sesiones ni enviamos los datos de tu pedido.</span></p><div><button type="button" data-consent="reject">Solo necesarias</button><button type="button" data-consent="accept">Aceptar analítica</button><a href="privacidad.html">Privacidad</a></div>';
+      notice.setAttribute('aria-label', 'Preferencias de cookies y analítica');
+      notice.innerHTML = '<p><strong>Cookies y analítica</strong><span>Guardamos tu elección y, solo si aceptás, usamos métricas anónimas para mejorar el sitio. No grabamos sesiones ni recopilamos datos personales de pedidos.</span></p><div><button type="button" data-consent="reject">Solo necesarias</button><button type="button" data-consent="accept">Aceptar analítica</button><a href="privacidad.html">Privacidad</a></div>';
       notice.addEventListener('click', event => {
         const choice = event.target.closest('[data-consent]')?.dataset.consent;
         if (!choice) return;

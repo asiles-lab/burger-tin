@@ -20,7 +20,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
   <script>document.documentElement.classList.add('js')</script>
-  <link rel="stylesheet" href="landing.css?v=20261026-1">
+  <link rel="stylesheet" href="landing.css?v=20261026-2">
+  <script src="analytics-config.js?v=20261026-2"></script>
   <script type="application/ld+json">
     {
       "@context":"https://schema.org",
@@ -334,11 +335,20 @@
         <p class="eyebrow"><span></span> El próximo pedido puede llegar distinto</p>
         <h2>Tu equipo no debería depender de <em>copiar y pegar.</em></h2>
         <p>Mostranos tu catálogo y te enseñamos cómo funcionaría Restia con la marca y la operación de tu negocio.</p>
-        <div class="contact-actions">
-          <a class="button primary" href="https://wa.me/5491133214265?text=Hola%2C%20quiero%20ver%20c%C3%B3mo%20funcionar%C3%ADa%20Restia%20en%20mi%20negocio." target="_blank" rel="noopener" data-track="contact-whatsapp">Solicitar una demo <span aria-hidden="true">↗</span></a>
-          <a class="contact-email" href="https://wa.me/5491133214265?text=Hola%2C%20quiero%20conocer%20Restia." target="_blank" rel="noopener" data-track="contact-whatsapp-text">Escribinos por WhatsApp</a>
-        </div>
-        <small>No necesitás preparar una presentación. Con tu catálogo actual podemos empezar.</small>
+        <form class="demo-form" id="demo-form">
+          <div class="demo-form-grid">
+            <label>Nombre<input name="nombre" autocomplete="given-name" required maxlength="80" placeholder="Tu nombre"></label>
+            <label>Apellido<input name="apellido" autocomplete="family-name" required maxlength="80" placeholder="Tu apellido"></label>
+            <label>Email<input name="email" type="email" autocomplete="email" required maxlength="160" placeholder="nombre@empresa.com"></label>
+            <label>Teléfono <span>(opcional)</span><input name="telefono" type="tel" autocomplete="tel" maxlength="30" placeholder="Tu teléfono"></label>
+            <label>¿Ya contás con un negocio?<select name="negocio" required><option value="" selected disabled>Seleccioná una opción</option><option>Sí</option><option>Estoy por abrir</option><option>No todavía</option></select></label>
+            <label>¿Cuántas sedes o sucursales?<input name="sedes" type="number" min="1" max="10000" step="1" required placeholder="Ej. 2"></label>
+            <label class="demo-form-wide">¿Usás algún software actualmente?<select name="software" required><option value="" selected disabled>Seleccioná una opción</option><option>Sí</option><option>No</option></select></label>
+            <label class="demo-form-wide" id="software-details-label" hidden>¿Cuál usás?<input name="softwareDetalle" maxlength="120" placeholder="Nombre del sistema (opcional)"></label>
+          </div>
+          <div class="demo-submit-row"><p>Al enviar se abrirá tu correo con estos datos para escribirnos a <a href="mailto:atencion@restia.net.ar">atencion@restia.net.ar</a>.</p><button class="button primary" type="submit">Solicitar demo <span aria-hidden="true">↗</span></button></div>
+          <p class="demo-form-status" id="demo-form-status" role="status" aria-live="polite"></p>
+        </form>
       </div>
     </section>
   </main>
@@ -356,7 +366,7 @@
     <p>© <span id="year">2026</span> Restia · Argentina</p>
   </footer>
 
-  <script type="module" src="landing.mjs?v=20261026-1"></script>
+  <script type="module" src="landing.mjs?v=20261026-2"></script>
 </body>
 </html>
 

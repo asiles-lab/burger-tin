@@ -2,6 +2,9 @@ const $ = selector => document.querySelector(selector);
 const $$ = selector => [...document.querySelectorAll(selector)];
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+import { initAnalytics } from './analytics.mjs';
+initAnalytics();
+
 const header = $('[data-header]');
 const setHeaderState = () => header?.classList.toggle('is-scrolled', window.scrollY > 24);
 setHeaderState();
@@ -104,3 +107,32 @@ document.addEventListener('click', event => {
 });
 
 $('#year').textContent = String(new Date().getFullYear());
+
+const demoForm = $('#demo-form');
+const softwareSelect = demoForm?.elements.software;
+const softwareDetails = $('#software-details-label');
+softwareSelect?.addEventListener('change', () => {
+  const showDetails = softwareSelect.value === 'Sí';
+  softwareDetails.hidden = !showDetails;
+  demoForm.elements.softwareDetalle.required = false;
+  if (!showDetails) demoForm.elements.softwareDetalle.value = '';
+});
+
+demoForm?.addEventListener('submit', event => {
+  event.preventDefault();
+  if (!demoForm.reportValidity()) return;
+  const form = new FormData(demoForm);
+  const rows = [
+    `Nombre: ${form.get('nombre')} ${form.get('apellido')}`,
+    `Email: ${form.get('email')}`,
+    `Teléfono: ${form.get('telefono') || 'No informado'}`,
+    `Cuenta con un negocio: ${form.get('negocio')}`,
+    `Sedes o sucursales: ${form.get('sedes')}`,
+    `Usa software actualmente: ${form.get('software')}`,
+    `Software: ${form.get('softwareDetalle') || 'No informado'}`
+  ];
+  const subject = `Solicitud de demo Restia · ${form.get('nombre')} ${form.get('apellido')}`;
+  const mailto = `mailto:atencion@restia.net.ar?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(rows.join('\n'))}`;
+  $('#demo-form-status').textContent = 'Abriendo tu aplicación de correo…';
+  window.location.href = mailto;
+});
