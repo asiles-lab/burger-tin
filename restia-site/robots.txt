@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://restia.net.ar/sitemap.xml

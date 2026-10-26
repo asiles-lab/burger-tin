@@ -6,10 +6,12 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const output = join(root, '.cloudflare-dist');
 const store = join(output, 'burger-tin');
 const platform = join(output, 'restia-admin');
+const landing = join(output, 'restia-site');
 
 await rm(output, { recursive:true, force:true });
 await mkdir(join(store, 'admin'), { recursive:true });
 await mkdir(platform, { recursive:true });
+await mkdir(landing, { recursive:true });
 
 const copy = (name, destination = store) => cp(join(root, name), join(destination, name), { recursive:true });
 for (const name of ['analytics-config.js','analytics.mjs','app.mjs','assets','catalog.json','checkout-config.js','index.html','order.mjs','styles-v2.css','panel-pro.css','panel-pro.mjs']) await copy(name);
@@ -23,5 +25,7 @@ const superAdmin = (await readFile(join(root, 'platform.html'), 'utf8'))
   .replace('<head>', '<head><base href="/">')
   .replaceAll('href="admin.html"', 'href="https://burger-tin.restia.net.ar/admin/"');
 await writeFile(join(platform, 'index.html'), superAdmin);
+
+await cp(join(root, 'restia-site'), landing, { recursive:true });
 
 console.log(`Cloudflare Pages listo en ${output}`);

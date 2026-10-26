@@ -1,0 +1,16 @@
+{
+  "$schema": "./backend/node_modules/wrangler/config-schema.json",
+  "name": "restia-site",
+  "compatibility_date": "2026-10-26",
+  "workers_dev": true,
+  "preview_urls": true,
+  "assets": {
+    "directory": "./.cloudflare-dist/restia-site",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page"
+  },
+  "routes": [
+    { "pattern": "restia.net.ar", "custom_domain": true },
+    { "pattern": "www.restia.net.ar", "custom_domain": true }
+  ]
+}
