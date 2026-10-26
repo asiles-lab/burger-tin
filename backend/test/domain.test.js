@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { formatOrderCode, timingSafeEqualText, validateOrderInput } from '../src/domain.js';
+import { checkoutPaymentMethods, formatOrderCode, timingSafeEqualText, validateOrderInput } from '../src/domain.js';
 
 const products = [{ id: 'burger', name: 'Burger', price: 5000 }];
 
@@ -33,4 +33,9 @@ test('genera codigos correlativos con letras y tres digitos', () => {
 test('compara tokens', () => {
   assert.equal(timingSafeEqualText('secreto', 'secreto'), true);
   assert.equal(timingSafeEqualText('secreto', 'otro'), false);
+});
+
+test('GlowRo excluye pagos offline del checkout de Mercado Pago', () => {
+  assert.deepEqual(checkoutPaymentMethods('glowro'), { excluded_payment_types:[{ id:'ticket' }] });
+  assert.equal(checkoutPaymentMethods('burger-tin'), undefined);
 });

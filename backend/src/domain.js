@@ -49,3 +49,8 @@ export function timingSafeEqualText(left, right) {
 export function formatMoney(value) {
   return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(value);
 }
+
+export function checkoutPaymentMethods(storeId) {
+  // GlowRo vende exclusivamente con pago online: no ofrecer Rapipago/Pago Fácil.
+  return storeId === 'glowro' ? { excluded_payment_types: [{ id:'ticket' }] } : undefined;
+}

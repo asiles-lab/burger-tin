@@ -1,5 +1,5 @@
 import store from '../../catalog.json' with { type: 'json' };
-import { formatMoney, formatOrderCode, timingSafeEqualText, validateOrderInput } from './domain.js';
+import { checkoutPaymentMethods, formatMoney, formatOrderCode, timingSafeEqualText, validateOrderInput } from './domain.js';
 
 const DEFAULT_STORE_ID = 'burger-tin';
 const GLOWRO_STORE_ID = 'glowro';
@@ -254,8 +254,9 @@ async function storeSettings(env, storeId = DEFAULT_STORE_ID) {
     storePrimary: applyToStore ? primary : '#341747',
     storeAccent: applyToStore ? accent : '#f5251b',
     mercadoPagoEnabled: Boolean((values.mp_access_token && values.mp_webhook_secret) || (storeId === DEFAULT_STORE_ID && env.MP_ACCESS_TOKEN && env.MP_WEBHOOK_SECRET)),
+    webhookUrl: `${String(env.PUBLIC_API_URL || '').replace(/\/$/, '')}/api/webhooks/mercadopago?store=${encodeURIComponent(storeId)}`,
     deliveryFee: values.delivery_fee === undefined ? null : Number(values.delivery_fee),
-    paymentMode: storeId === GLOWRO_STORE_ID ? (values.mp_mode || 'sandbox') : (env.PAYMENTS_MODE || 'sandbox')
+    paymentMode: values.mp_mode || (storeId === DEFAULT_STORE_ID ? (env.PAYMENTS_MODE || 'sandbox') : 'sandbox')
   };
 }
 
@@ -475,7 +476,12 @@ async function updateSettings(request, env) {
     if (!Number.isFinite(fee) || fee < 0 || fee > 1000000 || Math.abs(Math.round(fee * 100) - fee * 100) > 0.000001) return publicJson(request, env, { error:'Ingresá un costo de envío válido.' }, 400);
     statements.push(upsertSetting(env, 'delivery_fee', String(fee), 0, identity.storeId));
   }
-  if (identity.storeId === GLOWRO_STORE_ID && body.enableLivePayments !== undefined) {
+  if (body.enableLivePayments !== undefined) {
+    if (body.enableLivePayments && body.disconnectMercadoPago) return publicJson(request, env, { error:'No podés activar cobros mientras desconectás Mercado Pago.' }, 400);
+    if (body.enableLivePayments && !(String(body.mpAccessToken || '').trim() && String(body.mpWebhookSecret || '').trim())) {
+      const existing = await storeSettings(env, identity.storeId);
+      if (!existing.mercadoPagoEnabled) return publicJson(request, env, { error:'Cargá el Access Token y la clave del webhook antes de activar cobros.' }, 400);
+    }
     statements.push(upsertSetting(env, 'mp_mode', body.enableLivePayments ? 'production' : 'sandbox', 0, identity.storeId));
   }
   if (body.disconnectMercadoPago) {
@@ -492,6 +498,24 @@ async function updateSettings(request, env) {
   await env.DB.batch(statements);
   await audit(env, identity, 'store.settings.update', 'store', identity.storeId, { mercadoPagoChanged:Boolean(body.disconnectMercadoPago || body.mpAccessToken), themeChanged:true });
   return publicJson(request, env, { ok:true, settings:await storeSettings(env, identity.storeId) });
+}
+
+async function checkMercadoPagoApi(request, env) {
+  const identity = await requireAdmin(request, env, 'store:manage');
+  if (!identity) return publicJson(request, env, { error:'No autorizado.' }, 401);
+  const { accessToken } = await paymentCredentials(env, identity.storeId);
+  if (!accessToken) return publicJson(request, env, { error:'Primero guardá el Access Token del comercio.' }, 400);
+  try {
+    const response = await fetch('https://api.mercadopago.com/v1/payment_methods', {
+      headers:{ authorization:`Bearer ${accessToken}` },
+      cache:'no-store'
+    });
+    if (response.status === 401 || response.status === 403) return publicJson(request, env, { error:'Mercado Pago rechazó el Access Token. Revisá las credenciales de esta cuenta.' }, 400);
+    if (!response.ok) return publicJson(request, env, { error:'Mercado Pago no pudo verificar la conexión en este momento.' }, 502);
+    return publicJson(request, env, { ok:true, message:'Access Token aceptado por Mercado Pago. Falta comprobar el webhook con un pago de prueba.' });
+  } catch {
+    return publicJson(request, env, { error:'No pudimos comunicarnos con Mercado Pago. Intentá nuevamente.' }, 502);
+  }
 }
 
 async function updateProductImage(request, env, id) {
@@ -588,7 +612,8 @@ async function createOrder(request, env) {
 
 async function createMercadoPagoCheckout(env, storeId, orderId, code, order, paymentMode) {
   const credentials = await paymentCredentials(env, storeId);
-  const siteUrl = storeId === GLOWRO_STORE_ID ? 'https://glowro.restia.net.ar/' : env.PUBLIC_SITE_URL;
+  const company = storeId === DEFAULT_STORE_ID ? null : await env.DB.prepare('SELECT public_host FROM stores WHERE id = ? AND active = 1').bind(storeId).first();
+  const siteUrl = storeId === DEFAULT_STORE_ID ? env.PUBLIC_SITE_URL : (company?.public_host ? `https://${company.public_host}/` : '');
   if (!credentials.accessToken || !env.PUBLIC_API_URL || !siteUrl) throw new Error('Mercado Pago no esta configurado.');
   const body = {
     items: order.items.map(item => ({
@@ -606,7 +631,8 @@ async function createMercadoPagoCheckout(env, storeId, orderId, code, order, pay
       failure: `${siteUrl}?payment=failure&order=${encodeURIComponent(code)}`
     },
     auto_return: 'approved',
-    statement_descriptor: storeId === GLOWRO_STORE_ID ? 'GLOWRO' : 'BURGER TIN',
+    ...(checkoutPaymentMethods(storeId) ? { payment_methods: checkoutPaymentMethods(storeId) } : {}),
+    statement_descriptor: storeId === GLOWRO_STORE_ID ? 'GLOWRO' : (storeId === DEFAULT_STORE_ID ? 'BURGER TIN' : 'RESTIA'),
     metadata: { restia_store:storeId, restia_order_id:String(orderId), public_order_code:code }
   };
   const response = await fetch('https://api.mercadopago.com/checkout/preferences', {
@@ -649,7 +675,10 @@ async function verifyWebhook(request, env, dataId, storeId) {
 async function mercadoPagoWebhook(request, env) {
   const url = new URL(request.url);
   const webhookStoreId = url.searchParams.get('store') || DEFAULT_STORE_ID;
-  if (![DEFAULT_STORE_ID, GLOWRO_STORE_ID].includes(webhookStoreId)) return new Response('', { status: 401 });
+  if (webhookStoreId !== DEFAULT_STORE_ID) {
+    const company = await env.DB.prepare('SELECT id FROM stores WHERE id = ? AND active = 1').bind(webhookStoreId).first();
+    if (!company) return new Response('', { status: 401 });
+  }
   let body = {};
   try { body = await request.json(); } catch {}
   const dataId = url.searchParams.get('data.id') || String(body?.data?.id || '');
@@ -1069,6 +1098,7 @@ export default {
     if (request.method === 'POST' && url.pathname === '/api/admin/products') return addProduct(request, env);
     if (request.method === 'GET' && url.pathname === '/api/admin/settings') return adminSettings(request, env);
     if (request.method === 'PATCH' && url.pathname === '/api/admin/settings') return updateSettings(request, env);
+    if (request.method === 'POST' && url.pathname === '/api/admin/mercadopago/check') return checkMercadoPagoApi(request, env);
     const productMatch = url.pathname.match(/^\/api\/admin\/products\/([^/]+)$/);
     if (request.method === 'PATCH' && productMatch) return updateProduct(request, env, decodeURIComponent(productMatch[1]));
     if (request.method === 'DELETE' && productMatch) return deleteProduct(request, env, decodeURIComponent(productMatch[1]));
