@@ -5,3 +5,62 @@
 .dual-brand{justify-content:center;gap:12px;padding-inline:0}.dual-brand .restia-brand{width:96px;height:42px}.dual-brand .store-brand{width:52px;height:52px}.dual-brand>span{width:1px;height:34px;background:var(--line)}
 .password-dialog{width:min(460px,calc(100% - 30px));padding:0;border:0;border-radius:16px;box-shadow:0 28px 80px #10182835}.password-dialog::backdrop{background:#10182880;backdrop-filter:blur(3px)}.password-dialog form{display:grid;gap:16px;padding:28px}.password-dialog h2{margin:0;font:800 1.35rem Manrope}.password-dialog p{margin:0;color:var(--muted)}.password-dialog label{display:grid;gap:7px}.password-dialog input{padding:11px;border:1px solid #d0d5dd;border-radius:8px}.password-dialog .error{color:#b42318}.password-dialog button{background:#15395e}
 :root{--admin-primary:#15395e;--admin-accent:#36b79b}.login-brand{background:linear-gradient(145deg,#0f2e4e,#174b71)}.login-brand img{width:min(360px,72%);filter:none;background:#fff;border-radius:16px;padding:12px}.sidebar-brand img{width:58px;height:42px}.login-card button{background:#15395e}
+
+/* Productos: estructura clara y estable en cualquier ancho */
+#products-area{max-width:1560px;margin-inline:auto}
+.products-head{padding:4px 0 8px}
+.products-head>button{min-height:42px;padding:10px 15px;white-space:nowrap}
+.product-table{overflow:visible;border:0;background:transparent}
+.product-table-head{margin-bottom:8px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.72)}
+.product-row{margin-bottom:10px;border:1px solid var(--line);border-radius:14px;background:#fff;box-shadow:0 8px 24px rgba(16,24,40,.035)}
+.product-row:first-child{border-top:1px solid var(--line)}
+.product-cell{grid-template-columns:72px minmax(0,1fr);grid-template-rows:auto auto;align-items:center}
+.product-cell img{grid-row:1 / 3;width:72px;height:72px;border:1px solid #eef0f3;border-radius:11px;background:#fafafa}
+.product-cell>input{grid-column:2;min-width:0;font-weight:700}
+.product-cell>textarea{grid-column:2;min-width:0;min-height:48px!important;margin-top:0!important;line-height:1.35;resize:vertical}
+.product-row>label:not(.product-cell) input{font-variant-numeric:tabular-nums}
+.row-actions{justify-content:flex-end}
+.row-actions button{min-height:40px}
+
+@media(max-width:1000px){
+  .product-row{grid-template-columns:minmax(0,1.4fr) minmax(160px,.6fr)}
+  .row-photo{align-self:end}
+  .row-actions{align-self:end}
+}
+
+@media(max-width:760px){
+  .app-shell{display:block;width:100%}
+  .workspace{width:100%;min-width:0}
+  .sidebar{width:min(84vw,300px)}
+  .topbar{width:100%;height:72px;padding:0 14px;gap:10px}
+  .topbar>div:not(.header-actions){min-width:0}
+  .topbar h1{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:1.2rem}
+  .topbar .eyebrow{font-size:.62rem}
+  .mobile-menu{flex:0 0 42px;width:42px;height:42px;padding:0}
+  .header-actions{flex:0 0 auto;gap:6px}
+  .header-actions #refresh{min-height:40px;padding:8px 11px;font-size:.78rem}
+  .page-section{width:100%;padding:20px 14px 44px}
+  .products-head{display:grid;grid-template-columns:1fr auto;align-items:center;gap:12px;margin-bottom:14px}
+  .products-head p{font-size:.82rem;line-height:1.45}
+  .products-head>button{min-height:40px;max-width:148px;padding:9px 12px;font-size:.76rem;line-height:1.15}
+  .product-row{display:grid;grid-template-columns:1fr;padding:14px;gap:12px;border-radius:16px}
+  .product-cell{grid-column:auto;grid-template-columns:64px minmax(0,1fr);gap:9px 11px}
+  .product-cell img{width:64px;height:64px}
+  .product-cell>input{min-height:42px;padding:10px 11px}
+  .product-cell>textarea{min-height:56px!important;padding:9px 10px!important;font-size:.76rem!important}
+  .product-row>label:not(.product-cell) input{min-height:42px}
+  .row-photo,.row-actions{justify-content:flex-start}
+  .row-photo label{display:inline-flex;align-items:center;min-height:40px;padding:8px 11px}
+  .row-actions{gap:8px}
+  .row-actions button{min-height:40px;padding:8px 12px;font-size:.8rem}
+  .summary-strip{gap:10px}
+  .summary-strip>div{padding:15px 16px}
+  .views{gap:14px;overflow-x:auto;scrollbar-width:none}
+  .views .view{flex:0 0 auto;font-size:.84rem}
+}
+
+@media(max-width:380px){
+  .products-head{grid-template-columns:1fr}
+  .products-head>button{max-width:none;width:100%}
+  .topbar .header-actions #refresh{padding-inline:9px}
+}
