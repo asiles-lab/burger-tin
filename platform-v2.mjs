@@ -69,6 +69,7 @@ function renderCompanies() {
   selectedStoreId = '';
   $('#companies-view').hidden = false;
   $('#profiles-view').hidden = true;
+  $('#new-company').hidden = false;
   $('#new-profile').hidden = true;
   $('#platform-eyebrow').textContent = 'Gestión central';
   $('#platform-title').textContent = 'Empresas';
@@ -76,7 +77,8 @@ function renderCompanies() {
   $('#companies').innerHTML = stores.length ? stores.map(store => {
     const companyProfiles = profiles.filter(profile => profile.store_id === store.id);
     const active = companyProfiles.filter(profile => profile.active).length;
-    return `<article class="company-card"><div class="company-logo"><img src="assets/logo-burger-tun.png" alt="${escapeHtml(store.name)}"></div><div class="company-copy"><span class="status-dot">${escapeHtml(store.status || 'Activo')}</span><h2>${escapeHtml(store.name)}</h2><p>Menú digital, pedidos, impresión y configuración comercial.</p></div><div class="company-meta"><span>Usuarios activos</span><strong>${active}</strong><button data-open-store="${escapeHtml(store.id)}">Gestionar empresa →</button></div></article>`;
+    const setupReady = store.setup_status === 'activo';
+    return `<article class="company-card"><div class="company-logo"><img src="assets/restia-favicon.png" alt=""></div><div class="company-copy"><span class="status-dot ${setupReady ? '' : 'status-pending'}">${escapeHtml(store.status || 'En preparación')}</span><h2>${escapeHtml(store.name)}</h2><p>Administrador ${active ? 'activo' : 'pendiente'} · Menú y panel de gestión</p><div class="company-host">${escapeHtml(store.public_host || `${store.slug || store.id}.restia.net.ar`)}</div></div><div class="company-meta"><span>Usuarios activos</span><strong>${active}</strong><div class="company-readiness"><span>Enrutamiento <b>${escapeHtml(store.route_status || 'pendiente')}</b></span><span>DNS / TLS <b>${escapeHtml(store.dns_status || 'pendiente')}</b></span></div><button data-open-store="${escapeHtml(store.id)}">Gestionar accesos →</button></div></article>`;
   }).join('') : '<p class="empty">Todavía no hay empresas registradas.</p>';
 }
 
@@ -94,6 +96,7 @@ function renderProfileGroup(view, storeId = '') {
   const groupProfiles = profiles.filter(profile => isPlatform ? profile.store_id === 'platform' : profile.store_id === storeId);
   $('#companies-view').hidden = true;
   $('#profiles-view').hidden = false;
+  $('#new-company').hidden = true;
   $('#back-companies').hidden = isPlatform;
   $('#new-profile').hidden = false;
   $('#new-profile').textContent = isPlatform ? '＋ Nuevo Super Admin' : '＋ Nuevo usuario';
@@ -239,6 +242,56 @@ $('#login-form').addEventListener('submit', async event => {
 $('#logout').addEventListener('click', () => logout());
 $('#new-profile').addEventListener('click', openCreateProfile);
 $('#back-companies').addEventListener('click', renderCompanies);
+
+function openCreateCompany() {
+  const form = $('#company-form');
+  form.reset();
+  $('#company-error').textContent = '';
+  $('#company-host-preview').textContent = 'tu-empresa.restia.net.ar';
+  $('#company-dialog').showModal();
+}
+
+$('#new-company').addEventListener('click', openCreateCompany);
+$('#company-form').addEventListener('click', event => {
+  if (event.target.closest('[data-close-company]')) $('#company-dialog').close();
+});
+$('#company-form').elements.slug.addEventListener('input', event => {
+  const slug = event.currentTarget.value.toLowerCase().replace(/[^a-z0-9-]/g, '').replace(/-{2,}/g, '-').replace(/^-|-$/g, '');
+  $('#company-host-preview').textContent = `${slug || 'tu-empresa'}.restia.net.ar`;
+});
+$('#company-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const data = new FormData(form);
+  const button = $('#save-company');
+  button.disabled = true;
+  $('#company-error').textContent = '';
+  try {
+    const response = await call('/api/platform/companies', {
+      method:'POST',
+      headers:{ 'content-type':'application/json' },
+      body:JSON.stringify({ companyName:data.get('companyName'), slug:data.get('slug'), adminName:data.get('adminName'), email:data.get('email'), username:data.get('username'), ...await newCredential(data.get('password')) })
+    });
+    form.reset();
+    $('#company-dialog').close();
+    await refreshData();
+    const result = response;
+    $('#company-result').innerHTML = `<div class="dialog-head"><div><p class="eyebrow">Empresa creada</p><h2>${escapeHtml(result.store.name)}</h2></div><button type="button" class="dialog-close" data-close-result aria-label="Cerrar">×</button></div><p>Se generó el usuario inicial <strong>@${escapeHtml(result.admin.username)}</strong> (${escapeHtml(result.admin.name)}). Deberá cambiar su contraseña en el primer ingreso.</p><div class="result-url-list"><div><span>Menú digital reservado</span><code>${escapeHtml(result.urls.menu)}</code></div><div><span>Panel del local reservado</span><code>${escapeHtml(result.urls.localAdmin)}</code></div><div><span>Gestión Restia</span><code>${escapeHtml(result.urls.superAdmin)}</code></div></div><div class="route-warning"><strong>Enrutamiento y DNS pendientes</strong><p>Estas direcciones todavía no están activas. Antes hay que preparar y desplegar el menú propio de ${escapeHtml(result.store.name)}, asignar su Worker de Cloudflare y conectar el host con TLS. No se apunta a la web de Burger Tin.</p></div><div class="dialog-actions"><button type="button" class="secondary" data-close-result>Cerrar</button><button type="button" data-open-company-users="${escapeHtml(result.store.id)}">Ver usuarios de la empresa</button></div>`;
+    $('#company-result-dialog').showModal();
+  } catch (error) {
+    $('#company-error').textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
+});
+$('#company-result-dialog').addEventListener('click', event => {
+  if (event.target.closest('[data-close-result]')) $('#company-result-dialog').close();
+  const button = event.target.closest('[data-open-company-users]');
+  if (button) {
+    $('#company-result-dialog').close();
+    renderProfileGroup('store', button.dataset.openCompanyUsers);
+  }
+});
 
 document.querySelector('.side-nav').addEventListener('click', event => {
   const button = event.target.closest('[data-platform-view]');

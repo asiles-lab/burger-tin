@@ -56,7 +56,6 @@ function requireBearer(request, expected) {
 
 const ALL_ADMIN_PERMISSIONS = ['orders:view','orders:manage','products:manage','store:manage','reports:view','billing:manage','platform:manage'];
 const STORE_PERMISSIONS = ALL_ADMIN_PERMISSIONS.filter(permission => permission !== 'platform:manage');
-const PLATFORM_STORES = [{ id:'burger-tin', name:'Burger Tin', status:'Activo' }];
 const PASSWORD_ITERATIONS = 120000;
 
 async function sha256(value) {
@@ -104,7 +103,10 @@ async function passwordChallenge(request, env) {
   if (!/^[a-z0-9._-]{3,40}$/.test(username)) return publicJson(request, env, { error:'Ingresá un usuario válido.' }, 400);
   const profile = await env.DB.prepare('SELECT store_id, permissions, password_salt FROM admin_profiles WHERE lower(username) = ? AND active = 1').bind(username).first();
   const permissions = parsePermissions(profile?.permissions);
-  const correctScope = scope === 'platform' ? permissions.includes('platform:manage') : profile?.store_id === 'burger-tin' && permissions.some(item => STORE_PERMISSIONS.includes(item));
+  const storeAccess = scope === 'store' && profile?.store_id && profile.store_id !== 'platform' && permissions.some(item => STORE_PERMISSIONS.includes(item))
+    ? await env.DB.prepare('SELECT id FROM stores WHERE id = ? AND active = 1').bind(profile.store_id).first()
+    : null;
+  const correctScope = scope === 'platform' ? permissions.includes('platform:manage') : Boolean(storeAccess);
   let salt = correctScope && profile?.password_salt ? profile.password_salt : '';
   if (!salt) {
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`restia:${scope}:${username}`));
@@ -151,7 +153,10 @@ async function login(request, env) {
   if (!/^[a-z0-9._-]{3,40}$/.test(username) || !validCredentialMaterial(passwordVerifier, body.passwordSalt)) return publicJson(request, env, { error:'Usuario o contraseña incorrectos.' }, 401);
   const profile = await env.DB.prepare(`SELECT * FROM admin_profiles WHERE lower(username) = ? AND active = 1`).bind(username).first();
   const permissions = parsePermissions(profile?.permissions);
-  const wrongScope = scope === 'platform' ? !permissions.includes('platform:manage') : (profile?.store_id !== 'burger-tin' || !permissions.some(item => STORE_PERMISSIONS.includes(item)));
+  const storeAccess = scope === 'store' && profile?.store_id && profile.store_id !== 'platform' && permissions.some(item => STORE_PERMISSIONS.includes(item))
+    ? await env.DB.prepare('SELECT id FROM stores WHERE id = ? AND active = 1').bind(profile.store_id).first()
+    : null;
+  const wrongScope = scope === 'platform' ? !permissions.includes('platform:manage') : !storeAccess;
   const locked = profile?.locked_until && new Date(profile.locked_until).getTime() > Date.now();
   let valid = false;
   if (profile?.password_hash && profile?.password_salt && !locked && !wrongScope) {
@@ -206,27 +211,27 @@ function settingMap(rows) {
   return Object.fromEntries((rows || []).map(row => [row.key, row.value]));
 }
 
-async function rawSettings(env) {
-  const result = await env.DB.prepare('SELECT key, value FROM store_settings WHERE store_id = ?').bind(DEFAULT_STORE_ID).all();
+async function rawSettings(env, storeId = DEFAULT_STORE_ID) {
+  const result = await env.DB.prepare('SELECT key, value FROM store_settings WHERE store_id = ?').bind(storeId).all();
   return settingMap(result.results);
 }
 
-async function storeSettings(env) {
-  const values = await rawSettings(env);
+async function storeSettings(env, storeId = DEFAULT_STORE_ID) {
+  const values = await rawSettings(env, storeId);
   const primary = /^#[0-9a-f]{6}$/i.test(values.admin_primary || '') ? values.admin_primary : '#35173f';
   const accent = /^#[0-9a-f]{6}$/i.test(values.admin_accent || '') ? values.admin_accent : '#f52e25';
   const applyToStore = values.apply_colors_to_store === '1';
   return {
-    business: values.business || store.business,
-    phone: values.phone || env.WHATSAPP_PHONE || store.phone,
-    pickupAddress: values.pickup_address || store.pickupAddress,
-    deliveryZones: values.delivery_zones || store.deliveryZones,
+    business: values.business || (storeId === DEFAULT_STORE_ID ? store.business : 'Nueva empresa'),
+    phone: values.phone || (storeId === DEFAULT_STORE_ID ? env.WHATSAPP_PHONE || store.phone : ''),
+    pickupAddress: values.pickup_address || (storeId === DEFAULT_STORE_ID ? store.pickupAddress : ''),
+    deliveryZones: values.delivery_zones || (storeId === DEFAULT_STORE_ID ? store.deliveryZones : ''),
     adminPrimary: primary,
     adminAccent: accent,
     applyColorsToStore: applyToStore,
     storePrimary: applyToStore ? primary : '#341747',
     storeAccent: applyToStore ? accent : '#f5251b',
-    mercadoPagoEnabled: Boolean((values.mp_access_token && values.mp_webhook_secret) || (env.MP_ACCESS_TOKEN && env.MP_WEBHOOK_SECRET))
+    mercadoPagoEnabled: Boolean((values.mp_access_token && values.mp_webhook_secret) || (storeId === DEFAULT_STORE_ID && env.MP_ACCESS_TOKEN && env.MP_WEBHOOK_SECRET))
   };
 }
 
@@ -268,11 +273,11 @@ async function paymentCredentials(env) {
   };
 }
 
-function upsertSetting(env, key, value, secret = 0) {
+function upsertSetting(env, key, value, secret = 0, storeId = DEFAULT_STORE_ID) {
   return env.DB.prepare(`
     INSERT INTO store_settings (store_id, key, value, secret, updated_at) VALUES (?, ?, ?, ?, ?)
     ON CONFLICT(store_id, key) DO UPDATE SET value=excluded.value, secret=excluded.secret, updated_at=excluded.updated_at
-  `).bind(DEFAULT_STORE_ID, key, value, secret, new Date().toISOString());
+  `).bind(storeId, key, value, secret, new Date().toISOString());
 }
 
 async function audit(env, identity, action, entityType, entityId = null, detail = null) {
@@ -397,8 +402,9 @@ async function deleteProduct(request, env, id) {
 }
 
 async function adminSettings(request, env) {
-  if (!(await requireAdmin(request, env, 'store:manage'))) return publicJson(request, env, { error:'No autorizado.' }, 401);
-  return publicJson(request, env, { settings:await storeSettings(env) });
+  const identity = await requireAdmin(request, env, 'store:manage');
+  if (!identity) return publicJson(request, env, { error:'No autorizado.' }, 401);
+  return publicJson(request, env, { settings:await storeSettings(env, identity.storeId) });
 }
 
 async function updateSettings(request, env) {
@@ -419,13 +425,13 @@ async function updateSettings(request, env) {
   if (deliveryZones.length > 250) return publicJson(request, env, { error:'Las zonas de entrega son demasiado largas.' }, 400);
   if (!/^#[0-9a-f]{6}$/.test(adminPrimary) || !/^#[0-9a-f]{6}$/.test(adminAccent)) return publicJson(request, env, { error:'Elegí colores válidos.' }, 400);
   const statements = [
-    upsertSetting(env, 'business', business),
-    upsertSetting(env, 'pickup_address', pickupAddress),
-    upsertSetting(env, 'phone', phone),
-    upsertSetting(env, 'delivery_zones', deliveryZones),
-    upsertSetting(env, 'admin_primary', adminPrimary),
-    upsertSetting(env, 'admin_accent', adminAccent),
-    upsertSetting(env, 'apply_colors_to_store', body.applyColorsToStore ? '1' : '0')
+    upsertSetting(env, 'business', business, 0, identity.storeId),
+    upsertSetting(env, 'pickup_address', pickupAddress, 0, identity.storeId),
+    upsertSetting(env, 'phone', phone, 0, identity.storeId),
+    upsertSetting(env, 'delivery_zones', deliveryZones, 0, identity.storeId),
+    upsertSetting(env, 'admin_primary', adminPrimary, 0, identity.storeId),
+    upsertSetting(env, 'admin_accent', adminAccent, 0, identity.storeId),
+    upsertSetting(env, 'apply_colors_to_store', body.applyColorsToStore ? '1' : '0', 0, identity.storeId)
   ];
   if (body.disconnectMercadoPago) {
     statements.push(env.DB.prepare("DELETE FROM store_settings WHERE store_id = ? AND key IN ('mp_access_token','mp_webhook_secret')").bind(identity.storeId));
@@ -434,13 +440,13 @@ async function updateSettings(request, env) {
     const webhookSecret = String(body.mpWebhookSecret || '').trim();
     if ((accessToken && !webhookSecret) || (!accessToken && webhookSecret)) return publicJson(request, env, { error:'Para conectar Mercado Pago completá ambas credenciales.' }, 400);
     if (accessToken && webhookSecret) {
-      statements.push(upsertSetting(env, 'mp_access_token', await encryptSetting(env, accessToken), 1));
-      statements.push(upsertSetting(env, 'mp_webhook_secret', await encryptSetting(env, webhookSecret), 1));
+      statements.push(upsertSetting(env, 'mp_access_token', await encryptSetting(env, accessToken), 1, identity.storeId));
+      statements.push(upsertSetting(env, 'mp_webhook_secret', await encryptSetting(env, webhookSecret), 1, identity.storeId));
     }
   }
   await env.DB.batch(statements);
   await audit(env, identity, 'store.settings.update', 'store', identity.storeId, { mercadoPagoChanged:Boolean(body.disconnectMercadoPago || body.mpAccessToken), themeChanged:true });
-  return publicJson(request, env, { ok:true, settings:await storeSettings(env) });
+  return publicJson(request, env, { ok:true, settings:await storeSettings(env, identity.storeId) });
 }
 
 async function updateProductImage(request, env, id) {
@@ -752,8 +758,10 @@ async function bootstrapPlatform(request, env) {
 async function platformProfiles(request, env) {
   if (!(await requireAdmin(request, env, 'platform:manage'))) return publicJson(request, env, { error:'No autorizado.' }, 401);
   if (request.method === 'GET') {
+    const storesResult = await env.DB.prepare('SELECT id, name, slug, public_host, active, setup_status, route_status, dns_status, created_at FROM stores ORDER BY created_at').all();
     const result = await env.DB.prepare(`SELECT id, store_id, name, email, username, role, permissions, active, must_change_password, created_at, updated_at FROM admin_profiles WHERE username IS NOT NULL ORDER BY store_id, name`).all();
-    return publicJson(request, env, { stores:PLATFORM_STORES, profiles:(result.results || []).map(profile => ({ ...profile, permissions:parsePermissions(profile.permissions), active:Boolean(profile.active), mustChangePassword:Boolean(profile.must_change_password) })) });
+    const stores = (storesResult.results || []).map(store => ({ ...store, status:store.setup_status === 'activo' ? (store.active ? 'Activa' : 'Desactivada') : 'En preparación' }));
+    return publicJson(request, env, { stores, profiles:(result.results || []).map(profile => ({ ...profile, permissions:parsePermissions(profile.permissions), active:Boolean(profile.active), mustChangePassword:Boolean(profile.must_change_password) })) });
   }
   let body;
   try { body = await readJson(request); } catch (error) { return publicJson(request, env, { error:error.message }, 400); }
@@ -766,7 +774,7 @@ async function platformProfiles(request, env) {
   const permissions = Array.isArray(body.permissions) ? [...new Set(body.permissions.filter(item => ALL_ADMIN_PERMISSIONS.includes(item)))] : [];
   const requestedScope = String(body.scope || '').trim().toLowerCase();
   const scope = requestedScope === 'platform' ? 'platform' : requestedScope;
-  if (scope !== 'platform' && !PLATFORM_STORES.some(store => store.id === scope)) return publicJson(request, env, { error:'La empresa seleccionada no existe.' }, 400);
+  if (scope !== 'platform' && !(await env.DB.prepare('SELECT id FROM stores WHERE id = ? AND active = 1').bind(scope).first())) return publicJson(request, env, { error:'La empresa seleccionada no existe o está desactivada.' }, 400);
   if (scope === 'platform' && !permissions.includes('platform:manage')) permissions.push('platform:manage');
   if (scope !== 'platform') {
     const platformIndex = permissions.indexOf('platform:manage');
@@ -789,6 +797,44 @@ async function platformProfiles(request, env) {
     throw error;
   }
   return publicJson(request, env, { ok:true, id }, 201);
+}
+
+async function createPlatformCompany(request, env) {
+  const operator = await requireAdmin(request, env, 'platform:manage');
+  if (!operator) return publicJson(request, env, { error:'No autorizado.' }, 401);
+  let body;
+  try { body = await readJson(request); } catch (error) { return publicJson(request, env, { error:error.message }, 400); }
+  const name = String(body.companyName || '').trim();
+  const slug = String(body.slug || '').trim().toLowerCase();
+  const adminName = String(body.adminName || '').trim();
+  const email = String(body.email || '').trim().toLowerCase();
+  const username = normalizedUsername(body.username);
+  const passwordVerifier = String(body.passwordVerifier || ''), passwordSalt = String(body.passwordSalt || '');
+  if (name.length < 2 || name.length > 80) return publicJson(request, env, { error:'El nombre debe tener entre 2 y 80 caracteres.' }, 400);
+  if (!/^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/.test(slug) || ['admin','www','api','platform','restia','mail','ftp','assets'].includes(slug)) return publicJson(request, env, { error:'Elegí un subdominio válido, sin espacios ni palabras reservadas.' }, 400);
+  if (adminName.length < 2 || adminName.length > 80) return publicJson(request, env, { error:'Ingresá el nombre del administrador.' }, 400);
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return publicJson(request, env, { error:'Ingresá un email válido.' }, 400);
+  if (!/^[a-z0-9._-]{3,40}$/.test(username)) return publicJson(request, env, { error:'El usuario debe tener entre 3 y 40 caracteres: letras, números, punto, guion o guion bajo.' }, 400);
+  if (!validCredentialMaterial(passwordVerifier, passwordSalt)) return publicJson(request, env, { error:'No pudimos proteger la contraseña inicial.' }, 400);
+  const id = slug;
+  const publicHost = `${slug}.restia.net.ar`;
+  const now = new Date().toISOString();
+  const credential = await verifierRecord(env, passwordVerifier, passwordSalt);
+  const profileId = crypto.randomUUID();
+  const defaultPermissions = ['orders:view','orders:manage','products:manage','store:manage','reports:view','billing:manage'];
+  try {
+    await env.DB.batch([
+      env.DB.prepare(`INSERT INTO stores (id, name, active, created_at, updated_at, slug, public_host, setup_status, route_status, dns_status) VALUES (?, ?, 1, ?, ?, ?, ?, 'preparacion', 'pendiente', 'pendiente')`).bind(id, name, now, now, slug, publicHost),
+      env.DB.prepare(`INSERT INTO admin_profiles (id, store_id, name, email, username, role, permissions, token_hash, password_hash, password_salt, password_iterations, active, must_change_password, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 'Administrador', ?, ?, ?, ?, ?, 1, 1, ?, ?)`).bind(profileId, id, adminName, email, username, JSON.stringify(defaultPermissions), await sha256(randomToken()), credential.hash, credential.salt, credential.iterations, now, now),
+      env.DB.prepare(`INSERT INTO store_settings (store_id, key, value, secret, updated_at) VALUES (?, 'business', ?, 0, ?)`).bind(id, name, now),
+      env.DB.prepare(`INSERT INTO order_counters (store_id, name, value) VALUES (?, 'orders', 0)`).bind(id),
+      env.DB.prepare('INSERT INTO audit_log (id, store_id, actor_id, action, entity_type, entity_id, detail, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').bind(crypto.randomUUID(), id, operator.id, 'company.create', 'store', id, JSON.stringify({ routeStatus:'pendiente', dnsStatus:'pendiente' }), now)
+    ]);
+  } catch (error) {
+    if (/unique|constraint/i.test(error.message)) return publicJson(request, env, { error:'El subdominio o nombre de usuario ya está en uso.' }, 409);
+    throw error;
+  }
+  return publicJson(request, env, { ok:true, store:{ id, name, slug, publicHost, setupStatus:'preparacion', routeStatus:'pendiente', dnsStatus:'pendiente' }, admin:{ id:profileId, name:adminName, email, username, mustChangePassword:true }, urls:{ menu:`https://${publicHost}/`, localAdmin:`https://${publicHost}/admin/`, superAdmin:'https://admin.restia.net.ar/' } }, 201);
 }
 
 async function updatePlatformProfile(request, env, id) {
@@ -913,6 +959,7 @@ export default {
     if (request.method === 'POST' && url.pathname === '/api/auth/logout') return logoutSession(request, env);
     if (request.method === 'POST' && url.pathname === '/api/auth/change-password') return changePassword(request, env);
     if (request.method === 'POST' && url.pathname === '/api/platform/bootstrap') return bootstrapPlatform(request, env);
+    if (request.method === 'POST' && url.pathname === '/api/platform/companies') return createPlatformCompany(request, env);
     if (request.method === 'POST' && url.pathname === '/api/webhooks/mercadopago') return mercadoPagoWebhook(request, env);
     if (request.method === 'GET' && url.pathname === '/api/admin/session') return adminSession(request, env);
     if (request.method === 'GET' && url.pathname === '/api/admin/orders') return listOrders(request, env);
