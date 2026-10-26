@@ -1,7 +1,15 @@
 import store from '../../catalog.json' with { type: 'json' };
 import { formatMoney, formatOrderCode, timingSafeEqualText, validateOrderInput } from './domain.js';
 
-const jsonHeaders = { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' };
+const DEFAULT_STORE_ID = 'burger-tin';
+const securityHeaders = {
+  'x-content-type-options': 'nosniff',
+  'x-frame-options': 'DENY',
+  'referrer-policy': 'no-referrer',
+  'permissions-policy': 'camera=(), microphone=(), geolocation=(), payment=()',
+  'cross-origin-resource-policy': 'same-site'
+};
+const jsonHeaders = { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', ...securityHeaders };
 
 function json(data, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(data), { status, headers: { ...jsonHeaders, ...extraHeaders } });
@@ -14,10 +22,23 @@ function corsHeaders(request, env) {
   return {
     'access-control-allow-origin': origin,
     'access-control-allow-methods': 'GET,POST,PATCH,DELETE,OPTIONS',
-    'access-control-allow-headers': 'content-type,authorization,x-burger-tin-agent',
+    'access-control-allow-headers': 'content-type,authorization,x-burger-tin-agent,x-requested-with',
     'access-control-max-age': '86400',
     vary: 'Origin'
   };
+}
+
+function allowedOrigin(request, env) {
+  const origin = request.headers.get('origin');
+  if (!origin) return true;
+  return String(env.ALLOWED_ORIGIN || '').split(',').map(value => value.trim()).filter(Boolean).includes(origin);
+}
+
+function csrfSafe(request) {
+  if (!['POST','PATCH','DELETE'].includes(request.method)) return true;
+  const path = new URL(request.url).pathname;
+  if (path === '/api/auth/challenge' || path === '/api/webhooks/mercadopago' || path.startsWith('/api/print-jobs/')) return true;
+  return request.headers.get('x-requested-with') === 'restia-web';
 }
 
 function publicJson(request, env, data, status = 200) {
@@ -186,7 +207,7 @@ function settingMap(rows) {
 }
 
 async function rawSettings(env) {
-  const result = await env.DB.prepare('SELECT key, value FROM store_settings').all();
+  const result = await env.DB.prepare('SELECT key, value FROM store_settings WHERE store_id = ?').bind(DEFAULT_STORE_ID).all();
   return settingMap(result.results);
 }
 
@@ -249,19 +270,24 @@ async function paymentCredentials(env) {
 
 function upsertSetting(env, key, value, secret = 0) {
   return env.DB.prepare(`
-    INSERT INTO store_settings (key, value, secret, updated_at) VALUES (?, ?, ?, ?)
-    ON CONFLICT(key) DO UPDATE SET value=excluded.value, secret=excluded.secret, updated_at=excluded.updated_at
-  `).bind(key, value, secret, new Date().toISOString());
+    INSERT INTO store_settings (store_id, key, value, secret, updated_at) VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(store_id, key) DO UPDATE SET value=excluded.value, secret=excluded.secret, updated_at=excluded.updated_at
+  `).bind(DEFAULT_STORE_ID, key, value, secret, new Date().toISOString());
+}
+
+async function audit(env, identity, action, entityType, entityId = null, detail = null) {
+  await env.DB.prepare('INSERT INTO audit_log (id, store_id, actor_id, action, entity_type, entity_id, detail, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+    .bind(crypto.randomUUID(), identity?.storeId || DEFAULT_STORE_ID, identity?.id || null, action, entityType, entityId, detail ? JSON.stringify(detail).slice(0, 1000) : null, new Date().toISOString()).run();
 }
 
 async function ensureProducts(env) {
-  const row = await env.DB.prepare('SELECT COUNT(*) AS total FROM products').first();
+  const row = await env.DB.prepare('SELECT COUNT(*) AS total FROM products WHERE store_id = ?').bind(DEFAULT_STORE_ID).first();
   if (Number(row?.total) > 0) return;
   const now = new Date().toISOString();
   await env.DB.batch(store.products.map((product, index) => env.DB.prepare(`
-    INSERT OR IGNORE INTO products (id, name, description, category, price, default_image, sort_order, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).bind(product.id, product.name, product.description || '', product.category, product.price, product.image || null, index, now)));
+    INSERT OR IGNORE INTO products (id, name, description, category, price, default_image, sort_order, updated_at, store_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(product.id, product.name, product.description || '', product.category, product.price, product.image || null, index, now, DEFAULT_STORE_ID)));
 }
 
 function catalogImage(env, product) {
@@ -274,8 +300,8 @@ async function catalogProducts(env) {
   await ensureProducts(env);
   const result = await env.DB.prepare(`
     SELECT id, name, description, category, price, default_image, image_type, image_updated_at, updated_at
-    FROM products WHERE active = 1 ORDER BY sort_order, name
-  `).all();
+    FROM products WHERE store_id = ? AND active = 1 ORDER BY sort_order, name
+  `).bind(DEFAULT_STORE_ID).all();
   return (result.results || []).map(product => ({
     id: product.id,
     name: product.name,
@@ -309,7 +335,7 @@ async function getCatalog(request, env) {
 }
 
 async function getCatalogImage(request, env, id) {
-  const product = await env.DB.prepare('SELECT image_data, image_type, image_updated_at FROM products WHERE id = ?').bind(id).first();
+  const product = await env.DB.prepare('SELECT image_data, image_type, image_updated_at FROM products WHERE store_id = ? AND id = ?').bind(DEFAULT_STORE_ID, id).first();
   if (!product?.image_data || !product.image_type) return publicJson(request, env, { error:'Imagen inexistente.' }, 404);
   return new Response(product.image_data, { headers:{
     'content-type': product.image_type,
@@ -325,7 +351,8 @@ async function adminCatalog(request, env) {
 }
 
 async function updateProduct(request, env, id) {
-  if (!(await requireAdmin(request, env, 'products:manage'))) return publicJson(request, env, { error:'No autorizado.' }, 401);
+  const identity = await requireAdmin(request, env, 'products:manage');
+  if (!identity) return publicJson(request, env, { error:'No autorizado.' }, 401);
   let body;
   try { body = await readJson(request); }
   catch (error) { return publicJson(request, env, { error:error.message }, 400); }
@@ -333,14 +360,16 @@ async function updateProduct(request, env, id) {
   const price = Number(body.price);
   if (name.length < 2 || name.length > 100) return publicJson(request, env, { error:'Ingresá un nombre válido.' }, 400);
   if (!Number.isInteger(price) || price < 1 || price > 10000000) return publicJson(request, env, { error:'Ingresá un precio válido.' }, 400);
-  const result = await env.DB.prepare('UPDATE products SET name = ?, price = ?, updated_at = ? WHERE id = ? AND active = 1')
-    .bind(name, price, new Date().toISOString(), id).run();
+  const result = await env.DB.prepare('UPDATE products SET name = ?, price = ?, updated_at = ? WHERE store_id = ? AND id = ? AND active = 1')
+    .bind(name, price, new Date().toISOString(), identity.storeId, id).run();
   if (!result.meta.changes) return publicJson(request, env, { error:'Producto inexistente.' }, 404);
+  await audit(env, identity, 'product.update', 'product', id, { name, price });
   return publicJson(request, env, { ok:true });
 }
 
 async function addProduct(request, env) {
-  if (!(await requireAdmin(request, env, 'products:manage'))) return publicJson(request, env, { error:'No autorizado.' }, 401);
+  const identity = await requireAdmin(request, env, 'products:manage');
+  if (!identity) return publicJson(request, env, { error:'No autorizado.' }, 401);
   let body;
   try { body = await readJson(request); }
   catch (error) { return publicJson(request, env, { error:error.message }, 400); }
@@ -348,19 +377,22 @@ async function addProduct(request, env) {
   const price = Number(body.price);
   if (name.length < 2 || name.length > 100 || !Number.isInteger(price) || price < 1 || price > 10000000) return publicJson(request, env, { error:'Revisá el nombre y el precio.' }, 400);
   const id = `product-${crypto.randomUUID().slice(0, 8)}`;
-  const order = await env.DB.prepare('SELECT COALESCE(MAX(sort_order), -1) + 1 AS next_order FROM products').first();
+  const order = await env.DB.prepare('SELECT COALESCE(MAX(sort_order), -1) + 1 AS next_order FROM products WHERE store_id = ?').bind(identity.storeId).first();
   await env.DB.prepare(`
-    INSERT INTO products (id, name, description, category, price, default_image, sort_order, updated_at, active)
-    VALUES (?, ?, '', 'Productos', ?, NULL, ?, ?, 1)
-  `).bind(id, name, price, Number(order?.next_order || 0), new Date().toISOString()).run();
+    INSERT INTO products (id, name, description, category, price, default_image, sort_order, updated_at, active, store_id)
+    VALUES (?, ?, '', 'Productos', ?, NULL, ?, ?, 1, ?)
+  `).bind(id, name, price, Number(order?.next_order || 0), new Date().toISOString(), identity.storeId).run();
+  await audit(env, identity, 'product.create', 'product', id, { name, price });
   return publicJson(request, env, { ok:true, id }, 201);
 }
 
 async function deleteProduct(request, env, id) {
-  if (!(await requireAdmin(request, env, 'products:manage'))) return publicJson(request, env, { error:'No autorizado.' }, 401);
-  const result = await env.DB.prepare('UPDATE products SET active = 0, updated_at = ? WHERE id = ? AND active = 1')
-    .bind(new Date().toISOString(), id).run();
+  const identity = await requireAdmin(request, env, 'products:manage');
+  if (!identity) return publicJson(request, env, { error:'No autorizado.' }, 401);
+  const result = await env.DB.prepare('UPDATE products SET active = 0, updated_at = ? WHERE store_id = ? AND id = ? AND active = 1')
+    .bind(new Date().toISOString(), identity.storeId, id).run();
   if (!result.meta.changes) return publicJson(request, env, { error:'Producto inexistente.' }, 404);
+  await audit(env, identity, 'product.delete', 'product', id);
   return publicJson(request, env, { ok:true });
 }
 
@@ -370,7 +402,8 @@ async function adminSettings(request, env) {
 }
 
 async function updateSettings(request, env) {
-  if (!(await requireAdmin(request, env, 'store:manage'))) return publicJson(request, env, { error:'No autorizado.' }, 401);
+  const identity = await requireAdmin(request, env, 'store:manage');
+  if (!identity) return publicJson(request, env, { error:'No autorizado.' }, 401);
   let body;
   try { body = await readJson(request); }
   catch (error) { return publicJson(request, env, { error:error.message }, 400); }
@@ -395,7 +428,7 @@ async function updateSettings(request, env) {
     upsertSetting(env, 'apply_colors_to_store', body.applyColorsToStore ? '1' : '0')
   ];
   if (body.disconnectMercadoPago) {
-    statements.push(env.DB.prepare("DELETE FROM store_settings WHERE key IN ('mp_access_token','mp_webhook_secret')"));
+    statements.push(env.DB.prepare("DELETE FROM store_settings WHERE store_id = ? AND key IN ('mp_access_token','mp_webhook_secret')").bind(identity.storeId));
   } else {
     const accessToken = String(body.mpAccessToken || '').trim();
     const webhookSecret = String(body.mpWebhookSecret || '').trim();
@@ -406,11 +439,13 @@ async function updateSettings(request, env) {
     }
   }
   await env.DB.batch(statements);
+  await audit(env, identity, 'store.settings.update', 'store', identity.storeId, { mercadoPagoChanged:Boolean(body.disconnectMercadoPago || body.mpAccessToken), themeChanged:true });
   return publicJson(request, env, { ok:true, settings:await storeSettings(env) });
 }
 
 async function updateProductImage(request, env, id) {
-  if (!(await requireAdmin(request, env, 'products:manage'))) return publicJson(request, env, { error:'No autorizado.' }, 401);
+  const identity = await requireAdmin(request, env, 'products:manage');
+  if (!identity) return publicJson(request, env, { error:'No autorizado.' }, 401);
   const type = (request.headers.get('content-type') || '').split(';')[0].toLowerCase();
   if (!['image/jpeg', 'image/png', 'image/webp'].includes(type)) return publicJson(request, env, { error:'Usá una imagen JPG, PNG o WebP.' }, 415);
   const length = Number(request.headers.get('content-length') || 0);
@@ -419,9 +454,10 @@ async function updateProductImage(request, env, id) {
   if (bytes.byteLength < 100 || bytes.byteLength > 900000) return publicJson(request, env, { error:'La imagen está vacía o es demasiado pesada.' }, 400);
   const now = new Date().toISOString();
   const result = await env.DB.prepare(`
-    UPDATE products SET image_data = ?, image_type = ?, image_updated_at = ?, updated_at = ? WHERE id = ?
-  `).bind(bytes, type, now, now, id).run();
+    UPDATE products SET image_data = ?, image_type = ?, image_updated_at = ?, updated_at = ? WHERE store_id = ? AND id = ?
+  `).bind(bytes, type, now, now, identity.storeId, id).run();
   if (!result.meta.changes) return publicJson(request, env, { error:'Producto inexistente.' }, 404);
+  await audit(env, identity, 'product.image.update', 'product', id, { type, bytes:bytes.byteLength });
   return publicJson(request, env, { ok:true, image:`${String(env.PUBLIC_API_URL || '').replace(/\/$/, '')}/api/catalog/images/${encodeURIComponent(id)}?v=${encodeURIComponent(now)}` });
 }
 
@@ -440,11 +476,11 @@ async function createOrder(request, env) {
     const counter = await env.DB.prepare(`
       UPDATE order_counters
       SET value = value + 1
-      WHERE name = 'orders'
+      WHERE store_id = ? AND name = 'orders'
       RETURNING value
-    `).first();
+    `).bind(DEFAULT_STORE_ID).first();
     code = formatOrderCode(Number(counter?.value));
-    const previous = await env.DB.prepare('SELECT id, status FROM orders WHERE code = ?').bind(code).first();
+    const previous = await env.DB.prepare('SELECT id, status FROM orders WHERE store_id = ? AND code = ?').bind(DEFAULT_STORE_ID, code).first();
     if (previous) {
       if (['pending_cash', 'pending_payment'].includes(previous.status)) throw new Error('El numero ciclico aun pertenece a un pedido pendiente.');
       await env.DB.batch([
@@ -460,9 +496,9 @@ async function createOrder(request, env) {
   const now = new Date().toISOString();
   const status = order.paymentMethod === 'cash' ? 'pending_cash' : 'pending_payment';
   const inserted = await env.DB.prepare(`
-    INSERT INTO orders (code, customer_name, fulfillment, address, notes, payment_method, status, subtotal, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).bind(code, order.name, order.fulfillment, order.address || null, order.notes || null, order.paymentMethod, status, order.subtotal, now).run();
+    INSERT INTO orders (code, customer_name, fulfillment, address, notes, payment_method, status, subtotal, created_at, store_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(code, order.name, order.fulfillment, order.address || null, order.notes || null, order.paymentMethod, status, order.subtotal, now, DEFAULT_STORE_ID).run();
   const orderId = inserted.meta.last_row_id;
   await env.DB.batch(order.items.map(item => env.DB.prepare(`
     INSERT INTO order_items (order_id, product_id, name, quantity, unit_price, subtotal)
@@ -471,7 +507,7 @@ async function createOrder(request, env) {
 
   if (order.paymentMethod === 'mercadopago') {
     try {
-      const checkout = await createMercadoPagoCheckout(env, code, order);
+      const checkout = await createMercadoPagoCheckout(env, orderId, code, order);
       await env.DB.prepare('UPDATE orders SET mp_preference_id = ? WHERE id = ?').bind(checkout.preferenceId, orderId).run();
       return publicJson(request, env, { code, status, paymentMethod: order.paymentMethod, checkoutUrl: checkout.url }, 201);
     } catch (error) {
@@ -489,7 +525,7 @@ async function createOrder(request, env) {
   }, 201);
 }
 
-async function createMercadoPagoCheckout(env, code, order) {
+async function createMercadoPagoCheckout(env, orderId, code, order) {
   const credentials = await paymentCredentials(env);
   if (!credentials.accessToken || !env.PUBLIC_API_URL || !env.PUBLIC_SITE_URL) throw new Error('Mercado Pago no esta configurado.');
   const body = {
@@ -500,7 +536,7 @@ async function createMercadoPagoCheckout(env, code, order) {
       quantity: item.quantity,
       unit_price: item.unitPrice
     })),
-    external_reference: code,
+    external_reference: `${DEFAULT_STORE_ID}:${orderId}`,
     notification_url: `${env.PUBLIC_API_URL.replace(/\/$/, '')}/api/webhooks/mercadopago`,
     back_urls: {
       success: `${env.PUBLIC_SITE_URL}?payment=success&order=${encodeURIComponent(code)}`,
@@ -509,7 +545,7 @@ async function createMercadoPagoCheckout(env, code, order) {
     },
     auto_return: 'approved',
     statement_descriptor: 'BURGER TIN',
-    metadata: { burger_tin_order: code }
+    metadata: { restia_store:DEFAULT_STORE_ID, restia_order_id:String(orderId), public_order_code:code }
   };
   const response = await fetch('https://api.mercadopago.com/checkout/preferences', {
     method: 'POST',
@@ -564,8 +600,10 @@ async function mercadoPagoWebhook(request, env) {
   const payment = await paymentResponse.json();
   if (payment.status !== 'approved' || payment.currency_id !== 'ARS' || !payment.external_reference) return new Response('', { status: 200 });
 
-  const order = await env.DB.prepare('SELECT id, code, subtotal, status FROM orders WHERE code = ?').bind(payment.external_reference).first();
-  if (!order || Number(payment.transaction_amount) !== Number(order.subtotal)) return new Response('', { status: 200 });
+  const [storeId, orderId] = String(payment.external_reference).split(':', 2);
+  if (storeId !== DEFAULT_STORE_ID || !/^\d+$/.test(orderId || '')) return new Response('', { status: 200 });
+  const order = await env.DB.prepare("SELECT id, code, subtotal, status FROM orders WHERE store_id = ? AND id = ? AND payment_method = 'mercadopago'").bind(storeId, Number(orderId)).first();
+  if (!order || order.status !== 'pending_payment' || Number(payment.transaction_amount) !== Number(order.subtotal)) return new Response('', { status: 200 });
   await confirmOrder(env, order.id, String(payment.id));
   return new Response('', { status: 200 });
 }
@@ -584,7 +622,8 @@ async function confirmOrder(env, orderId, paymentId = null) {
 }
 
 async function listOrders(request, env) {
-  if (!(await requireAdmin(request, env, 'orders:view'))) return publicJson(request, env, { error:'No autorizado.' }, 401);
+  const identity = await requireAdmin(request, env, 'orders:view');
+  if (!identity) return publicJson(request, env, { error:'No autorizado.' }, 401);
   const view = new URL(request.url).searchParams.get('view') || 'pending';
   const queries = {
     pending: `o.status IN ('pending_cash', 'pending_payment')`,
@@ -598,36 +637,39 @@ async function listOrders(request, env) {
     env.DB.prepare(`
     SELECT o.*, pj.status AS print_status
     FROM orders o LEFT JOIN print_jobs pj ON pj.order_id = o.id
-    WHERE ${queries[view]}
+    WHERE o.store_id = ? AND ${queries[view]}
     ORDER BY o.created_at ${direction} LIMIT ${limit}
-    `),
+    `).bind(identity.storeId),
     env.DB.prepare(`
       SELECT
         SUM(CASE WHEN status IN ('pending_cash', 'pending_payment') THEN 1 ELSE 0 END) AS pending,
         SUM(CASE WHEN status = 'confirmed' AND date(confirmed_at, '-3 hours') = date('now', '-3 hours') THEN 1 ELSE 0 END) AS today,
         SUM(CASE WHEN status = 'confirmed' AND date(confirmed_at, '-3 hours') < date('now', '-3 hours') THEN 1 ELSE 0 END) AS history
-      FROM orders
-    `)
+      FROM orders WHERE store_id = ?
+    `).bind(identity.storeId)
   ]);
   return publicJson(request, env, { orders: result.results || [], counts: counts.results?.[0] || {} });
 }
 
 async function clearHistory(request, env) {
-  if (!(await requireAdmin(request, env, 'orders:manage'))) return publicJson(request, env, { error:'No autorizado.' }, 401);
-  const pending = await env.DB.prepare("SELECT COUNT(*) AS total FROM orders WHERE status IN ('pending_cash', 'pending_payment')").first();
+  const identity = await requireAdmin(request, env, 'orders:manage');
+  if (!identity) return publicJson(request, env, { error:'No autorizado.' }, 401);
+  const pending = await env.DB.prepare("SELECT COUNT(*) AS total FROM orders WHERE store_id = ? AND status IN ('pending_cash', 'pending_payment')").bind(identity.storeId).first();
   if (Number(pending?.total) > 0) return publicJson(request, env, { error:'Primero confirma o cancela todos los pedidos pendientes.' }, 409);
   await env.DB.batch([
-    env.DB.prepare("DELETE FROM print_jobs WHERE order_id IN (SELECT id FROM orders WHERE status IN ('confirmed', 'cancelled'))"),
-    env.DB.prepare("DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE status IN ('confirmed', 'cancelled'))"),
-    env.DB.prepare("DELETE FROM orders WHERE status IN ('confirmed', 'cancelled')"),
-    env.DB.prepare("UPDATE order_counters SET value = 0 WHERE name = 'orders'")
+    env.DB.prepare("DELETE FROM print_jobs WHERE order_id IN (SELECT id FROM orders WHERE store_id = ? AND status IN ('confirmed', 'cancelled'))").bind(identity.storeId),
+    env.DB.prepare("DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE store_id = ? AND status IN ('confirmed', 'cancelled'))").bind(identity.storeId),
+    env.DB.prepare("DELETE FROM orders WHERE store_id = ? AND status IN ('confirmed', 'cancelled')").bind(identity.storeId),
+    env.DB.prepare("UPDATE order_counters SET value = 0 WHERE store_id = ? AND name = 'orders'").bind(identity.storeId)
   ]);
+  await audit(env, identity, 'orders.history.clear', 'store', identity.storeId);
   return publicJson(request, env, { ok:true, nextCode:'A-001' });
 }
 
 async function staffAction(request, env, code, action) {
-  if (!(await requireAdmin(request, env, 'orders:manage'))) return publicJson(request, env, { error:'No autorizado.' }, 401);
-  const order = await env.DB.prepare('SELECT id, status, payment_method FROM orders WHERE code = ?').bind(code).first();
+  const identity = await requireAdmin(request, env, 'orders:manage');
+  if (!identity) return publicJson(request, env, { error:'No autorizado.' }, 401);
+  const order = await env.DB.prepare('SELECT id, status, payment_method FROM orders WHERE store_id = ? AND code = ?').bind(identity.storeId, code).first();
   if (!order) return publicJson(request, env, { error:'Pedido inexistente.' }, 404);
   if (action === 'confirm') {
     if (order.payment_method !== 'cash') return publicJson(request, env, { error:'Mercado Pago solo se confirma mediante Webhook.' }, 409);
@@ -641,6 +683,7 @@ async function staffAction(request, env, code, action) {
     await env.DB.prepare("UPDATE print_jobs SET status='queued', device_id=NULL, leased_until=NULL, last_error=NULL, created_at=? WHERE order_id=?")
       .bind(now, order.id).run();
   }
+  await audit(env, identity, `order.${action}`, 'order', code);
   return publicJson(request, env, { ok:true });
 }
 
@@ -651,7 +694,8 @@ async function adminSession(request, env) {
 }
 
 async function reportSummary(request, env) {
-  if (!(await requireAdmin(request, env, 'reports:view'))) return publicJson(request, env, { error:'No autorizado.' }, 401);
+  const identity = await requireAdmin(request, env, 'reports:view');
+  if (!identity) return publicJson(request, env, { error:'No autorizado.' }, 401);
   const requestedDays = Number(new URL(request.url).searchParams.get('days') || 30);
   const days = [7, 30, 90].includes(requestedDays) ? requestedDays : 30;
   const result = await env.DB.prepare(`
@@ -662,14 +706,14 @@ async function reportSummary(request, env) {
       COALESCE(SUM(CASE WHEN fulfillment = 'delivery' THEN 1 ELSE 0 END), 0) AS delivery_orders,
       COALESCE(SUM(CASE WHEN payment_method = 'mercadopago' THEN 1 ELSE 0 END), 0) AS online_orders
     FROM orders
-    WHERE status = 'confirmed' AND datetime(confirmed_at) >= datetime('now', ?)
-  `).bind(`-${days} days`).first();
+    WHERE store_id = ? AND status = 'confirmed' AND datetime(confirmed_at) >= datetime('now', ?)
+  `).bind(identity.storeId, `-${days} days`).first();
   const top = await env.DB.prepare(`
     SELECT oi.name, SUM(oi.quantity) AS quantity
     FROM order_items oi JOIN orders o ON o.id = oi.order_id
-    WHERE o.status = 'confirmed' AND datetime(o.confirmed_at) >= datetime('now', ?)
+    WHERE o.store_id = ? AND o.status = 'confirmed' AND datetime(o.confirmed_at) >= datetime('now', ?)
     GROUP BY oi.name ORDER BY quantity DESC, oi.name LIMIT 5
-  `).bind(`-${days} days`).all();
+  `).bind(identity.storeId, `-${days} days`).all();
   return publicJson(request, env, {
     days,
     summary:{
@@ -678,6 +722,16 @@ async function reportSummary(request, env) {
     },
     topProducts:top.results || []
   });
+}
+
+async function auditLog(request, env) {
+  const identity = await adminIdentity(request, env);
+  if (!identity || (!identity.permissions.includes('store:manage') && !identity.permissions.includes('platform:manage'))) return publicJson(request, env, { error:'No autorizado.' }, 401);
+  const requested = Number(new URL(request.url).searchParams.get('limit') || 50);
+  const limit = Math.min(100, Math.max(1, Number.isInteger(requested) ? requested : 50));
+  const scope = identity.permissions.includes('platform:manage') ? '%' : identity.storeId;
+  const result = await env.DB.prepare(`SELECT id, store_id, actor_id, action, entity_type, entity_id, detail, created_at FROM audit_log WHERE store_id LIKE ? ORDER BY created_at DESC LIMIT ?`).bind(scope, limit).all();
+  return publicJson(request, env, { events:result.results || [] });
 }
 
 async function bootstrapPlatform(request, env) {
@@ -799,10 +853,10 @@ async function nextPrintJob(request, env) {
   if (!deviceId || deviceId.length > 100) return json({ error:'Dispositivo invalido.' }, 400);
   const now = new Date();
   const job = await env.DB.prepare(`
-    SELECT pj.id, pj.order_id FROM print_jobs pj
-    WHERE pj.status='queued' OR (pj.status='leased' AND pj.leased_until < ?)
+    SELECT pj.id, pj.order_id FROM print_jobs pj JOIN orders o ON o.id = pj.order_id
+    WHERE o.store_id = ? AND (pj.status='queued' OR (pj.status='leased' AND pj.leased_until < ?))
     ORDER BY pj.created_at LIMIT 1
-  `).bind(now.toISOString()).first();
+  `).bind(String(env.DEVICE_STORE_ID || DEFAULT_STORE_ID), now.toISOString()).first();
   if (!job) return json(null);
   const leaseUntil = new Date(now.getTime() + 60000).toISOString();
   const claimed = await env.DB.prepare(`
@@ -845,6 +899,10 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (request.method === 'OPTIONS') return new Response('', { status:204, headers:corsHeaders(request, env) });
+    if (!allowedOrigin(request, env)) return json({ error:'Origen no permitido.' }, 403);
+    if (!csrfSafe(request)) return publicJson(request, env, { error:'Solicitud no válida.' }, 403);
+    const declaredLength = Number(request.headers.get('content-length') || 0);
+    if (declaredLength > 1000000) return publicJson(request, env, { error:'Solicitud demasiado grande.' }, 413);
     if (request.method === 'GET' && url.pathname === '/health') return json({ ok:true, service:'burger-tin-orders' });
     if (request.method === 'GET' && url.pathname === '/api/catalog') return getCatalog(request, env);
     const catalogImageMatch = url.pathname.match(/^\/api\/catalog\/images\/([^/]+)$/);
@@ -859,6 +917,7 @@ export default {
     if (request.method === 'GET' && url.pathname === '/api/admin/session') return adminSession(request, env);
     if (request.method === 'GET' && url.pathname === '/api/admin/orders') return listOrders(request, env);
     if (request.method === 'GET' && url.pathname === '/api/admin/reports/summary') return reportSummary(request, env);
+    if (request.method === 'GET' && url.pathname === '/api/admin/audit') return auditLog(request, env);
     if (request.method === 'GET' && url.pathname === '/api/admin/catalog') return adminCatalog(request, env);
     if (request.method === 'POST' && url.pathname === '/api/admin/products') return addProduct(request, env);
     if (request.method === 'GET' && url.pathname === '/api/admin/settings') return adminSettings(request, env);

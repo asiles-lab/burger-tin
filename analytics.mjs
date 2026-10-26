@@ -96,6 +96,25 @@ export function initAnalytics() {
   try { scriptUrl = new URL(String(config.scriptUrl || '')); } catch { return; }
   if (config.enabled !== true || !websiteId || scriptUrl.protocol !== 'https:') return;
 
+  const consentKey = 'restia-analytics-consent-v1';
+  const consent = localStorage.getItem(consentKey);
+  if (consent !== 'accepted') {
+    if (consent !== 'rejected') {
+      const notice = document.createElement('aside');
+      notice.className = 'consent-banner';
+      notice.setAttribute('aria-label', 'Preferencias de analítica');
+      notice.innerHTML = '<p><strong>Analítica respetuosa</strong><span>Usamos métricas anónimas para mejorar el menú. No grabamos sesiones ni enviamos los datos de tu pedido.</span></p><div><button type="button" data-consent="reject">Solo necesarias</button><button type="button" data-consent="accept">Aceptar analítica</button><a href="privacidad.html">Privacidad</a></div>';
+      notice.addEventListener('click', event => {
+        const choice = event.target.closest('[data-consent]')?.dataset.consent;
+        if (!choice) return;
+        localStorage.setItem(consentKey, choice === 'accept' ? 'accepted' : 'rejected');
+        notice.remove();
+        if (choice === 'accept') initAnalytics();
+      });
+      document.body.append(notice);
+    }
+    return;
+  }
   enabled = true;
   window.burgerTinAnalyticsBeforeSend = (_type, payload) => sanitizePayload(payload);
 

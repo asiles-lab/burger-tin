@@ -8,6 +8,7 @@ PUBLIC_SITE_URL = "https://burger-tin.restia.net.ar/"
 PUBLIC_API_URL = "https://burger-tin-orders.YOUR-SUBDOMAIN.workers.dev"
 WHATSAPP_PHONE = "5491127798677"
 PAYMENTS_MODE = "sandbox"
+DEVICE_STORE_ID = "burger-tin"
 
 [[d1_databases]]
 binding = "DB"

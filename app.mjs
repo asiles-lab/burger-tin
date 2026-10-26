@@ -94,7 +94,7 @@ async function createServerOrder(details) {
   if (!checkoutConfig.enabled || !apiBaseUrl.startsWith('https://')) throw new Error('Los pagos online todavía no están habilitados.');
   const response = await fetch(`${apiBaseUrl}/api/orders`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', 'x-requested-with':'restia-web' },
     body: JSON.stringify({
       name: details.name,
       fulfillment: details.method,

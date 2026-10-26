@@ -25,7 +25,7 @@ document.querySelector('.login-card').innerHTML = '<p class="eyebrow">Administra
 document.querySelector('#profile-form').innerHTML = `<input type="hidden" name="profileId"><input type="hidden" name="scope"><div class="dialog-head"><div><p class="eyebrow" id="profile-dialog-eyebrow">Nuevo acceso</p><h2 id="profile-dialog-title">Crear usuario</h2><p class="dialog-context" id="profile-dialog-context"></p></div><button type="button" class="dialog-close" data-close-profile aria-label="Cerrar">×</button></div><label>Nombre<input name="name" required minlength="2" maxlength="80"></label><label>Email<input name="email" type="email" required></label><label>Usuario<input name="username" required minlength="3" maxlength="40" pattern="[a-z0-9._-]+" autocapitalize="none"></label><label id="initial-password-field">Contraseña inicial<input name="password" type="password" required minlength="10" maxlength="128" autocomplete="new-password"><small>Deberá cambiarla en el primer ingreso.</small></label><label>Rol<input name="role" required maxlength="50" placeholder="Ej. Encargado de turno"></label><fieldset id="store-permissions"><legend>Permisos de la empresa</legend><label><input type="checkbox" name="permissions" value="orders:view"> Ver pedidos</label><label><input type="checkbox" name="permissions" value="orders:manage"> Confirmar, cancelar e imprimir</label><label><input type="checkbox" name="permissions" value="products:manage"> Gestionar productos</label><label><input type="checkbox" name="permissions" value="store:manage"> Configurar la tienda</label><label><input type="checkbox" name="permissions" value="reports:view"> Acceder a reportes BI</label><label><input type="checkbox" name="permissions" value="billing:manage"> Gestionar facturación</label></fieldset><p class="error" id="profile-error"></p><div class="dialog-actions"><button type="button" class="secondary" data-close-profile>Cancelar</button><button type="submit" id="save-profile">Crear usuario</button></div>`;
 
 async function call(path, options = {}) {
-  const response = await fetch(`${api}${path}`, { ...options, headers:{ ...options.headers, authorization:`Bearer ${token}` } });
+  const response = await fetch(`${api}${path}`, { ...options, headers:{ ...options.headers, authorization:`Bearer ${token}`, 'x-requested-with':'restia-web' } });
   const result = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(result.error || `Error ${response.status}`);
   return result;
@@ -54,7 +54,7 @@ async function challenge(username, scope) {
 async function authenticate(username, password) {
   const passwordChallenge = await challenge(username, 'platform');
   const passwordVerifier = await deriveCredential(password, passwordChallenge.salt, passwordChallenge.iterations);
-  const response = await fetch(`${api}/api/auth/login`, { method:'POST', headers:{ 'content-type':'application/json' }, body:JSON.stringify({ username, passwordVerifier, passwordSalt:passwordChallenge.salt, scope:'platform' }) });
+  const response = await fetch(`${api}/api/auth/login`, { method:'POST', headers:{ 'content-type':'application/json', 'x-requested-with':'restia-web' }, body:JSON.stringify({ username, passwordVerifier, passwordSalt:passwordChallenge.salt, scope:'platform' }) });
   const result = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(result.error || 'No pudimos iniciar sesión.');
   return result;
