@@ -59,6 +59,20 @@
   .views .view{flex:0 0 auto;font-size:.84rem}
 }
 
+/* Keep visually hidden upload controls from expanding the product table. */
+.row-photo input[type="file"]{
+  position:absolute;
+  width:1px!important;
+  height:1px!important;
+  padding:0!important;
+  border:0!important;
+  clip:rect(0 0 0 0);
+  clip-path:inset(50%);
+  overflow:hidden;
+  white-space:nowrap;
+  opacity:0;
+}
+
 @media(max-width:380px){
   .products-head{grid-template-columns:1fr}
   .products-head>button{max-width:none;width:100%}
