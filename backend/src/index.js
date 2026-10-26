@@ -371,13 +371,15 @@ async function updateProduct(request, env, id) {
   try { body = await readJson(request); }
   catch (error) { return publicJson(request, env, { error:error.message }, 400); }
   const name = String(body.name || '').trim();
+  const description = String(body.description || '').trim();
   const price = Number(body.price);
   if (name.length < 2 || name.length > 100) return publicJson(request, env, { error:'Ingresá un nombre válido.' }, 400);
-  if (!Number.isInteger(price) || price < 1 || price > 10000000) return publicJson(request, env, { error:'Ingresá un precio válido.' }, 400);
-  const result = await env.DB.prepare('UPDATE products SET name = ?, price = ?, updated_at = ? WHERE store_id = ? AND id = ? AND active = 1')
-    .bind(name, price, new Date().toISOString(), identity.storeId, id).run();
+  if (description.length > 500) return publicJson(request, env, { error:'La descripción no puede superar los 500 caracteres.' }, 400);
+  if (!Number.isFinite(price) || price < 1 || price > 10000000 || Math.abs(price * 100 - Math.round(price * 100)) > 0.000001) return publicJson(request, env, { error:'Ingresá un precio válido, con hasta dos decimales.' }, 400);
+  const result = await env.DB.prepare('UPDATE products SET name = ?, description = ?, price = ?, updated_at = ? WHERE store_id = ? AND id = ? AND active = 1')
+    .bind(name, description, price, new Date().toISOString(), identity.storeId, id).run();
   if (!result.meta.changes) return publicJson(request, env, { error:'Producto inexistente.' }, 404);
-  await audit(env, identity, 'product.update', 'product', id, { name, price });
+  await audit(env, identity, 'product.update', 'product', id, { name, description, price });
   return publicJson(request, env, { ok:true });
 }
 
@@ -388,15 +390,16 @@ async function addProduct(request, env) {
   try { body = await readJson(request); }
   catch (error) { return publicJson(request, env, { error:error.message }, 400); }
   const name = String(body.name || '').trim();
+  const description = String(body.description || '').trim();
   const price = Number(body.price);
-  if (name.length < 2 || name.length > 100 || !Number.isInteger(price) || price < 1 || price > 10000000) return publicJson(request, env, { error:'Revisá el nombre y el precio.' }, 400);
+  if (name.length < 2 || name.length > 100 || description.length > 500 || !Number.isFinite(price) || price < 1 || price > 10000000 || Math.abs(price * 100 - Math.round(price * 100)) > 0.000001) return publicJson(request, env, { error:'Revisá el nombre, la descripción y el precio.' }, 400);
   const id = `product-${crypto.randomUUID().slice(0, 8)}`;
   const order = await env.DB.prepare('SELECT COALESCE(MAX(sort_order), -1) + 1 AS next_order FROM products WHERE store_id = ?').bind(identity.storeId).first();
   await env.DB.prepare(`
     INSERT INTO products (id, name, description, category, price, default_image, sort_order, updated_at, active, store_id)
-    VALUES (?, ?, '', 'Productos', ?, NULL, ?, ?, 1, ?)
-  `).bind(id, name, price, Number(order?.next_order || 0), new Date().toISOString(), identity.storeId).run();
-  await audit(env, identity, 'product.create', 'product', id, { name, price });
+    VALUES (?, ?, ?, 'Productos', ?, NULL, ?, ?, 1, ?)
+  `).bind(id, name, description, price, Number(order?.next_order || 0), new Date().toISOString(), identity.storeId).run();
+  await audit(env, identity, 'product.create', 'product', id, { name, description, price });
   return publicJson(request, env, { ok:true, id }, 201);
 }
 
