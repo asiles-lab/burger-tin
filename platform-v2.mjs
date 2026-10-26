@@ -78,7 +78,7 @@ function renderCompanies() {
     const companyProfiles = profiles.filter(profile => profile.store_id === store.id);
     const active = companyProfiles.filter(profile => profile.active).length;
     const setupReady = store.setup_status === 'activo';
-    return `<article class="company-card"><div class="company-logo"><img src="assets/restia-favicon.png" alt=""></div><div class="company-copy"><span class="status-dot ${setupReady ? '' : 'status-pending'}">${escapeHtml(store.status || 'En preparación')}</span><h2>${escapeHtml(store.name)}</h2><p>Administrador ${active ? 'activo' : 'pendiente'} · Menú y panel de gestión</p><div class="company-host">${escapeHtml(store.public_host || `${store.slug || store.id}.restia.net.ar`)}</div></div><div class="company-meta"><span>Usuarios activos</span><strong>${active}</strong><div class="company-readiness"><span>Enrutamiento <b>${escapeHtml(store.route_status || 'pendiente')}</b></span><span>DNS / TLS <b>${escapeHtml(store.dns_status || 'pendiente')}</b></span></div><button data-open-store="${escapeHtml(store.id)}">Gestionar accesos →</button></div></article>`;
+    return `<article class="company-card"><div class="company-logo"><img src="assets/restia-favicon.png" alt=""></div><div class="company-copy"><span class="status-dot ${setupReady ? '' : 'status-pending'}">${escapeHtml(store.status || 'En preparación')}</span><h2>${escapeHtml(store.name)}</h2><p>Administrador ${active ? 'activo' : 'pendiente'} · Menú y panel de gestión</p><div class="company-host">${escapeHtml(store.public_host || `${store.slug || store.id}.restia.net.ar`)}</div></div><div class="company-meta"><span>Usuarios activos</span><strong>${active}</strong><div class="company-readiness"><span>Worker <b>${escapeHtml(store.worker_service || 'pendiente')}</b></span><span>DNS / TLS <b>${escapeHtml(store.dns_status || 'pendiente')}</b></span></div><div class="company-actions"><button data-open-store="${escapeHtml(store.id)}">Gestionar accesos →</button>${store.route_status === 'conectado' ? '<span class="domain-connected">Worker enlazado</span>' : `<button class="secondary" data-configure-domain="${escapeHtml(store.id)}">Conectar Worker y DNS</button>`}</div></div></article>`;
   }).join('') : '<p class="empty">Todavía no hay empresas registradas.</p>';
 }
 
@@ -300,7 +300,47 @@ document.querySelector('.side-nav').addEventListener('click', event => {
   else renderCompanies();
 });
 
+function openDomainConfiguration(storeId) {
+  const company = stores.find(store => store.id === storeId);
+  if (!company) return;
+  const form = $('#domain-form');
+  form.reset();
+  form.elements.storeId.value = company.id;
+  form.elements.hostname.value = company.public_host || `${company.slug}.restia.net.ar`;
+  form.elements.workerService.value = `restia-tenant-${company.slug || company.id}`;
+  $('#domain-result').textContent = '';
+  $('#domain-error').textContent = '';
+  $('#domain-dialog').showModal();
+}
+
+$('#domain-form').addEventListener('click', event => {
+  if (event.target.closest('[data-close-domain]')) $('#domain-dialog').close();
+});
+$('#domain-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const storeId = form.elements.storeId.value;
+  const button = $('#connect-domain');
+  button.disabled = true;
+  $('#domain-error').textContent = '';
+  $('#domain-result').textContent = '';
+  try {
+    const result = await call(`/api/platform/companies/${encodeURIComponent(storeId)}/domain`, { method:'POST', headers:{ 'content-type':'application/json' }, body:JSON.stringify({ confirmReady:form.elements.confirmReady.checked }) });
+    await refreshData();
+    $('#domain-result').textContent = `${result.message} Host: ${result.hostname}; Worker: ${result.workerService}.`;
+  } catch (error) {
+    $('#domain-error').textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
+});
+
 $('#companies').addEventListener('click', event => {
+  const configure = event.target.closest('[data-configure-domain]');
+  if (configure) {
+    openDomainConfiguration(configure.dataset.configureDomain);
+    return;
+  }
   const button = event.target.closest('[data-open-store]');
   if (button) renderProfileGroup('store', button.dataset.openStore);
 });

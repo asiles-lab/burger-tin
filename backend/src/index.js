@@ -15,10 +15,10 @@ function json(data, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(data), { status, headers: { ...jsonHeaders, ...extraHeaders } });
 }
 
-function corsHeaders(request, env) {
+async function corsHeaders(request, env) {
   const origin = request.headers.get('origin') || '';
   const allowedOrigins = String(env.ALLOWED_ORIGIN || '').split(',').map(value => value.trim()).filter(Boolean);
-  if (!origin || !allowedOrigins.includes(origin)) return {};
+  if (!origin || (!allowedOrigins.includes(origin) && !(await isProvisionedRestiaOrigin(origin, env)))) return {};
   return {
     'access-control-allow-origin': origin,
     'access-control-allow-methods': 'GET,POST,PATCH,DELETE,OPTIONS',
@@ -28,10 +28,19 @@ function corsHeaders(request, env) {
   };
 }
 
-function allowedOrigin(request, env) {
+async function allowedOrigin(request, env) {
   const origin = request.headers.get('origin');
   if (!origin) return true;
-  return String(env.ALLOWED_ORIGIN || '').split(',').map(value => value.trim()).filter(Boolean).includes(origin);
+  return String(env.ALLOWED_ORIGIN || '').split(',').map(value => value.trim()).filter(Boolean).includes(origin) || isProvisionedRestiaOrigin(origin, env);
+}
+
+async function isProvisionedRestiaOrigin(origin, env) {
+  try {
+    const parsed = new URL(origin);
+    if (parsed.protocol !== 'https:' || parsed.port || !/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.restia\.net\.ar$/.test(parsed.hostname) || ['admin.restia.net.ar','www.restia.net.ar'].includes(parsed.hostname)) return false;
+    const company = await env.DB.prepare('SELECT id FROM stores WHERE public_host = ? AND active = 1').bind(parsed.hostname).first();
+    return Boolean(company);
+  } catch { return false; }
 }
 
 function csrfSafe(request) {
@@ -41,8 +50,8 @@ function csrfSafe(request) {
   return request.headers.get('x-requested-with') === 'restia-web';
 }
 
-function publicJson(request, env, data, status = 200) {
-  return json(data, status, corsHeaders(request, env));
+async function publicJson(request, env, data, status = 200) {
+  return json(data, status, await corsHeaders(request, env));
 }
 
 function bearer(request) {
@@ -346,7 +355,7 @@ async function getCatalogImage(request, env, id) {
     'content-type': product.image_type,
     'cache-control': 'public, max-age=31536000, immutable',
     etag: `"${product.image_updated_at || id}"`,
-    ...corsHeaders(request, env)
+    ...await corsHeaders(request, env)
   }});
 }
 
@@ -758,7 +767,7 @@ async function bootstrapPlatform(request, env) {
 async function platformProfiles(request, env) {
   if (!(await requireAdmin(request, env, 'platform:manage'))) return publicJson(request, env, { error:'No autorizado.' }, 401);
   if (request.method === 'GET') {
-    const storesResult = await env.DB.prepare('SELECT id, name, slug, public_host, active, setup_status, route_status, dns_status, created_at FROM stores ORDER BY created_at').all();
+    const storesResult = await env.DB.prepare('SELECT id, name, slug, public_host, active, setup_status, route_status, dns_status, worker_service, worker_domain_id, created_at FROM stores ORDER BY created_at').all();
     const result = await env.DB.prepare(`SELECT id, store_id, name, email, username, role, permissions, active, must_change_password, created_at, updated_at FROM admin_profiles WHERE username IS NOT NULL ORDER BY store_id, name`).all();
     const stores = (storesResult.results || []).map(store => ({ ...store, status:store.setup_status === 'activo' ? (store.active ? 'Activa' : 'Desactivada') : 'En preparación' }));
     return publicJson(request, env, { stores, profiles:(result.results || []).map(profile => ({ ...profile, permissions:parsePermissions(profile.permissions), active:Boolean(profile.active), mustChangePassword:Boolean(profile.must_change_password) })) });
@@ -835,6 +844,42 @@ async function createPlatformCompany(request, env) {
     throw error;
   }
   return publicJson(request, env, { ok:true, store:{ id, name, slug, publicHost, setupStatus:'preparacion', routeStatus:'pendiente', dnsStatus:'pendiente' }, admin:{ id:profileId, name:adminName, email, username, mustChangePassword:true }, urls:{ menu:`https://${publicHost}/`, localAdmin:`https://${publicHost}/admin/`, superAdmin:'https://admin.restia.net.ar/' } }, 201);
+}
+
+async function configureCompanyDomain(request, env, storeId) {
+  const operator = await requireAdmin(request, env, 'platform:manage');
+  if (!operator) return publicJson(request, env, { error:'No autorizado.' }, 401);
+  let body;
+  try { body = await readJson(request); } catch (error) { return publicJson(request, env, { error:error.message }, 400); }
+  if (body.confirmReady !== true) return publicJson(request, env, { error:'Confirmá que el Worker desplegado pertenece a esta empresa antes de conectar el dominio.' }, 400);
+  const company = await env.DB.prepare('SELECT id, name, slug, public_host, setup_status, route_status FROM stores WHERE id = ?').bind(storeId).first();
+  if (!company) return publicJson(request, env, { error:'La empresa no existe.' }, 404);
+  if (company.setup_status !== 'preparacion' || !company.slug || !company.public_host) return publicJson(request, env, { error:'Esta empresa no tiene un dominio preparado para conectar.' }, 409);
+  if (company.route_status === 'conectado') return publicJson(request, env, { error:'El Worker ya está conectado para esta empresa.' }, 409);
+  const accountId = String(env.CLOUDFLARE_ACCOUNT_ID || '').trim();
+  const apiToken = String(env.CLOUDFLARE_API_TOKEN || '').trim();
+  if (!accountId || !apiToken) return publicJson(request, env, { error:'Falta configurar CLOUDFLARE_ACCOUNT_ID y el secreto CLOUDFLARE_API_TOKEN en el backend.' }, 503);
+  const workerService = `restia-tenant-${company.slug}`;
+  let cloudflareResponse;
+  try {
+    cloudflareResponse = await fetch(`https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}/workers/domains`, {
+      method:'PUT',
+      headers:{ authorization:`Bearer ${apiToken}`, 'content-type':'application/json' },
+      body:JSON.stringify({ hostname:company.public_host, service:workerService, enabled:true, zone_name:'restia.net.ar' })
+    });
+  } catch {
+    return publicJson(request, env, { error:'No pudimos conectar con Cloudflare. Revisá la conexión del backend e intentá nuevamente.' }, 502);
+  }
+  const result = await cloudflareResponse.json().catch(() => ({}));
+  if (!cloudflareResponse.ok || !result.success || !result.result?.id) {
+    const detail = Array.isArray(result.errors) ? result.errors.map(item => String(item.message || '')).filter(Boolean).join(' ') : '';
+    return publicJson(request, env, { error:detail || 'Cloudflare no pudo asociar el Worker. Confirmá que el Worker exista y que el token tenga permiso Workers Scripts Write.' }, 502);
+  }
+  const now = new Date().toISOString();
+  await env.DB.prepare(`UPDATE stores SET worker_service = ?, worker_domain_id = ?, route_status = 'conectado', dns_status = 'solicitado', updated_at = ? WHERE id = ?`)
+    .bind(workerService, result.result.id, now, company.id).run();
+  await audit(env, operator, 'company.domain.configure', 'store', company.id, { workerService, hostname:company.public_host, cloudflareDomainId:result.result.id });
+  return publicJson(request, env, { ok:true, hostname:company.public_host, workerService, dnsStatus:'solicitado', certificateId:result.result.cert_id || null, message:'Cloudflare aceptó la asociación. Está creando el DNS y gestionando el certificado HTTPS; la tienda debe responder desde el Worker indicado.' });
 }
 
 async function updatePlatformProfile(request, env, id) {
@@ -944,8 +989,8 @@ async function acknowledgePrint(request, env, id) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    if (request.method === 'OPTIONS') return new Response('', { status:204, headers:corsHeaders(request, env) });
-    if (!allowedOrigin(request, env)) return json({ error:'Origen no permitido.' }, 403);
+    if (request.method === 'OPTIONS') return new Response('', { status:204, headers:await corsHeaders(request, env) });
+    if (!(await allowedOrigin(request, env))) return json({ error:'Origen no permitido.' }, 403);
     if (!csrfSafe(request)) return publicJson(request, env, { error:'Solicitud no válida.' }, 403);
     const declaredLength = Number(request.headers.get('content-length') || 0);
     if (declaredLength > 1000000) return publicJson(request, env, { error:'Solicitud demasiado grande.' }, 413);
@@ -960,6 +1005,8 @@ export default {
     if (request.method === 'POST' && url.pathname === '/api/auth/change-password') return changePassword(request, env);
     if (request.method === 'POST' && url.pathname === '/api/platform/bootstrap') return bootstrapPlatform(request, env);
     if (request.method === 'POST' && url.pathname === '/api/platform/companies') return createPlatformCompany(request, env);
+    const companyDomainMatch = url.pathname.match(/^\/api\/platform\/companies\/([^/]+)\/domain$/);
+    if (request.method === 'POST' && companyDomainMatch) return configureCompanyDomain(request, env, decodeURIComponent(companyDomainMatch[1]));
     if (request.method === 'POST' && url.pathname === '/api/webhooks/mercadopago') return mercadoPagoWebhook(request, env);
     if (request.method === 'GET' && url.pathname === '/api/admin/session') return adminSession(request, env);
     if (request.method === 'GET' && url.pathname === '/api/admin/orders') return listOrders(request, env);
