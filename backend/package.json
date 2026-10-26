@@ -7,7 +7,7 @@
   "scripts": {
     "test": "node --test",
     "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
+    "deploy": "node scripts/refuse-production-deploy.mjs",
     "db:local": "wrangler d1 migrations apply burger-tin-orders --local",
     "db:remote": "wrangler d1 migrations apply burger-tin-orders --remote"
   },
