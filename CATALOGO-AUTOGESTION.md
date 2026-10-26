@@ -14,6 +14,6 @@ El menú público consulta primero el catálogo del servidor. Si el servidor no 
 
 ## Base para nuevos clientes
 
-Cada cliente puede usar una instalación independiente con su propia base D1, tokens, teléfono, catálogo e identidad visual. El panel y la lógica de pedidos se reutilizan; solo se reemplazan la configuración, los productos y el diseño de marca.
+Cada cliente tiene su empresa y sus datos separados por `store_id` en la base D1 compartida. Puede tener panel, dominio, teléfono, catálogo e identidad visual propios. El diseño del menú se adapta por separado para cada negocio.
 
-Las credenciales de Mercado Pago se guardan cifradas y nunca se devuelven al navegador. El medio de pago solo aparece en el menú cuando están configurados tanto el Access Token como la firma secreta del webhook.
+Las credenciales de Mercado Pago se guardan cifradas por comercio y nunca se devuelven al navegador. La tienda activa Checkout Pro solo cuando están configurados el Access Token, la clave secreta del webhook y el modo de cobro productivo. Véase [Mercado Pago por comercio](MERCADO-PAGO-POR-COMERCIO.md).
