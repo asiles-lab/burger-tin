@@ -35,6 +35,7 @@ function requireBearer(request, expected) {
 
 const ALL_ADMIN_PERMISSIONS = ['orders:view','orders:manage','products:manage','store:manage','reports:view','billing:manage','platform:manage'];
 const STORE_PERMISSIONS = ALL_ADMIN_PERMISSIONS.filter(permission => permission !== 'platform:manage');
+const PLATFORM_STORES = [{ id:'burger-tin', name:'Burger Tin', status:'Activo' }];
 const PASSWORD_ITERATIONS = 120000;
 
 async function sha256(value) {
@@ -161,13 +162,17 @@ async function logoutSession(request, env) {
   return publicJson(request, env, { ok:true });
 }
 
-async function changePassword(request, env) {
+export async function changePassword(request, env) {
   const identity = await adminIdentity(request, env);
   if (!identity) return publicJson(request, env, { error:'No autorizado.' }, 401);
   let body;
   try { body = await readJson(request); } catch (error) { return publicJson(request, env, { error:error.message }, 400); }
-  const passwordVerifier = String(body.passwordVerifier || ''), passwordSalt = String(body.passwordSalt || '');
+  const passwordVerifier = String(body.passwordVerifier || ''), passwordSalt = String(body.passwordSalt || ''), comparisonVerifier = String(body.comparisonVerifier || '');
   if (!validCredentialMaterial(passwordVerifier, passwordSalt)) return publicJson(request, env, { error:'No pudimos proteger la nueva contraseña.' }, 400);
+  const current = await env.DB.prepare('SELECT password_hash, password_salt FROM admin_profiles WHERE id = ?').bind(identity.id).first();
+  if (!current?.password_hash || !validCredentialMaterial(comparisonVerifier, current.password_salt)) return publicJson(request, env, { error:'No pudimos validar la nueva contraseña.' }, 400);
+  const repeatedPassword = await credentialDigest(env, comparisonVerifier, current.password_salt);
+  if (timingSafeEqualText(repeatedPassword, current.password_hash)) return publicJson(request, env, { error:'La nueva contraseña debe ser diferente de la contraseña actual.' }, 409);
   const record = await verifierRecord(env, passwordVerifier, passwordSalt);
   await env.DB.batch([
     env.DB.prepare('UPDATE admin_profiles SET password_hash = ?, password_salt = ?, password_iterations = ?, must_change_password = 0, updated_at = ? WHERE id = ?').bind(record.hash, record.salt, record.iterations, new Date().toISOString(), identity.id),
@@ -694,7 +699,7 @@ async function platformProfiles(request, env) {
   if (!(await requireAdmin(request, env, 'platform:manage'))) return publicJson(request, env, { error:'No autorizado.' }, 401);
   if (request.method === 'GET') {
     const result = await env.DB.prepare(`SELECT id, store_id, name, email, username, role, permissions, active, must_change_password, created_at, updated_at FROM admin_profiles WHERE username IS NOT NULL ORDER BY store_id, name`).all();
-    return publicJson(request, env, { stores:[{ id:'burger-tin', name:'Burger Tin', status:'Activo' }], profiles:(result.results || []).map(profile => ({ ...profile, permissions:parsePermissions(profile.permissions), active:Boolean(profile.active), mustChangePassword:Boolean(profile.must_change_password) })) });
+    return publicJson(request, env, { stores:PLATFORM_STORES, profiles:(result.results || []).map(profile => ({ ...profile, permissions:parsePermissions(profile.permissions), active:Boolean(profile.active), mustChangePassword:Boolean(profile.must_change_password) })) });
   }
   let body;
   try { body = await readJson(request); } catch (error) { return publicJson(request, env, { error:error.message }, 400); }
@@ -705,7 +710,9 @@ async function platformProfiles(request, env) {
   const passwordSalt = String(body.passwordSalt || '');
   const role = String(body.role || '').trim();
   const permissions = Array.isArray(body.permissions) ? [...new Set(body.permissions.filter(item => ALL_ADMIN_PERMISSIONS.includes(item)))] : [];
-  const scope = body.scope === 'platform' ? 'platform' : 'burger-tin';
+  const requestedScope = String(body.scope || '').trim().toLowerCase();
+  const scope = requestedScope === 'platform' ? 'platform' : requestedScope;
+  if (scope !== 'platform' && !PLATFORM_STORES.some(store => store.id === scope)) return publicJson(request, env, { error:'La empresa seleccionada no existe.' }, 400);
   if (scope === 'platform' && !permissions.includes('platform:manage')) permissions.push('platform:manage');
   if (scope !== 'platform') {
     const platformIndex = permissions.indexOf('platform:manage');

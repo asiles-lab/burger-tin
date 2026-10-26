@@ -15,6 +15,8 @@
 - El primer Super Admin se inicializa una sola vez con el secreto técnico `SUPERADMIN_TOKEN`.
 - Después, el acceso normal también usa usuario y contraseña.
 - Permite crear, editar y eliminar perfiles individuales, asignar permisos, restablecer contraseñas y desactivar accesos.
+- La vista **Empresas** muestra cada comercio por separado. Al ingresar a Burger Tin se administran únicamente sus usuarios.
+- La vista **Equipo Restia** contiene exclusivamente los Super Admin internos. Nunca se mezclan con los usuarios de los comercios.
 
 ## Protección de contraseñas y costo
 
@@ -23,6 +25,10 @@ Para conservar el plan gratuito de Cloudflare Workers, el cálculo PBKDF2-SHA-25
 Las contraseñas no están guardadas en archivos locales ni pueden consultarse desde el panel. En Cloudflare D1 solo se almacena el verificador irreversible. Si alguien pierde su clave, un Super Admin debe usar **Restablecer clave** y entregar una contraseña temporal; el usuario tendrá que reemplazarla en el siguiente ingreso. El navegador conserva únicamente la sesión activa en `sessionStorage`, que se elimina al cerrar sesión.
 
 Por seguridad, un Super Admin no puede eliminar ni desactivar su propio usuario. Tampoco se permite borrar el último Super Admin activo.
+
+Cuando una contraseña temporal obliga a crear una clave definitiva, el servidor compara ambos verificadores y rechaza la reutilización de la misma contraseña sin recibir ni guardar el texto de la clave.
+
+El panel del comercio no contiene enlaces al menú público ni a otros paneles. Su encabezado muestra únicamente las marcas Restia y Burger Tin, y cerrar sesión requiere confirmación para evitar una salida accidental.
 
 Esta implementación no requiere contratar hosting, base de datos ni autenticación. Sigue dentro de GitHub Pages, Cloudflare Workers y D1 gratuitos, sujeto a sus límites de uso.
 

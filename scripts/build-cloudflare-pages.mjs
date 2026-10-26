@@ -18,7 +18,7 @@ const localAdmin = (await readFile(join(root, 'admin.html'), 'utf8')).replace('<
 await writeFile(join(store, 'admin', 'index.html'), localAdmin);
 await writeFile(join(store, '_redirects'), '/admin /admin/ 301\n');
 
-for (const name of ['assets','checkout-config.js','panel-pro.css','platform.css','restia-platform.css','platform.mjs']) await copy(name, platform);
+for (const name of ['assets','checkout-config.js','panel-pro.css','platform.css','restia-platform.css','platform-v2.mjs']) await copy(name, platform);
 const superAdmin = (await readFile(join(root, 'platform.html'), 'utf8'))
   .replace('<head>', '<head><base href="/">')
   .replaceAll('href="admin.html"', 'href="https://burger-tin.restia.net.ar/admin/"');
