@@ -1,56 +1,61 @@
 'use strict';
 
-// GlowRo — sitio estático. No se almacenan datos de visitantes en servidores.
-// Catálogo verificado manualmente; compra externa en las publicaciones de GlowRo.
+// GlowRo — catálogo público con respaldo estático; el servidor valida importes y pagos.
+const API = 'https://burger-tin-orders.burger-tin-orders.workers.dev';
 const CONTACT = {
   instagram: 'https://instagram.com/glowro_/',
   dm: 'https://ig.me/m/glowro_'
 };
 const ITEMS = Object.fromEntries(PRODUCTS.map(p => [p.id, p]));
 const $ = id => document.getElementById(id);
-const storageKey = 'glowro-selection-v2';
-const availableIds = Object.keys(ITEMS);
-let selection = new Set();
+const storageKey = 'glowro-cart-v1';
+const cart = new Map();
+let checkoutReady = false;
+let deliveryFee = null;
 try {
   const saved = JSON.parse(localStorage.getItem(storageKey) || '[]');
-  if (Array.isArray(saved)) selection = new Set(saved.filter(id => availableIds.includes(id)));
+  if (Array.isArray(saved)) for (const [id, quantity] of saved) if (typeof id === 'string' && Number.isInteger(quantity) && quantity > 0 && quantity <= 30) cart.set(id, quantity);
 } catch (_) { /* private/incognito browsers */ }
-function persist() { try { localStorage.setItem(storageKey, JSON.stringify([...selection])); } catch (_) {} }
+function persist() { try { localStorage.setItem(storageKey, JSON.stringify([...cart])); } catch (_) {} }
 function escapeHTML(value) { return String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function renderSelection() {
-  const n = selection.size;
+  const entries = [...cart].filter(([id]) => ITEMS[id]);
+  const n = entries.reduce((sum, [, quantity]) => sum + quantity, 0);
   $('selection-count').textContent = n;
   $('mobile-selection-count').textContent = n;
   $('drawer-title-count').textContent = `(${n})`;
   document.querySelectorAll('[data-add]').forEach(btn => {
-    const active = selection.has(btn.dataset.add);
+    const active = cart.has(btn.dataset.add);
     btn.classList.toggle('is-selected', active);
     btn.setAttribute('aria-pressed', String(active));
     if (btn.classList.contains('add-btn')) {
-      btn.setAttribute('aria-label', `${active ? 'Quitar' : 'Guardar'} ${ITEMS[btn.dataset.add].name} ${active ? 'de' : 'en'} favoritos`);
+      btn.setAttribute('aria-label', `Agregar ${ITEMS[btn.dataset.add].name} al carrito`);
     }
   });
   const target = $('drawer-items');
   if (n === 0) {
-    target.innerHTML = '<div class="drawer-empty"><svg class="icon"><use href="#i-bag"/></svg><h3>Todavía no elegiste nada.</h3><p>Explorá los productos y guardá tus favoritos.</p></div>';
+    target.innerHTML = '<div class="drawer-empty"><svg class="icon"><use href="#i-bag"/></svg><h3>Tu carrito está vacío.</h3><p>Elegí productos para preparar tu pedido.</p></div>';
   } else {
-    target.innerHTML = [...selection].map(id => `<div class="drawer-item"><img src="${ITEMS[id].image}" alt="" width="70" height="75"><div><h3>${escapeHTML(ITEMS[id].name)}</h3><a href="${escapeHTML(ITEMS[id].url)}" target="_blank" rel="noopener noreferrer">Abrir producto en ML ↗</a><p class="favorite-help">Allí, elegí «Agregar al carrito».</p></div><button type="button" data-remove="${id}" aria-label="Quitar ${escapeHTML(ITEMS[id].name)}">Quitar</button></div>`).join('');
+    target.innerHTML = entries.map(([id, quantity]) => `<div class="drawer-item"><img src="${escapeHTML(ITEMS[id].image || 'assets/serums.svg')}" alt="" width="70" height="75"><div><h3>${escapeHTML(ITEMS[id].name)}</h3><p>${quantity} × ${pesos(ITEMS[id].price)} = ${pesos(quantity * ITEMS[id].price)}</p><div class="quantity-controls"><button type="button" data-remove="${id}" aria-label="Quitar una unidad de ${escapeHTML(ITEMS[id].name)}">−</button><strong>${quantity}</strong><button type="button" data-add="${id}" aria-label="Agregar una unidad de ${escapeHTML(ITEMS[id].name)}">+</button></div></div></div>`).join('');
   }
-  $('drawer-copy').disabled = n === 0;
+  const productsTotal = entries.reduce((sum, [id, quantity]) => sum + ITEMS[id].price * quantity, 0);
+  $('cart-total').textContent = pesos(productsTotal + (deliveryFee ?? 0));
+  $('shipping-note').textContent = deliveryFee === null ? 'Costo de envío por configurar' : deliveryFee === 0 ? 'Envío incluido' : `Envío: ${pesos(deliveryFee)}`;
+  $('drawer-copy').disabled = !n || !checkoutReady;
+  $('checkout-status').textContent = checkoutReady ? '' : 'El pago se habilitará cuando GlowRo conecte Mercado Pago y configure el envío.';
 }
-function toggleSelection(id) {
+function addToCart(id) {
   if (!ITEMS[id]) return;
-  if (selection.has(id)) selection.delete(id);
-  else selection.add(id);
+  cart.set(id, Math.min(30, (cart.get(id) || 0) + 1));
   persist(); renderSelection();
-  toast(selection.has(id) ? 'Guardado en favoritos' : 'Quitado de favoritos');
-  if (selection.has(id)) openDrawer();
+  toast('Agregado al carrito');
+  openDrawer();
 }
 document.addEventListener('click', e => {
   const trigger = e.target.closest('[data-add]');
-  if (trigger) toggleSelection(trigger.dataset.add);
+  if (trigger) addToCart(trigger.dataset.add);
   const remove = e.target.closest('[data-remove]');
-  if (remove) { selection.delete(remove.dataset.remove); persist(); renderSelection(); }
+  if (remove) { const q = cart.get(remove.dataset.remove) || 0; if (q <= 1) cart.delete(remove.dataset.remove); else cart.set(remove.dataset.remove, q - 1); persist(); renderSelection(); }
 });
 
 const drawer = $('drawer-layer');
@@ -64,7 +69,7 @@ $('drawer-backdrop').addEventListener('click', closeDrawer);
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') { if (!drawer.hidden) closeDrawer(); else closeMenu(); }
   if (e.key === 'Tab' && !drawer.hidden) {
-    const tabbables = [...drawer.querySelectorAll('button:not([disabled]),a[href]')];
+    const tabbables = [...drawer.querySelectorAll('button:not([disabled]),a[href],input,textarea,select')];
     if (!tabbables.length) return;
     if (e.shiftKey && document.activeElement === tabbables[0]) { e.preventDefault(); tabbables.at(-1).focus(); }
     else if (!e.shiftKey && document.activeElement === tabbables.at(-1)) { e.preventDefault(); tabbables[0].focus(); }
@@ -85,12 +90,22 @@ async function copyText(text) {
   try { result = document.execCommand('copy'); } catch (_) { }
   area.remove(); return result;
 }
-$('drawer-copy').addEventListener('click', async () => {
-  if (!selection.size) return;
-  const names = [...selection].map(id => `• ${ITEMS[id].name}`).join('\n');
-  const msg = `¡Hola, GlowRo! ✨ Estuve mirando la web y me interesan estos productos:\n${names}\n¿Me cuentan qué productos tienen disponibles y sus precios? ¡Gracias!`;
-  if (await copyText(msg)) toast('Consulta copiada. Pegala en el chat de Instagram.');
-  else toast('No se pudo copiar. Seleccioná tus productos y escribinos por Instagram.');
+$('checkout-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  if (!checkoutReady || !cart.size) return;
+  const button = $('drawer-copy');
+  button.disabled = true;
+  $('checkout-status').textContent = 'Preparando el pago seguro…';
+  const data = new FormData(event.currentTarget);
+  try {
+    const response = await fetch(`${API}/api/orders`, {method:'POST', headers:{'content-type':'application/json','x-requested-with':'restia-web'}, body:JSON.stringify({name:data.get('name'),phone:data.get('phone'),address:data.get('address'),notes:data.get('notes'),fulfillment:'delivery',paymentMethod:'mercadopago',items:[...cart].map(([id,quantity]) => ({id,quantity}))})});
+    const result = await response.json();
+    if (!response.ok || !result.checkoutUrl) throw new Error(result.error || 'No pudimos preparar el pago.');
+    location.assign(result.checkoutUrl);
+  } catch (error) {
+    $('checkout-status').textContent = error.message;
+    button.disabled = false;
+  }
 });
 
 const menu = $('mobile-nav');
@@ -177,14 +192,42 @@ function renderQuizResult() {
 
 const pesos = value => new Intl.NumberFormat('es-AR', {style:'currency', currency:'ARS', maximumFractionDigits:2}).format(value);
 const labels = {kits:'KITS Y COMBOS',facial:'CUIDADO FACIAL',corporal:'CUIDADO CORPORAL'};
-$('products-grid').innerHTML = PRODUCTS.map(p => `<article class="product-card reveal" data-category="${p.category}" data-offer="${Boolean(p.previous)}" data-id="${p.id}">
-<div class="product-image"><a href="${escapeHTML(p.url)}" target="_blank" rel="noopener noreferrer" aria-label="Ver ${escapeHTML(p.name)} en Mercado Libre"><img loading="lazy" src="${escapeHTML(p.image)}" alt="${escapeHTML(p.name)}" width="560" height="630"></a><button type="button" class="add-btn" data-add="${p.id}" aria-label="Guardar ${escapeHTML(p.name)}" aria-pressed="false"><svg class="icon"><use href="#i-heart"/></svg></button></div>
-<div class="product-details"><div><span class="product-overline">${labels[p.category]}</span><h3>${escapeHTML(p.name)}</h3><p>${escapeHTML(p.description)}</p><div class="catalog-price">${p.previous?'<s>'+pesos(p.previous)+'</s> ':''}<strong>${pesos(p.price)}</strong></div><p class="price-date">Referencia · ${CATALOG_DATE}</p><a class="btn btn-dark ml-buy" href="${escapeHTML(p.url)}" target="_blank" rel="noopener noreferrer">Comprar en Mercado Libre ↗</a></div></div></article>`).join('');
+function renderProducts() {
+  $('products-grid').innerHTML = PRODUCTS.length ? PRODUCTS.map(p => `<article class="product-card reveal is-visible" data-category="${escapeHTML(p.category)}" data-offer="${Boolean(p.previous)}" data-id="${escapeHTML(p.id)}">
+  <div class="product-image"><img loading="lazy" src="${escapeHTML(p.image || 'assets/serums.svg')}" alt="${escapeHTML(p.name)}" width="560" height="630"><button type="button" class="add-btn" data-add="${escapeHTML(p.id)}" aria-label="Agregar ${escapeHTML(p.name)} al carrito" aria-pressed="false"><svg class="icon"><use href="#i-bag"/></svg></button></div>
+  <div class="product-details"><div><span class="product-overline">${escapeHTML(labels[p.category] || p.category)}</span><h3>${escapeHTML(p.name)}</h3><p>${escapeHTML(p.description || '')}</p><div class="catalog-price"><strong>${pesos(p.price)}</strong></div><button class="btn btn-dark ml-buy" type="button" data-add="${escapeHTML(p.id)}">Agregar al carrito <svg class="icon"><use href="#i-plus"/></svg></button></div></div></article>`).join('') : '<p>El catálogo está en actualización. Volvé a visitarnos pronto.</p>';
+  renderSelection();
+}
+
+async function loadLiveCatalog() {
+  try {
+    const response = await fetch(`${API}/api/catalog`, {cache:'no-store'});
+    if (!response.ok) throw new Error('Catálogo no disponible');
+    const data = await response.json();
+    if (!Array.isArray(data.products) || data.business !== 'GlowRo') throw new Error('La tienda aún no está configurada');
+    const originals = new Map(PRODUCTS.map(product => [product.id, product]));
+    PRODUCTS.splice(0, PRODUCTS.length, ...data.products.map(product => ({...originals.get(product.id), ...product, previous:originals.get(product.id)?.previous || null})));
+    for (const id of Object.keys(ITEMS)) delete ITEMS[id];
+    Object.assign(ITEMS, Object.fromEntries(PRODUCTS.map(product => [product.id, product])));
+    for (const id of cart.keys()) if (!ITEMS[id]) cart.delete(id);
+    persist();
+    deliveryFee = Number.isFinite(data.deliveryFee) && data.deliveryFee >= 0 ? data.deliveryFee : null;
+    checkoutReady = Boolean(data.mercadoPagoEnabled && data.paymentMode === 'production' && deliveryFee !== null);
+    renderProducts();
+  } catch (error) {
+    checkoutReady = false;
+    document.querySelector('.catalog-note').textContent = 'No pudimos actualizar los precios en este momento. El pago online está pausado hasta recuperar la conexión.';
+    renderSelection();
+    $('checkout-status').textContent = 'La compra online no está disponible en este momento.';
+  }
+}
 
 const revealObserver = 'IntersectionObserver' in window ? new IntersectionObserver((entries, obs) => {
   entries.forEach(entry => { if (entry.isIntersecting) { entry.target.classList.add('is-visible'); obs.unobserve(entry.target); } });
 }, { threshold: .08, rootMargin: '0px 0px 35px 0px' }) : null;
+renderProducts();
 document.querySelectorAll('.reveal').forEach(el => revealObserver ? revealObserver.observe(el) : el.classList.add('is-visible'));
+loadLiveCatalog();
 function updateFloatingSelection() {
   $('mobile-selection').classList.toggle('is-visible', window.scrollY > window.innerHeight * 0.9);
 }
@@ -194,3 +237,6 @@ updateFloatingSelection();
 $('year').textContent = new Date().getFullYear();
 renderSelection();
 renderQuiz();
+const paymentReturn = new URLSearchParams(location.search).get('payment');
+if (paymentReturn === 'success' || paymentReturn === 'pending') setTimeout(() => toast('Volviste de Mercado Pago. El pedido se confirmará cuando se acredite el pago.'), 400);
+if (paymentReturn === 'failure') setTimeout(() => toast('El pago no se completó. Tu carrito sigue disponible.'), 400);

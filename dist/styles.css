@@ -29,3 +29,23 @@
 @media(max-width:540px){.manifesto-art.essence-collage{padding:12px;gap:9px;max-height:none;aspect-ratio:.94}.essence-product{padding:10px}.essence-product>span{font-size:7px;letter-spacing:.6px}.essence-caption{font-size:7px;letter-spacing:1px}}
 
 .drawer-item .favorite-help{font-size:11px;line-height:1.5;margin-top:6px;color:#736c70}.drawer-footer>.btn{width:100%}.drawer-footer{flex-shrink:0}.add-btn.is-selected .icon{fill:currentColor}
+
+/* Pedido directo GlowRo */
+.section-heading .all-link{border:0;border-bottom:1px solid #b3a0a0;background:none;cursor:pointer;padding:0 0 10px}
+.product-image>img{display:block;width:100%;height:100%;object-fit:contain;padding:24px}
+.product-image .add-btn{z-index:2}
+.checkout-form{max-height:48vh;overflow-y:auto;padding-right:4px}
+.checkout-form label{display:block;margin:10px 0 0;color:#524b4e;font-size:11px;font-weight:700}
+.checkout-form input,.checkout-form textarea{display:block;width:100%;border:1px solid #dfd6d2;border-radius:9px;background:#fff;padding:11px 12px;font:inherit;font-size:13px;color:#2e2a2e;margin-top:5px;resize:vertical}
+.checkout-form input:focus,.checkout-form textarea:focus{outline:2px solid #b88484;outline-offset:1px}
+.checkout-form .btn{margin:16px 0 0}
+.checkout-form .btn:disabled{opacity:.48;cursor:not-allowed}
+.checkout-form>p{font-size:11px;color:#726a6e;text-align:left;margin:8px 0 0}
+#checkout-status:not(:empty){background:#f7ede9;border-radius:9px;padding:10px 12px;color:#6f4e4c;line-height:1.45}
+.cart-summary{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:14px}
+.cart-summary strong{font-size:20px;color:#29252a}
+.quantity-controls{display:flex;align-items:center;gap:11px;margin-top:8px}
+.quantity-controls button{width:27px;height:27px;border:1px solid #ddd0ca;border-radius:50%;background:#fff;color:#302b2e;text-decoration:none;font-size:17px;line-height:1}
+.quantity-controls strong{font-size:12px}
+.drawer-item>div{min-width:0}
+@media(max-width:540px){.checkout-form{max-height:51vh}.drawer-items{min-height:95px}}

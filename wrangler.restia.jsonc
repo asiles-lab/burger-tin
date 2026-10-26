@@ -1,0 +1,14 @@
+{
+  "$schema": "../2026-10-23/s/work/burger-tin-pages/backend/node_modules/wrangler/config-schema.json",
+  "name": "restia-tenant-glowro",
+  "compatibility_date": "2026-10-25",
+  "workers_dev": true,
+  "preview_urls": false,
+  "routes": [
+    { "pattern": "glowro.restia.net.ar", "custom_domain": true }
+  ],
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "404-page"
+  }
+}
