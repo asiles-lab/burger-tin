@@ -546,13 +546,13 @@ async function createOrder(request, env) {
     order = validateOrderInput(await readJson(request), await catalogProducts(env, storeId));
     if (storeId === GLOWRO_STORE_ID) {
       if (order.paymentMethod !== 'mercadopago' || order.fulfillment !== 'delivery') throw new Error('GlowRo acepta únicamente envíos con Mercado Pago.');
-      if (settings.paymentMode !== 'production') throw new Error('Los pagos de GlowRo todavía no están activados.');
       if (order.phone.length < 10 || order.phone.length > 15) throw new Error('Ingresá un teléfono de contacto para el envío.');
       if (settings.deliveryFee === null) throw new Error('El costo de envío todavía no está configurado.');
       order.shippingFee = settings.deliveryFee;
       order.subtotal = Math.round((order.subtotal + settings.deliveryFee) * 100) / 100;
     }
     if (order.paymentMethod === 'mercadopago' && !settings.mercadoPagoEnabled) throw new Error('Mercado Pago todavía no está conectado para esta tienda.');
+    if (order.paymentMethod === 'mercadopago' && settings.paymentMode !== 'production') throw new Error('Los cobros online todavía no están activados para esta tienda.');
   }
   catch (error) { return publicJson(request, env, { error: error.message }, 400); }
 

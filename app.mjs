@@ -220,9 +220,9 @@ try {
   document.querySelectorAll('[data-whatsapp-source]').forEach(link => {
     link.href = link.dataset.whatsappSource === 'catalogo' ? `https://wa.me/c/${store.phone}` : `https://wa.me/${store.phone}`;
   });
-  document.querySelectorAll('[data-requires-mp]').forEach(node => { node.hidden = !checkoutConfig.enabled || !store.mercadoPagoEnabled; });
+  document.querySelectorAll('[data-requires-mp]').forEach(node => { node.hidden = !checkoutConfig.enabled || !store.mercadoPagoEnabled || store.paymentMode !== 'production'; });
   const payment = new URLSearchParams(location.search).get('payment');
-  if (payment === 'success') notify('Pago recibido. Estamos confirmando tu pedido.');
+  if (payment === 'success') notify('Volviste de Mercado Pago. Estamos verificando el pago.');
   if (payment === 'pending') notify('Tu pago quedó pendiente. Te avisaremos cuando se acredite.');
   if (payment === 'failure') notify('El pago no se completó. Podés intentarlo nuevamente.');
   renderMenu(); updateCart(); changeMethod(); changePaymentMethod();
