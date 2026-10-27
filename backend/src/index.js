@@ -338,7 +338,10 @@ async function ensureProducts(env) {
 }
 
 function catalogImage(env, product, storeId) {
-  if (!product.image_type) return product.default_image || '';
+  if (!product.image_type) {
+    if (storeId === DEFAULT_STORE_ID) return `assets/menu-generated/${encodeURIComponent(product.id)}.webp`;
+    return product.default_image || '';
+  }
   const base = String(env.PUBLIC_API_URL || '').replace(/\/$/, '');
   return `${base}/api/catalog/images/${encodeURIComponent(product.id)}?store=${encodeURIComponent(storeId)}&v=${encodeURIComponent(product.image_updated_at || product.updated_at)}`;
 }
