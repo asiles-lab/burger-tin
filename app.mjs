@@ -45,7 +45,7 @@ function renderMenu() {
       const media = product.image
         ? `<button class="product-thumb" data-preview="${escapeHtml(product.id)}" aria-label="Ver foto de ${escapeHtml(product.name)}"><img src="${escapeHtml(product.image)}" alt="${escapeHtml(product.name)}" loading="lazy" width="112" height="112"></button>`
         : `<div class="product-thumb product-thumb-placeholder" role="img" aria-label="Este producto todavía no tiene foto"><span aria-hidden="true">${categoryIcons[product.category] || '🍔'}</span><small>Sin foto</small></div>`;
-      return `<article class="menu-item" data-product="${escapeHtml(product.id)}">${media}<div class="menu-item-copy"><h4>${escapeHtml(product.name)}</h4><p>${escapeHtml(product.description)}</p></div><div class="menu-item-action"><strong>${money(product.price)}</strong><button data-add="${escapeHtml(product.id)}" aria-label="Agregar ${escapeHtml(product.name)}">+</button></div></article>`;
+      return `<article class="menu-item" data-product="${escapeHtml(product.id)}">${media}<div class="menu-item-copy"><h4>${escapeHtml(product.name)}</h4><p>${escapeHtml(product.description)}</p></div><div class="menu-item-action"><strong>${money(product.price)}</strong><button data-add="${escapeHtml(product.id)}" aria-label="Agregar ${escapeHtml(product.name)}"><span aria-hidden="true">＋</span> Agregar</button></div></article>`;
     }).join('')}</div></section>`;
   }).join('');
   document.querySelectorAll('[data-filter]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.filter === activeCategory)));

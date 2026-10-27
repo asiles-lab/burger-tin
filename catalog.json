@@ -12,7 +12,7 @@
       "price": 9000,
       "category": "Promos",
       "description": "Doble cheddar con papas.",
-      "image": "assets/catalog/promo-doble-cheddar.jpg"
+      "image": "assets/menu-generated/promo-doble-cheddar.webp"
     },
     {
       "id": "promo-doble-bacon",
@@ -20,7 +20,7 @@
       "price": 9500,
       "category": "Promos",
       "description": "Doble carne, cheddar y bacon con salsa de ketchup, mostaza y cebolla.",
-      "image": "assets/catalog/promo-doble-bacon.jpg"
+      "image": "assets/menu-generated/promo-doble-bacon.webp"
     },
     {
       "id": "promo-triple-cheese",
@@ -28,7 +28,7 @@
       "price": 11000,
       "category": "Promos",
       "description": "Triple carne, cheddar y salsa de ketchup, mostaza y cebolla.",
-      "image": "assets/catalog/promo-triple-cheese.jpg"
+      "image": "assets/menu-generated/promo-triple-cheese.webp"
     },
     {
       "id": "promo-cuatro-simple",
@@ -36,7 +36,7 @@
       "price": 20000,
       "category": "Promos",
       "description": "Cuatro hamburguesas Simple Cheese con dos porciones de papas. Podés pedirlas sin salsa de ketchup, mostaza y cebolla.",
-      "image": "assets/catalog/promo-cuatro-simple.jpg"
+      "image": "assets/menu-generated/promo-cuatro-simple.webp"
     },
     {
       "id": "triple-cheeseburger",
@@ -44,7 +44,7 @@
       "price": 14500,
       "category": "Hamburguesas",
       "description": "Triple carne, cinco fetas de cheddar y salsa de ketchup, mayonesa y cebolla.",
-      "image": "assets/catalog/triple-cheeseburger.jpg"
+      "image": "assets/menu-generated/triple-cheeseburger.webp"
     },
     {
       "id": "ranch-doble",
@@ -52,7 +52,7 @@
       "price": 13500,
       "category": "Hamburguesas",
       "description": "Doble carne, cheddar, bacon, lechuga, tomate y salsa ranch.",
-      "image": "assets/catalog/ranch-doble.jpg"
+      "image": "assets/menu-generated/ranch-doble.webp"
     },
     {
       "id": "cuadruple-americana",
@@ -60,7 +60,7 @@
       "price": 16500,
       "category": "Hamburguesas",
       "description": "Cuatro medallones en versión americana.",
-      "image": "assets/catalog/cuadruple-americana.jpg"
+      "image": "assets/menu-generated/cuadruple-americana.webp"
     },
     {
       "id": "tasty",
@@ -68,7 +68,7 @@
       "price": 12500,
       "category": "Hamburguesas",
       "description": "Doble carne, cheddar, lechuga, tomate, cebolla picada y salsa tasty.",
-      "image": "assets/catalog/tasty.jpg"
+      "image": "assets/menu-generated/tasty.webp"
     },
     {
       "id": "cuadruple-bacon",
@@ -76,7 +76,7 @@
       "price": 16500,
       "category": "Hamburguesas",
       "description": "Cuatro medallones con cheddar y bacon.",
-      "image": "assets/catalog/cuadruple-bacon.jpg"
+      "image": "assets/menu-generated/cuadruple-bacon.webp"
     },
     {
       "id": "triple-oklahoma",
@@ -84,7 +84,7 @@
       "price": 14500,
       "category": "Hamburguesas",
       "description": "Tres medallones de carne, cebolla smash y cheddar.",
-      "image": "assets/catalog/triple-oklahoma.jpg"
+      "image": "assets/menu-generated/triple-oklahoma.webp"
     },
     {
       "id": "triple-americana",
@@ -92,7 +92,7 @@
       "price": 14500,
       "category": "Hamburguesas",
       "description": "Tres medallones, cheddar, lechuga, tomate, cebolla cruda y salsa thousand island.",
-      "image": "assets/catalog/triple-americana.jpg"
+      "image": "assets/menu-generated/triple-americana.webp"
     },
     {
       "id": "triple-bacon",
@@ -100,7 +100,7 @@
       "price": 14500,
       "category": "Hamburguesas",
       "description": "Triple carne, cuatro fetas de cheddar, bacon y salsa de ketchup, mayonesa y cebolla.",
-      "image": "assets/catalog/triple-bacon.jpg"
+      "image": "assets/menu-generated/triple-bacon.webp"
     },
     {
       "id": "triple-clasica",
@@ -108,7 +108,7 @@
       "price": 14500,
       "category": "Hamburguesas",
       "description": "Triple medallón, cheddar, lechuga, cebolla caramelizada y tomate.",
-      "image": "assets/catalog/triple-clasica.jpg"
+      "image": "assets/menu-generated/triple-clasica.webp"
     },
     {
       "id": "simple",
@@ -116,7 +116,7 @@
       "price": 10000,
       "category": "Hamburguesas",
       "description": "Carne, cheddar, lechuga, tomate y cebolla caramelizada.",
-      "image": "assets/catalog/simple.jpg"
+      "image": "assets/menu-generated/simple.webp"
     },
     {
       "id": "kid",
@@ -124,7 +124,7 @@
       "price": 10000,
       "category": "Hamburguesas",
       "description": "Un medallón de carne y cheddar. Podés pedirla con ketchup, mostaza y cebolla.",
-      "image": "assets/catalog/kid.jpg"
+      "image": "assets/menu-generated/kid.webp"
     },
     {
       "id": "simple-americana",
@@ -132,7 +132,7 @@
       "price": 10000,
       "category": "Hamburguesas",
       "description": "Medallón, cheddar, lechuga, tomate, cebolla cruda y salsa thousand island.",
-      "image": "assets/catalog/simple-americana.jpg"
+      "image": "assets/menu-generated/simple-americana.webp"
     },
     {
       "id": "simple-bacon",
@@ -140,7 +140,7 @@
       "price": 10000,
       "category": "Hamburguesas",
       "description": "Medallón, cheddar, bacon y salsa opcional de ketchup, mayonesa y cebolla.",
-      "image": "assets/catalog/simple-bacon.jpg"
+      "image": "assets/menu-generated/simple-bacon.webp"
     },
     {
       "id": "simple-oklahoma",
@@ -148,7 +148,7 @@
       "price": 10000,
       "category": "Hamburguesas",
       "description": "Medallón de carne, cebolla smash y cheddar. Incluye papas.",
-      "image": "assets/catalog/simple-oklahoma.jpg"
+      "image": "assets/menu-generated/simple-oklahoma.webp"
     },
     {
       "id": "cheeseburger",
@@ -156,7 +156,7 @@
       "price": 12500,
       "category": "Hamburguesas",
       "description": "Doble carne, cuatro fetas de cheddar y salsa de ketchup, mayonesa y cebolla.",
-      "image": "assets/catalog/cheeseburger.jpg"
+      "image": "assets/menu-generated/cheeseburger.webp"
     },
     {
       "id": "doble-bacon",
@@ -164,7 +164,7 @@
       "price": 12500,
       "category": "Hamburguesas",
       "description": "Doble carne, tres fetas de cheddar, bacon y salsa de ketchup, mayonesa y cebolla.",
-      "image": "assets/catalog/doble-bacon.jpg"
+      "image": "assets/menu-generated/doble-bacon.webp"
     },
     {
       "id": "doble-americana",
@@ -172,7 +172,7 @@
       "price": 12500,
       "category": "Hamburguesas",
       "description": "Doble carne, lechuga, tomate, tres fetas de cheddar, cebolla morada y salsa thousand island.",
-      "image": "assets/catalog/doble-americana.jpg"
+      "image": "assets/menu-generated/doble-americana.webp"
     },
     {
       "id": "doble-oklahoma",
@@ -180,7 +180,7 @@
       "price": 12500,
       "category": "Hamburguesas",
       "description": "Doble carne, cuatro fetas de cheddar y cebolla cruda.",
-      "image": "assets/catalog/doble-oklahoma.jpg"
+      "image": "assets/menu-generated/doble-oklahoma.webp"
     },
     {
       "id": "doble-clasica",
@@ -188,7 +188,7 @@
       "price": 12500,
       "category": "Hamburguesas",
       "description": "Doble carne, tres fetas de cheddar, lechuga, tomate y cebolla caramelizada.",
-      "image": "assets/catalog/doble-clasica.jpg"
+      "image": "assets/menu-generated/doble-clasica.webp"
     },
     {
       "id": "sanguche-lt",
@@ -196,7 +196,7 @@
       "price": 12000,
       "category": "Sanguches",
       "description": "Sanguche de carne con lechuga y tomate.",
-      "image": "assets/catalog/sanguches.jpg"
+      "image": "assets/menu-generated/sanguche-lt.webp"
     },
     {
       "id": "sanguche-lt-papas",
@@ -204,7 +204,7 @@
       "price": 16000,
       "category": "Sanguches",
       "description": "Sanguche de carne con lechuga, tomate y papas.",
-      "image": "assets/catalog/sanguches.jpg"
+      "image": "assets/menu-generated/sanguche-lt-papas.webp"
     },
     {
       "id": "sanguche-huevo",
@@ -212,7 +212,7 @@
       "price": 13500,
       "category": "Sanguches",
       "description": "Con tres huevos y aderezo o salsa a elección.",
-      "image": "assets/catalog/sanguches.jpg"
+      "image": "assets/menu-generated/sanguche-huevo.webp"
     },
     {
       "id": "sanguche-huevo-papas",
@@ -220,7 +220,7 @@
       "price": 17500,
       "category": "Sanguches",
       "description": "Con tres huevos, aderezo o salsa a elección y papas.",
-      "image": "assets/catalog/sanguches.jpg"
+      "image": "assets/menu-generated/sanguche-huevo-papas.webp"
     },
     {
       "id": "sanguche-bacon",
@@ -228,7 +228,7 @@
       "price": 17500,
       "category": "Sanguches",
       "description": "Sanguche de carne con bacon y cheddar.",
-      "image": "assets/catalog/sanguches.jpg"
+      "image": "assets/menu-generated/sanguche-bacon.webp"
     },
     {
       "id": "sanguche-bacon-papas",
@@ -236,7 +236,7 @@
       "price": 21500,
       "category": "Sanguches",
       "description": "La versión completa con bacon, cheddar y papas.",
-      "image": "assets/catalog/sanguches.jpg"
+      "image": "assets/menu-generated/sanguche-bacon-papas.webp"
     },
     {
       "id": "papas-tasty",
@@ -244,7 +244,7 @@
       "price": 7000,
       "category": "Acompañamientos",
       "description": "Porción de papas con salsa tasty.",
-      "image": "assets/catalog/papas-tasty.jpg"
+      "image": "assets/menu-generated/papas-tasty.webp"
     },
     {
       "id": "papas-tasty-bacon",
@@ -252,7 +252,7 @@
       "price": 8500,
       "category": "Acompañamientos",
       "description": "Porción de papas con salsa tasty y bacon.",
-      "image": "assets/catalog/papas-tasty-bacon.jpg"
+      "image": "assets/menu-generated/papas-tasty-bacon.webp"
     },
     {
       "id": "nuggets-papas",
@@ -260,7 +260,7 @@
       "price": 11000,
       "category": "Acompañamientos",
       "description": "Doce nuggets con papas y tarrito de cheddar o aderezo.",
-      "image": "assets/catalog/nuggets-papas.jpg"
+      "image": "assets/menu-generated/nuggets-papas.webp"
     },
     {
       "id": "nuggets-12",
@@ -268,7 +268,7 @@
       "price": 6000,
       "category": "Acompañamientos",
       "description": "Doce unidades.",
-      "image": "assets/catalog/nuggets-12.jpg"
+      "image": "assets/menu-generated/nuggets-12.webp"
     },
     {
       "id": "nuggets-6",
@@ -276,7 +276,7 @@
       "price": 3500,
       "category": "Acompañamientos",
       "description": "Seis unidades.",
-      "image": "assets/catalog/nuggets-6.jpg"
+      "image": "assets/menu-generated/nuggets-6.webp"
     },
     {
       "id": "papas-cheddar-bacon",
@@ -284,7 +284,7 @@
       "price": 8500,
       "category": "Acompañamientos",
       "description": "Porción de papas con cheddar y bacon.",
-      "image": "assets/catalog/papas-cheddar-bacon.jpg"
+      "image": "assets/menu-generated/papas-cheddar-bacon.webp"
     },
     {
       "id": "extra-huevo",
@@ -292,7 +292,7 @@
       "price": 1500,
       "category": "Extras",
       "description": "Sumá huevo a tu pedido.",
-      "image": "assets/catalog/extra-huevo.jpg"
+      "image": "assets/menu-generated/extra-huevo.webp"
     },
     {
       "id": "extra-cheddar-bacon",
@@ -300,7 +300,7 @@
       "price": 5500,
       "category": "Extras",
       "description": "Papas con cheddar y bacon para sumar a tu hamburguesa.",
-      "image": "assets/catalog/extra-cheddar-bacon.jpg"
+      "image": "assets/menu-generated/extra-cheddar-bacon.webp"
     },
     {
       "id": "pileta-cheddar",
@@ -308,7 +308,7 @@
       "price": 3700,
       "category": "Extras",
       "description": "Cheddar para compartir o sumar a tu pedido.",
-      "image": "assets/catalog/pileta-cheddar.jpg"
+      "image": "assets/menu-generated/pileta-cheddar.webp"
     },
     {
       "id": "cheddar-chiquito",
@@ -316,7 +316,7 @@
       "price": 2000,
       "category": "Extras",
       "description": "Porción individual de cheddar.",
-      "image": "assets/catalog/cheddar-chiquito.jpg"
+      "image": "assets/menu-generated/cheddar-chiquito.webp"
     }
   ]
 }
