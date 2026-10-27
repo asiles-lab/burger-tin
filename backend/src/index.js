@@ -1,5 +1,6 @@
 import store from '../../catalog.json' with { type: 'json' };
 import { checkoutPaymentMethods, formatMoney, formatOrderCode, timingSafeEqualText, validateOrderInput } from './domain.js';
+import { normalizeBusinessHours, orderingAvailability, validateBusinessHours } from './business-hours.js';
 
 const DEFAULT_STORE_ID = 'burger-tin';
 const GLOWRO_STORE_ID = 'glowro';
@@ -259,6 +260,9 @@ async function storeSettings(env, storeId) {
   const primary = /^#[0-9a-f]{6}$/i.test(values.admin_primary || '') ? values.admin_primary : '#35173f';
   const accent = /^#[0-9a-f]{6}$/i.test(values.admin_accent || '') ? values.admin_accent : '#f52e25';
   const applyToStore = values.apply_colors_to_store === '1';
+  let savedBusinessHours = null;
+  try { savedBusinessHours = JSON.parse(values.business_hours || 'null'); } catch {}
+  const businessHours = normalizeBusinessHours(savedBusinessHours);
   return {
     business: values.business || (storeId === DEFAULT_STORE_ID ? store.business : 'Nueva empresa'),
     phone: values.phone || (storeId === DEFAULT_STORE_ID ? env.WHATSAPP_PHONE || store.phone : ''),
@@ -272,7 +276,8 @@ async function storeSettings(env, storeId) {
     mercadoPagoEnabled: Boolean((values.mp_access_token && values.mp_webhook_secret) || (storeId === DEFAULT_STORE_ID && env.MP_ACCESS_TOKEN && env.MP_WEBHOOK_SECRET)),
     webhookUrl: `${String(env.PUBLIC_API_URL || '').replace(/\/$/, '')}/api/webhooks/mercadopago?store=${encodeURIComponent(storeId)}`,
     deliveryFee: values.delivery_fee === undefined ? null : Number(values.delivery_fee),
-    paymentMode: values.mp_mode || (storeId === DEFAULT_STORE_ID ? (env.PAYMENTS_MODE || 'sandbox') : 'sandbox')
+    paymentMode: values.mp_mode || (storeId === DEFAULT_STORE_ID ? (env.PAYMENTS_MODE || 'sandbox') : 'sandbox'),
+    businessHours
   };
 }
 
@@ -379,6 +384,8 @@ async function getCatalog(request, env) {
       mercadoPagoEnabled: settings.mercadoPagoEnabled,
       paymentMode: settings.paymentMode,
       deliveryFee: settings.deliveryFee,
+      businessHours: settings.businessHours,
+      ordering: orderingAvailability(settings.businessHours),
       theme: { primary:settings.storePrimary, accent:settings.storeAccent },
       products: await catalogProducts(env, storeId)
     });
@@ -489,6 +496,9 @@ async function updateSettings(request, env) {
   const deliveryZones = String(body.deliveryZones || '').trim();
   const adminPrimary = String(body.adminPrimary || '').toLowerCase();
   const adminAccent = String(body.adminAccent || '').toLowerCase();
+  let businessHours = null;
+  try { if (body.businessHours !== undefined) businessHours = validateBusinessHours(body.businessHours); }
+  catch (error) { return publicJson(request, env, { error:error.message }, 400); }
   if (business.length < 2 || business.length > 80) return publicJson(request, env, { error:'Ingresá un nombre de local válido.' }, 400);
   if ((identity.storeId !== GLOWRO_STORE_ID && pickupAddress.length < 5) || pickupAddress.length > 200) return publicJson(request, env, { error:'Ingresá una dirección válida.' }, 400);
   if ((identity.storeId !== GLOWRO_STORE_ID && phone.length < 10) || (phone && (phone.length < 10 || phone.length > 15))) return publicJson(request, env, { error:'Ingresá el teléfono con código de país y área.' }, 400);
@@ -503,6 +513,7 @@ async function updateSettings(request, env) {
     upsertSetting(env, 'admin_accent', adminAccent, 0, identity.storeId),
     upsertSetting(env, 'apply_colors_to_store', body.applyColorsToStore ? '1' : '0', 0, identity.storeId)
   ];
+  if (businessHours) statements.push(upsertSetting(env, 'business_hours', JSON.stringify(businessHours), 0, identity.storeId));
   if (identity.storeId === GLOWRO_STORE_ID && body.deliveryFee !== undefined) {
     const fee = Number(body.deliveryFee);
     if (!Number.isFinite(fee) || fee < 0 || fee > 1000000 || Math.abs(Math.round(fee * 100) - fee * 100) > 0.000001) return publicJson(request, env, { error:'Ingresá un costo de envío válido.' }, 400);
@@ -528,7 +539,7 @@ async function updateSettings(request, env) {
     }
   }
   await env.DB.batch(statements);
-  await audit(env, identity, 'store.settings.update', 'store', identity.storeId, { mercadoPagoChanged:Boolean(body.disconnectMercadoPago || body.mpAccessToken), themeChanged:true });
+  await audit(env, identity, 'store.settings.update', 'store', identity.storeId, { mercadoPagoChanged:Boolean(body.disconnectMercadoPago || body.mpAccessToken), themeChanged:true, businessHoursChanged:Boolean(businessHours) });
   return publicJson(request, env, { ok:true, settings:await storeSettings(env, identity.storeId) });
 }
 
@@ -575,6 +586,8 @@ async function createOrder(request, env) {
   try {
     storeId = await publicStoreId(request, env);
     settings = await storeSettings(env, storeId);
+    const availability = orderingAvailability(settings.businessHours);
+    if (!availability.open) return publicJson(request, env, { error:availability.message, ordering:availability }, 409);
     order = validateOrderInput(await readJson(request), await catalogProducts(env, storeId));
     if (storeId === GLOWRO_STORE_ID) {
       if (order.paymentMethod !== 'mercadopago' || order.fulfillment !== 'delivery') throw new Error('GlowRo acepta únicamente envíos con Mercado Pago.');
