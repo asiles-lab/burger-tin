@@ -133,8 +133,9 @@ function renderUrls() {
   const clientGroups = stores.map(store => {
     const host = store.public_host || `${store.slug || store.id}.restia.net.ar`;
     const siteUrl = `https://${host}/`;
-    const state = store.route_status === 'conectado' ? 'Conectado' : 'Pendiente de conexión';
-    return `<section class="url-client"><div class="url-client-head"><div><h3>${escapeHtml(store.name)}</h3><p>${escapeHtml(host)}</p></div><span class="url-route-state ${store.route_status === 'conectado' ? 'is-ready' : ''}">${escapeHtml(state)}</span></div>${urlRow('Sitio del cliente', siteUrl, 'Público')}${urlRow('Admin del cliente', `${siteUrl}admin/`, 'Acceso privado')}</section>`;
+    const ready = store.route_status === 'conectado' || ['activo','active'].includes(String(store.dns_status || '').toLowerCase());
+    const state = ready ? 'Disponible' : 'Pendiente de conexión';
+    return `<section class="url-client"><div class="url-client-head"><div><h3>${escapeHtml(store.name)}</h3><p>${escapeHtml(host)}</p></div><span class="url-route-state ${ready ? 'is-ready' : ''}">${escapeHtml(state)}</span></div>${urlRow('Sitio del cliente', siteUrl, 'Público')}${urlRow('Admin del cliente', `${siteUrl}admin/`, 'Acceso privado')}</section>`;
   }).join('');
   $('#url-map').innerHTML = `<section class="url-client url-global"><div class="url-client-head"><div><h3>Restia</h3><p>Canales institucionales y administración central</p></div></div>${globalUrls}</section>${clientGroups || '<p class="empty">Creá una empresa para generar sus accesos.</p>'}`;
   $('#url-count').textContent = `${stores.length} ${stores.length === 1 ? 'cliente' : 'clientes'} · ${stores.length * 2 + 2} URLs`;
