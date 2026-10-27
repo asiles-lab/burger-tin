@@ -80,10 +80,10 @@ export function orderingAvailability(value, now = new Date()) {
     if (!day.enabled) continue;
     const distance = offset * 1440 + timeToMinutes(day.open) - clock.minutes;
     if (distance <= 0) continue;
-    if (!next || distance < next.distance) next = { distance, dayIndex, time:day.open };
+    if (!next || distance < next.distance) next = { distance, dayIndex, time:day.open, offset };
   }
   const nextOpen = next
-    ? `${next.dayIndex === clock.day ? 'hoy' : next.dayIndex === (clock.day + 1) % 7 ? 'mañana' : `el ${DAY_LABELS[next.dayIndex]}`} a las ${next.time} hs`
+    ? `${next.offset === 0 ? 'hoy' : next.offset === 1 ? 'mañana' : `el ${DAY_LABELS[next.dayIndex]}`} a las ${next.time} hs`
     : null;
   return {
     open:false,

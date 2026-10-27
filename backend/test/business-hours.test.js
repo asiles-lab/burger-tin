@@ -25,3 +25,11 @@ test('admite turnos que cruzan la medianoche', () => {
 test('exige al menos un día cuando se activa el control', () => {
   assert.throws(() => validateBusinessHours(schedule({})), /al menos un día/i);
 });
+
+test('si el turno de hoy ya pasó informa la próxima semana', () => {
+  const hours = schedule({ tue:{ enabled:true, open:'18:00', close:'19:00' } });
+  const result = orderingAvailability(hours, new Date('2026-10-28T01:00:00Z'));
+  assert.equal(result.open, false);
+  assert.match(result.nextOpen, /martes/);
+  assert.doesNotMatch(result.nextOpen, /hoy/);
+});
