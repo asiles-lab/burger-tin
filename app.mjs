@@ -36,6 +36,18 @@ function notify(message) {
   toastTimer = setTimeout(() => $('#toast').classList.remove('visible'), 2200);
 }
 
+function transitionToSection(target) {
+  if (!target) return;
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  target.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'start' });
+  if (reducedMotion) return;
+  target.classList.remove('section-arrival');
+  void target.offsetWidth;
+  target.classList.add('section-arrival');
+  target.addEventListener('animationend', () => target.classList.remove('section-arrival'), { once:true });
+  window.setTimeout(() => target.classList.remove('section-arrival'), 900);
+}
+
 function renderMenu() {
   const categories = [...new Set(catalog.map(item => item.category))];
   const shown = activeCategory === 'Todos' ? categories : categories.filter(category => category === activeCategory);
@@ -110,6 +122,15 @@ async function createServerOrder(details) {
 }
 
 document.addEventListener('click', event => {
+  const internalLink = event.target.closest('a[href^="#"]');
+  if (internalLink) {
+    const target = document.querySelector(internalLink.getAttribute('href'));
+    if (target) {
+      event.preventDefault();
+      transitionToSection(target);
+    }
+    return;
+  }
   const preview = event.target.closest('[data-preview]');
   if (preview) {
     const product = catalog.find(item => item.id === preview.dataset.preview && item.image);
@@ -141,7 +162,7 @@ document.addEventListener('click', event => {
     return;
   }
   const filter = event.target.closest('[data-filter]');
-  if (filter) { activeCategory = filter.dataset.filter; renderMenu(); $('#menu').scrollIntoView({behavior:'smooth'}); return; }
+  if (filter) { activeCategory = filter.dataset.filter; renderMenu(); transitionToSection($('#menu')); return; }
   const change = event.target.closest('[data-change]');
   if (change) { changeQuantity(change.dataset.change, Number(change.dataset.delta)); return; }
   const remove = event.target.closest('[data-remove]');
@@ -154,7 +175,7 @@ document.addEventListener('click', event => {
   }
   const whatsapp = event.target.closest('[data-whatsapp-source]');
   if (whatsapp) trackEvent('whatsapp_click', { source: whatsapp.dataset.whatsappSource });
-  if (event.target.closest('[data-browse]')) { dialog.close(); $('#menu').scrollIntoView({behavior:'smooth'}); }
+  if (event.target.closest('[data-browse]')) { dialog.close(); transitionToSection($('#menu')); }
 });
 
 $('#close-cart').addEventListener('click', () => dialog.close());
