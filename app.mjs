@@ -37,9 +37,9 @@ function currentOrderingAvailability(hours) {
     const dayIndex = (clock.day + offset) % 7, day = days[businessDayKeys[dayIndex]] || {};
     if (!day.enabled) continue;
     const distance = offset * 1440 + timeMinutes(day.open) - clock.minutes;
-    if (distance > 0 && (!next || distance < next.distance)) next = { distance, dayIndex, time:day.open };
+    if (distance > 0 && (!next || distance < next.distance)) next = { distance, dayIndex, time:day.open, offset };
   }
-  const when = next ? `${next.dayIndex === clock.day ? 'hoy' : next.dayIndex === (clock.day + 1) % 7 ? 'mañana' : `el ${businessDayLabels[next.dayIndex]}`} a las ${next.time} hs` : 'en el próximo horario de atención';
+  const when = next ? `${next.offset === 0 ? 'hoy' : next.offset === 1 ? 'mañana' : `el ${businessDayLabels[next.dayIndex]}`} a las ${next.time} hs` : 'en el próximo horario de atención';
   return { open:false, message:`Podés mirar el menú. Abrimos ${when}.` };
 }
 
