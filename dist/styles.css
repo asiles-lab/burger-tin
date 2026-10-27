@@ -125,3 +125,11 @@
 .quantity-controls strong{font-size:12px}
 .drawer-item>div{min-width:0}
 @media(max-width:540px){.checkout-form{max-height:51vh}.drawer-items{min-height:95px}}
+
+/* Identidad GlowRo: variantes reales para superficies claras y oscuras. */
+.brand-image{display:block;width:172px;line-height:0;letter-spacing:0}
+.brand-image img{display:block;width:100%;height:auto}
+.footer-brand{width:228px}
+.closing-brand{position:relative;z-index:1;width:min(360px,72vw);height:auto;margin:0 0 22px}
+@media(max-width:790px){.brand-image{width:148px}.footer-brand{width:205px}.closing-brand{width:min(310px,78vw)}}
+@media(max-width:520px){.brand-image{width:132px}.footer-brand{width:188px}.closing-brand{width:min(275px,82vw);margin-bottom:18px}}
