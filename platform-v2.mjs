@@ -95,6 +95,14 @@ function storeName(id) {
   return stores.find(store => store.id === id)?.name || id;
 }
 
+function storeLogo(storeOrId) {
+  const store = typeof storeOrId === 'object' ? storeOrId : stores.find(item => item.id === storeOrId);
+  const identity = [store?.id, store?.slug, store?.name].filter(Boolean).join(' ').toLowerCase();
+  if (identity.includes('glowro') || identity.includes('glow ro')) return 'assets/glowro-monogram.png';
+  if (identity.includes('burger-tin') || identity.includes('burger tin')) return 'assets/logo-burger-tun.png';
+  return 'assets/restia-favicon.png';
+}
+
 function renderCompanies() {
   currentView = 'companies';
   selectedStoreId = '';
@@ -112,7 +120,7 @@ function renderCompanies() {
     const setupReady = store.setup_status === 'activo';
     const welcomeLabels = {waiting_site:'Esperando el sitio',email_setup_required:'Configurar correo',sending:'Enviando',sent:'Enviado al proveedor',retry:'Reintentando',needs_review:'Revisar envío',activated:'Acceso activado'};
     const welcome = store.welcome_enabled ? `<div class="company-readiness"><span>Bienvenida <b>${escapeHtml(welcomeLabels[store.welcome_status] || 'Pendiente')}</b></span>${store.welcome_error ? `<small>${escapeHtml(store.welcome_error)}</small>` : ''}</div><div class="company-actions">${store.welcome_status !== 'activated' ? `<button class="secondary" data-check-welcome="${escapeHtml(store.id)}">Verificar sitio y bienvenida</button>` : ''}${['sent','needs_review'].includes(store.welcome_status) ? `<button class="secondary" data-resend-welcome="${escapeHtml(store.id)}">Reenviar invitación</button>` : ''}</div>` : '';
-    return `<article class="company-card"><div class="company-logo"><img src="assets/restia-favicon.png" alt=""></div><div class="company-copy"><span class="status-dot ${setupReady ? '' : 'status-pending'}">${escapeHtml(store.status || 'En preparación')}</span><h2>${escapeHtml(store.name)}</h2><p>Administrador ${active ? 'activo' : 'pendiente'} · Menú y panel de gestión</p><div class="company-host">${escapeHtml(store.public_host || `${store.slug || store.id}.restia.net.ar`)}</div></div><div class="company-meta"><span>Usuarios activos</span><strong>${active}</strong><div class="company-readiness"><span>Worker <b>${escapeHtml(store.worker_service || 'pendiente')}</b></span><span>DNS / TLS <b>${escapeHtml(store.dns_status || 'pendiente')}</b></span></div><div class="company-actions"><button data-open-store="${escapeHtml(store.id)}">Gestionar accesos →</button>${store.route_status === 'conectado' ? '<span class="domain-connected">Worker enlazado</span>' : `<button class="secondary" data-configure-domain="${escapeHtml(store.id)}">Conectar Worker y DNS</button>`}</div>${welcome}</div></article>`;
+    return `<article class="company-card"><div class="company-logo"><img src="${storeLogo(store)}" alt="Logo de ${escapeHtml(store.name)}"></div><div class="company-copy"><span class="status-dot ${setupReady ? '' : 'status-pending'}">${escapeHtml(store.status || 'En preparación')}</span><h2>${escapeHtml(store.name)}</h2><p>Administrador ${active ? 'activo' : 'pendiente'} · Menú y panel de gestión</p><div class="company-host">${escapeHtml(store.public_host || `${store.slug || store.id}.restia.net.ar`)}</div></div><div class="company-meta"><span>Usuarios activos</span><strong>${active}</strong><div class="company-readiness"><span>Worker <b>${escapeHtml(store.worker_service || 'pendiente')}</b></span><span>DNS / TLS <b>${escapeHtml(store.dns_status || 'pendiente')}</b></span></div><div class="company-actions"><button data-open-store="${escapeHtml(store.id)}">Gestionar accesos →</button>${store.route_status === 'conectado' ? '<span class="domain-connected">Worker enlazado</span>' : `<button class="secondary" data-configure-domain="${escapeHtml(store.id)}">Conectar Worker y DNS</button>`}</div>${welcome}</div></article>`;
   }).join('') : '<p class="empty">Todavía no hay empresas registradas.</p>';
 }
 
@@ -139,7 +147,7 @@ function renderProfileGroup(view, storeId = '') {
   $('#platform-title').textContent = name;
   $('#profiles-title').textContent = isPlatform ? 'Superadmins' : `Usuarios de ${name}`;
   $('#profiles-description').textContent = isPlatform ? 'Accesos internos con permiso para administrar toda la plataforma.' : 'Estos usuarios solo pueden ingresar al panel de esta empresa.';
-  $('#profile-context').innerHTML = isPlatform ? '<img src="assets/restia-favicon.png" alt=""><div><span class="context-label">Base de usuarios interna</span><h2>Restia</h2><p>Separada de los usuarios de cada empresa.</p></div>' : `<img src="assets/logo-burger-tun.png" alt=""><div><span class="context-label">Empresa activa</span><h2>${escapeHtml(name)}</h2><p>Usuarios, roles y permisos exclusivos de esta empresa.</p></div>`;
+  $('#profile-context').innerHTML = isPlatform ? '<img src="assets/restia-favicon.png" alt="Restia"><div><span class="context-label">Base de usuarios interna</span><h2>Restia</h2><p>Separada de los usuarios de cada empresa.</p></div>' : `<img src="${storeLogo(storeId)}" alt="Logo de ${escapeHtml(name)}"><div><span class="context-label">Empresa activa</span><h2>${escapeHtml(name)}</h2><p>Usuarios, roles y permisos exclusivos de esta empresa.</p></div>`;
   document.querySelectorAll('[data-platform-view]').forEach(button => button.classList.toggle('active', button.dataset.platformView === (isPlatform ? 'platform' : 'companies')));
   renderProfiles(groupProfiles);
 }
