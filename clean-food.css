@@ -85,3 +85,15 @@ footer{display:grid;grid-template-columns:1.4fr repeat(4,1fr);align-items:start;
   .promo-highlight:hover .promo-mascot,.menu.section-arrival::after,.menu.section-arrival .filters{animation:none}
   .promo-highlight button::after{transition:none}
 }
+
+/* Unified campaign artwork: each scene is one composited asset. */
+.hero-art{isolation:isolate}
+.hero-composite{position:absolute;inset:0;width:100%;height:100%;max-height:none;object-fit:cover;object-position:66% center;filter:none}
+.promo-highlight{overflow:hidden}
+.promo-visual .promo-composite{width:min(560px,112%);height:410px;right:-2%;bottom:-74px;object-fit:contain;filter:drop-shadow(0 22px 20px #7d3b182d)}
+
+@media(max-width:950px){.promo-visual .promo-composite{width:440px;height:370px;right:-12%}}
+@media(max-width:650px){
+  .hero-composite{inset:0;right:auto;bottom:auto;width:100%;height:100%;object-fit:cover;object-position:64% center}
+  .promo-visual .promo-composite{width:350px;height:310px;right:50%;bottom:-48px;translate:50% 0}
+}
