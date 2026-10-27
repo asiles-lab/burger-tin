@@ -12,10 +12,10 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles-v2.css?v=20261025-1">
-  <link rel="stylesheet" href="clean-food.css?v=20261027-4">
+  <link rel="stylesheet" href="clean-food.css?v=20261027-5">
   <script src="analytics-config.js?v=20261023-1"></script>
   <script src="checkout-config.js?v=2"></script>
-  <script type="module" src="app.mjs?v=20261027-2"></script>
+  <script type="module" src="app.mjs?v=20261027-3"></script>
 </head>
 <body>
   <a class="skip" href="#menu">Ir al menú</a>
@@ -24,6 +24,7 @@
     <nav aria-label="Navegación principal"><a href="#menu">Menú</a><a href="#como-pedir">Cómo pedir</a><a href="#contacto">Contacto</a></nav>
     <button class="cart-trigger" data-open-cart><span>Pedir ahora</span><b data-count>0</b></button>
   </header>
+  <aside class="store-status" id="store-status" role="status" hidden><strong>Local cerrado</strong><span id="store-status-message">Podés mirar el menú; los pedidos se habilitan en el próximo horario de atención.</span></aside>
 
   <main>
     <section class="hero" id="inicio">
@@ -66,11 +67,11 @@
 
     <section class="contact" id="contacto">
       <div><p class="eyebrow">¿Listo para pedir?</p><h2>¡A COMER<br><span>RICO!</span></h2><p class="contact-copy">Tu pedido está a unos clics de distancia.</p></div>
-      <div class="contact-card"><p><small>RETIRO</small><span id="pickup-address-footer">Av. Croacia 2221, José C. Paz</span></p><p><small>ENVÍOS</small><span id="delivery-zones">José C. Paz y alrededores</span></p><p><small>ATENCIÓN</small><span>Solo mensajes o carrito. Horarios a confirmar por WhatsApp.</span></p><a href="https://wa.me/5491127798677" target="_blank" rel="noopener" data-whatsapp-source="contacto">Hablar por WhatsApp ↗</a></div>
+      <div class="contact-card"><p><small>RETIRO</small><span id="pickup-address-footer">Av. Croacia 2221, José C. Paz</span></p><p><small>ENVÍOS</small><span id="delivery-zones">José C. Paz y alrededores</span></p><p><small>ATENCIÓN</small><span id="contact-hours">Horarios a confirmar por WhatsApp.</span></p><a href="https://wa.me/5491127798677" target="_blank" rel="noopener" data-whatsapp-source="contacto">Hablar por WhatsApp ↗</a></div>
     </section>
   </main>
 
-  <footer><div class="footer-brand"><img src="assets/logo-burger-tun.png" alt="Burger Tin"><p>Más que burgers,<br>buenos momentos.</p></div><div><small>Ubicación</small><p id="footer-business">Av. Croacia 2221<br>José C. Paz</p></div><div><small>Horarios</small><p>Consultá disponibilidad<br>por WhatsApp</p></div><div><small>Pedidos y redes</small><a href="https://wa.me/5491127798677" target="_blank" rel="noopener" data-whatsapp-source="footer">WhatsApp ↗</a><a href="https://wa.me/c/5491127798677" target="_blank" rel="noopener" data-whatsapp-source="catalogo">Catálogo ↗</a></div><div><small>Información</small><a href="privacidad.html">Privacidad</a><a href="terminos.html">Condiciones</a></div></footer>
+  <footer><div class="footer-brand"><img src="assets/logo-burger-tun.png" alt="Burger Tin"><p>Más que burgers,<br>buenos momentos.</p></div><div><small>Ubicación</small><p id="footer-business">Av. Croacia 2221<br>José C. Paz</p></div><div><small>Horarios</small><p id="footer-hours">Consultá disponibilidad<br>por WhatsApp</p></div><div><small>Pedidos y redes</small><a href="https://wa.me/5491127798677" target="_blank" rel="noopener" data-whatsapp-source="footer">WhatsApp ↗</a><a href="https://wa.me/c/5491127798677" target="_blank" rel="noopener" data-whatsapp-source="catalogo">Catálogo ↗</a></div><div><small>Información</small><a href="privacidad.html">Privacidad</a><a href="terminos.html">Condiciones</a></div></footer>
 
   <button class="mobile-cart" data-open-cart hidden aria-label="Ver mi pedido"><span class="floating-cart-icon" aria-hidden="true">🛒</span><span>Ver mi pedido <b data-count>0</b></span><strong data-total>$0</strong></button>
   <div class="toast" id="toast" role="status"></div>

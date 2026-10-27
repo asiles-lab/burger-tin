@@ -10,10 +10,57 @@ let catalog = [];
 let store = {};
 let cart = {};
 let activeCategory = 'Todos';
+let orderingOpen = true;
 let toastTimer;
 const dialog = $('#cart-dialog');
 const checkoutConfig = window.BURGER_TIN_CHECKOUT || { enabled: false, apiBaseUrl: '' };
 const categoryIcons = { Promos:'🍔', Hamburguesas:'🍔', Sanguches:'🥪', Acompañamientos:'🍟', Extras:'✨' };
+const businessDayKeys = ['sun','mon','tue','wed','thu','fri','sat'];
+const businessDayLabels = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+
+function localBusinessClock() {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone:'America/Argentina/Buenos_Aires', weekday:'short', hour:'2-digit', minute:'2-digit', hourCycle:'h23' }).formatToParts(new Date()).map(part => [part.type, part.value]));
+  return { day:{Sun:0,Mon:1,Tue:2,Wed:3,Thu:4,Fri:5,Sat:6}[parts.weekday], minutes:Number(parts.hour) * 60 + Number(parts.minute) };
+}
+
+function timeMinutes(value) { const [hour, minute] = String(value || '00:00').split(':').map(Number); return hour * 60 + minute; }
+
+function currentOrderingAvailability(hours) {
+  if (!hours?.enabled) return { open:true, message:'Pedidos habilitados' };
+  const clock = localBusinessClock(), days = hours.days || {}, today = days[businessDayKeys[clock.day]] || {}, previousIndex = (clock.day + 6) % 7, previous = days[businessDayKeys[previousIndex]] || {};
+  const todayOpen = timeMinutes(today.open), todayClose = timeMinutes(today.close), previousOpen = timeMinutes(previous.open), previousClose = timeMinutes(previous.close);
+  const openToday = today.enabled && (todayClose > todayOpen ? clock.minutes >= todayOpen && clock.minutes < todayClose : clock.minutes >= todayOpen);
+  const openFromYesterday = previous.enabled && previousClose <= previousOpen && clock.minutes < previousClose;
+  if (openToday || openFromYesterday) return { open:true, message:'Abierto para pedidos' };
+  let next = null;
+  for (let offset = 0; offset <= 7; offset += 1) {
+    const dayIndex = (clock.day + offset) % 7, day = days[businessDayKeys[dayIndex]] || {};
+    if (!day.enabled) continue;
+    const distance = offset * 1440 + timeMinutes(day.open) - clock.minutes;
+    if (distance > 0 && (!next || distance < next.distance)) next = { distance, dayIndex, time:day.open };
+  }
+  const when = next ? `${next.dayIndex === clock.day ? 'hoy' : next.dayIndex === (clock.day + 1) % 7 ? 'mañana' : `el ${businessDayLabels[next.dayIndex]}`} a las ${next.time} hs` : 'en el próximo horario de atención';
+  return { open:false, message:`Podés mirar el menú. Abrimos ${when}.` };
+}
+
+function businessHoursText(hours, separator=' · ') {
+  if (!hours?.enabled) return 'Consultá disponibilidad por WhatsApp';
+  const labels = {mon:'Lun',tue:'Mar',wed:'Mié',thu:'Jue',fri:'Vie',sat:'Sáb',sun:'Dom'};
+  const rows = ['mon','tue','wed','thu','fri','sat','sun'].filter(key => hours.days?.[key]?.enabled).map(key => `${labels[key]} ${hours.days[key].open}–${hours.days[key].close}`);
+  return rows.length ? rows.join(separator) : 'Consultá disponibilidad por WhatsApp';
+}
+
+function applyOrderingState() {
+  const availability = currentOrderingAvailability(store.businessHours);
+  orderingOpen = availability.open;
+  document.body.classList.toggle('store-closed', !orderingOpen);
+  $('#store-status').hidden = orderingOpen;
+  $('#store-status-message').textContent = availability.message;
+  document.querySelectorAll('[data-add]').forEach(button => { button.disabled = !orderingOpen; button.setAttribute('aria-disabled', String(!orderingOpen)); });
+  document.querySelectorAll('[data-open-cart]').forEach(button => { button.disabled = !orderingOpen; button.setAttribute('aria-disabled', String(!orderingOpen)); });
+  $('#checkout-submit').disabled = !orderingOpen;
+  if (!orderingOpen) $('.mobile-cart').hidden = true;
+}
 
 function productEventData(id) {
   const product = catalog.find(item => item.id === id);
@@ -57,7 +104,7 @@ function renderMenu() {
       const media = product.image
         ? `<button class="product-thumb" data-preview="${escapeHtml(product.id)}" aria-label="Ver foto de ${escapeHtml(product.name)}"><img src="${escapeHtml(product.image)}" alt="${escapeHtml(product.name)}" loading="lazy" width="112" height="112"></button>`
         : `<div class="product-thumb product-thumb-placeholder" role="img" aria-label="Este producto todavía no tiene foto"><span aria-hidden="true">${categoryIcons[product.category] || '🍔'}</span><small>Sin foto</small></div>`;
-      return `<article class="menu-item" data-product="${escapeHtml(product.id)}">${media}<div class="menu-item-copy"><h4>${escapeHtml(product.name)}</h4><p>${escapeHtml(product.description)}</p></div><div class="menu-item-action"><strong>${money(product.price)}</strong><button data-add="${escapeHtml(product.id)}" aria-label="Agregar ${escapeHtml(product.name)}"><span aria-hidden="true">＋</span> Agregar</button></div></article>`;
+      return `<article class="menu-item" data-product="${escapeHtml(product.id)}">${media}<div class="menu-item-copy"><h4>${escapeHtml(product.name)}</h4><p>${escapeHtml(product.description)}</p></div><div class="menu-item-action"><strong>${money(product.price)}</strong><button data-add="${escapeHtml(product.id)}" aria-label="Agregar ${escapeHtml(product.name)}" ${orderingOpen?'':'disabled aria-disabled="true"'}><span aria-hidden="true">＋</span> Agregar</button></div></article>`;
     }).join('')}</div></section>`;
   }).join('');
   document.querySelectorAll('[data-filter]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.filter === activeCategory)));
@@ -69,13 +116,14 @@ function updateCart() {
   const count = order.items.reduce((sum, item) => sum + item.quantity, 0);
   document.querySelectorAll('[data-count]').forEach(node => node.textContent = count);
   document.querySelectorAll('[data-total]').forEach(node => node.textContent = money(order.subtotal));
-  $('.mobile-cart').hidden = count === 0;
+  $('.mobile-cart').hidden = count === 0 || !orderingOpen;
   $('#checkout-area').hidden = count === 0;
   $('#cart-items').innerHTML = count ? order.items.map(item => `<article class="cart-item"><div><h3>${escapeHtml(item.name)}</h3><button data-remove="${escapeHtml(item.id)}" aria-label="Quitar ${escapeHtml(item.name)}">×</button></div><div><span class="quantity"><button data-change="${escapeHtml(item.id)}" data-delta="-1" aria-label="Restar uno">−</button><b>${item.quantity}</b><button data-change="${escapeHtml(item.id)}" data-delta="1" aria-label="Sumar uno">+</button></span><strong>${money(item.subtotal)}</strong></div></article>`).join('') : '<div class="cart-empty"><span>01</span><h3>Tu pedido<br>empieza acá.</h3><p>Elegí algo del menú y lo armamos juntos.</p><button class="button light" data-browse>Ver el menú</button></div>';
   $('#form-error').textContent = '';
 }
 
 function changeQuantity(id, delta) {
+  if (!orderingOpen && delta > 0) { notify('El local está cerrado. Podés volver a pedir en el próximo horario.'); return false; }
   if (!catalog.some(item => item.id === id)) return false;
   const next = Math.min(30, Math.max(0, (cart[id] || 0) + delta));
   if (next) cart[id] = next; else delete cart[id];
@@ -147,6 +195,7 @@ document.addEventListener('click', event => {
   }
   const add = event.target.closest('[data-add]');
   if (add) {
+    if (!orderingOpen) { notify('El local está cerrado. Podés mirar el menú y volver a pedir cuando abramos.'); return; }
     const product = productEventData(add.dataset.add);
     if (product) trackEvent('product_selected', { ...product, interaction: 'add_button' });
     if (changeQuantity(add.dataset.add, 1)) {
@@ -169,6 +218,7 @@ document.addEventListener('click', event => {
   if (remove) { delete cart[remove.dataset.remove]; updateCart(); return; }
   const openCart = event.target.closest('[data-open-cart]');
   if (openCart) {
+    if (!orderingOpen) { notify('El local está cerrado. Los pedidos se habilitan en el próximo horario.'); return; }
     updateCart(); changeMethod(); dialog.showModal();
     trackEvent('cart_open', { source: openCart.classList.contains('mobile-cart') ? 'floating' : 'header', ...cartEventData() });
     return;
@@ -190,6 +240,7 @@ $('#checkout-form').addEventListener('submit', async event => {
   event.preventDefault();
   const submit = $('#checkout-submit');
   try {
+    if (!orderingOpen) throw new Error('El local está cerrado. Los pedidos se habilitan en el próximo horario de atención.');
     const details = Object.fromEntries(new FormData(event.currentTarget));
     submit.disabled = true;
     submit.textContent = 'Preparando pedido…';
@@ -226,6 +277,7 @@ try {
     }
   }
   catalog = store.products || [];
+  orderingOpen = currentOrderingAvailability(store.businessHours).open;
   if (store.theme?.primary) document.documentElement.style.setProperty('--purple', store.theme.primary);
   if (store.theme?.accent) document.documentElement.style.setProperty('--red', store.theme.accent);
   const saved = JSON.parse(localStorage.getItem('burger-tin-cart-v1') || '{}');
@@ -236,7 +288,9 @@ try {
   $('#filters').innerHTML = categories.map(category => `<button data-filter="${escapeHtml(category)}" aria-pressed="${category === 'Todos'}">${escapeHtml(category)}</button>`).join('');
   $('#delivery-zones').textContent = store.deliveryZones;
   $('#pickup-address-footer').textContent = store.pickupAddress;
-  $('#footer-business').textContent = store.business;
+  $('#footer-business').textContent = store.pickupAddress;
+  $('#footer-hours').textContent = businessHoursText(store.businessHours, '\n');
+  $('#contact-hours').textContent = businessHoursText(store.businessHours);
   $('#checkout-business').textContent = store.business;
   document.querySelectorAll('[data-whatsapp-source]').forEach(link => {
     link.href = link.dataset.whatsappSource === 'catalogo' ? `https://wa.me/c/${store.phone}` : `https://wa.me/${store.phone}`;
@@ -246,7 +300,8 @@ try {
   if (payment === 'success') notify('Pago recibido. Estamos confirmando tu pedido.');
   if (payment === 'pending') notify('Tu pago quedó pendiente. Te avisaremos cuando se acredite.');
   if (payment === 'failure') notify('El pago no se completó. Podés intentarlo nuevamente.');
-  renderMenu(); updateCart(); changeMethod(); changePaymentMethod();
+  renderMenu(); updateCart(); changeMethod(); changePaymentMethod(); applyOrderingState();
+  setInterval(() => { applyOrderingState(); updateCart(); }, 60000);
 } catch (error) {
   $('#menu-groups').innerHTML = `<p class="load-error">${escapeHtml(error.message)} <a href="https://wa.me/c/5491127798677">Abrir catálogo de WhatsApp</a></p>`;
 }

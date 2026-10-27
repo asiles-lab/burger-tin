@@ -97,3 +97,8 @@ footer{display:grid;grid-template-columns:1.4fr repeat(4,1fr);align-items:start;
   .hero-composite{inset:0;right:auto;bottom:auto;width:100%;height:100%;object-fit:cover;object-position:64% center}
   .promo-visual .promo-composite{width:350px;height:310px;right:50%;bottom:-48px;translate:50% 0}
 }
+
+/* Business hours keep the menu visible while ordering is paused. */
+.store-status{position:sticky;top:76px;z-index:39;display:flex;align-items:center;justify-content:center;gap:.65rem;padding:.65rem 1rem;background:#2b2020;color:#fff;text-align:center;box-shadow:0 8px 20px #2b202018}.store-status strong{color:#ffc94f;font:800 .82rem var(--display);text-transform:uppercase;letter-spacing:.06em}.store-status span{font-size:.8rem}.store-closed [data-add]:disabled,.store-closed [data-open-cart]:disabled,.store-closed #checkout-submit:disabled{cursor:not-allowed;filter:grayscale(.35);opacity:.55;transform:none;box-shadow:none}.store-closed .menu-item:has([data-add]:disabled){background:#fffdf9}.store-closed .menu-item:has([data-add]:disabled):hover{transform:none}
+#footer-hours{white-space:pre-line}
+@media(max-width:650px){.store-status{top:68px;align-items:flex-start;flex-direction:column;gap:.1rem;padding:.55rem .85rem;text-align:left}.store-status span{line-height:1.25}}
