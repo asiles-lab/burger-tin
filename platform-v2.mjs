@@ -17,6 +17,7 @@ let currentUser = null;
 let stores = [];
 let profiles = [];
 let profilesById = new Map();
+let welcomeEmailConfigured = false;
 let currentView = 'companies';
 let selectedStoreId = '';
 
@@ -69,6 +70,7 @@ function renderCompanies() {
   selectedStoreId = '';
   $('#companies-view').hidden = false;
   $('#profiles-view').hidden = true;
+  $('#urls-view').hidden = true;
   $('#new-company').hidden = false;
   $('#new-profile').hidden = true;
   $('#platform-eyebrow').textContent = 'Gestión central';
@@ -78,7 +80,9 @@ function renderCompanies() {
     const companyProfiles = profiles.filter(profile => profile.store_id === store.id);
     const active = companyProfiles.filter(profile => profile.active).length;
     const setupReady = store.setup_status === 'activo';
-    return `<article class="company-card"><div class="company-logo"><img src="assets/restia-favicon.png" alt=""></div><div class="company-copy"><span class="status-dot ${setupReady ? '' : 'status-pending'}">${escapeHtml(store.status || 'En preparación')}</span><h2>${escapeHtml(store.name)}</h2><p>Administrador ${active ? 'activo' : 'pendiente'} · Menú y panel de gestión</p><div class="company-host">${escapeHtml(store.public_host || `${store.slug || store.id}.restia.net.ar`)}</div></div><div class="company-meta"><span>Usuarios activos</span><strong>${active}</strong><div class="company-readiness"><span>Worker <b>${escapeHtml(store.worker_service || 'pendiente')}</b></span><span>DNS / TLS <b>${escapeHtml(store.dns_status || 'pendiente')}</b></span></div><div class="company-actions"><button data-open-store="${escapeHtml(store.id)}">Gestionar accesos →</button>${store.route_status === 'conectado' ? '<span class="domain-connected">Worker enlazado</span>' : `<button class="secondary" data-configure-domain="${escapeHtml(store.id)}">Conectar Worker y DNS</button>`}</div></div></article>`;
+    const welcomeLabels = {waiting_site:'Esperando el sitio',email_setup_required:'Configurar correo',sending:'Enviando',sent:'Enviado al proveedor',retry:'Reintentando',needs_review:'Revisar envío',activated:'Acceso activado'};
+    const welcome = store.welcome_enabled ? `<div class="company-readiness"><span>Bienvenida <b>${escapeHtml(welcomeLabels[store.welcome_status] || 'Pendiente')}</b></span>${store.welcome_error ? `<small>${escapeHtml(store.welcome_error)}</small>` : ''}</div><div class="company-actions">${store.welcome_status !== 'activated' ? `<button class="secondary" data-check-welcome="${escapeHtml(store.id)}">Verificar sitio y bienvenida</button>` : ''}${['sent','needs_review'].includes(store.welcome_status) ? `<button class="secondary" data-resend-welcome="${escapeHtml(store.id)}">Reenviar invitación</button>` : ''}</div>` : '';
+    return `<article class="company-card"><div class="company-logo"><img src="assets/restia-favicon.png" alt=""></div><div class="company-copy"><span class="status-dot ${setupReady ? '' : 'status-pending'}">${escapeHtml(store.status || 'En preparación')}</span><h2>${escapeHtml(store.name)}</h2><p>Administrador ${active ? 'activo' : 'pendiente'} · Menú y panel de gestión</p><div class="company-host">${escapeHtml(store.public_host || `${store.slug || store.id}.restia.net.ar`)}</div></div><div class="company-meta"><span>Usuarios activos</span><strong>${active}</strong><div class="company-readiness"><span>Worker <b>${escapeHtml(store.worker_service || 'pendiente')}</b></span><span>DNS / TLS <b>${escapeHtml(store.dns_status || 'pendiente')}</b></span></div><div class="company-actions"><button data-open-store="${escapeHtml(store.id)}">Gestionar accesos →</button>${store.route_status === 'conectado' ? '<span class="domain-connected">Worker enlazado</span>' : `<button class="secondary" data-configure-domain="${escapeHtml(store.id)}">Conectar Worker y DNS</button>`}</div>${welcome}</div></article>`;
   }).join('') : '<p class="empty">Todavía no hay empresas registradas.</p>';
 }
 
@@ -96,6 +100,7 @@ function renderProfileGroup(view, storeId = '') {
   const groupProfiles = profiles.filter(profile => isPlatform ? profile.store_id === 'platform' : profile.store_id === storeId);
   $('#companies-view').hidden = true;
   $('#profiles-view').hidden = false;
+  $('#urls-view').hidden = true;
   $('#new-company').hidden = true;
   $('#back-companies').hidden = isPlatform;
   $('#new-profile').hidden = false;
@@ -109,9 +114,36 @@ function renderProfileGroup(view, storeId = '') {
   renderProfiles(groupProfiles);
 }
 
+function urlRow(label, url, status = '') {
+  return `<div class="url-row"><div class="url-kind"><strong>${escapeHtml(label)}</strong>${status ? `<span>${escapeHtml(status)}</span>` : ''}</div><a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(url)}</a><div class="url-actions"><button class="secondary" type="button" data-copy-url="${escapeHtml(url)}">Copiar</button><a class="url-open" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">Abrir <span aria-hidden="true">↗</span></a></div></div>`;
+}
+
+function renderUrls() {
+  currentView = 'urls';
+  selectedStoreId = '';
+  $('#companies-view').hidden = true;
+  $('#profiles-view').hidden = true;
+  $('#urls-view').hidden = false;
+  $('#new-company').hidden = true;
+  $('#new-profile').hidden = true;
+  $('#platform-eyebrow').textContent = 'Accesos centralizados';
+  $('#platform-title').textContent = 'Mapa de URLs';
+  document.querySelectorAll('[data-platform-view]').forEach(button => button.classList.toggle('active', button.dataset.platformView === 'urls'));
+  const globalUrls = `${urlRow('Sitio institucional', 'https://restia.net.ar/', 'Público')}${urlRow('Super Admin', 'https://admin.restia.net.ar/', 'Equipo Restia')}`;
+  const clientGroups = stores.map(store => {
+    const host = store.public_host || `${store.slug || store.id}.restia.net.ar`;
+    const siteUrl = `https://${host}/`;
+    const state = store.route_status === 'conectado' ? 'Conectado' : 'Pendiente de conexión';
+    return `<section class="url-client"><div class="url-client-head"><div><h3>${escapeHtml(store.name)}</h3><p>${escapeHtml(host)}</p></div><span class="url-route-state ${store.route_status === 'conectado' ? 'is-ready' : ''}">${escapeHtml(state)}</span></div>${urlRow('Sitio del cliente', siteUrl, 'Público')}${urlRow('Admin del cliente', `${siteUrl}admin/`, 'Acceso privado')}</section>`;
+  }).join('');
+  $('#url-map').innerHTML = `<section class="url-client url-global"><div class="url-client-head"><div><h3>Restia</h3><p>Canales institucionales y administración central</p></div></div>${globalUrls}</section>${clientGroups || '<p class="empty">Creá una empresa para generar sus accesos.</p>'}`;
+  $('#url-count').textContent = `${stores.length} ${stores.length === 1 ? 'cliente' : 'clientes'} · ${stores.length * 2 + 2} URLs`;
+}
+
 function renderCurrentView() {
   if (currentView === 'platform') renderProfileGroup('platform');
   else if (currentView === 'store' && stores.some(store => store.id === selectedStoreId)) renderProfileGroup('store', selectedStoreId);
+  else if (currentView === 'urls') renderUrls();
   else renderCompanies();
 }
 
@@ -119,6 +151,10 @@ async function refreshData() {
   const result = await call('/api/platform/profiles');
   stores = result.stores || [];
   profiles = result.profiles || [];
+  welcomeEmailConfigured = Boolean(result.welcomeEmailConfigured);
+  const emailNotice = $('#email-service-status');
+  emailNotice.hidden = welcomeEmailConfigured;
+  emailNotice.textContent = 'Bienvenidas por email pendientes: falta verificar noreply@restia.net.ar y conectar el servicio de envío. Las invitaciones no se enviarán hasta completar esa configuración.';
   renderCurrentView();
 }
 
@@ -130,11 +166,12 @@ function openCreateProfile() {
   form.elements.scope.value = isPlatform ? 'platform' : selectedStoreId;
   form.elements.password.required = true;
   form.elements.role.value = isPlatform ? 'Superadmin' : 'Administrador';
+  for (const checkbox of form.querySelectorAll('[name="permissions"]')) checkbox.checked = !isPlatform;
   $('#initial-password-field').hidden = false;
   $('#store-permissions').hidden = isPlatform;
   $('#profile-dialog-eyebrow').textContent = isPlatform ? 'Equipo Restia' : storeName(selectedStoreId);
   $('#profile-dialog-title').textContent = isPlatform ? 'Nuevo Super Admin' : 'Nuevo usuario';
-  $('#profile-dialog-context').textContent = isPlatform ? 'Tendrá acceso a la administración global.' : 'El acceso quedará limitado a esta empresa.';
+  $('#profile-dialog-context').textContent = isPlatform ? 'Tendrá acceso a la administración global. Esta base es independiente de los clientes.' : 'El acceso quedará limitado a esta empresa. Podés reutilizar el mismo nombre de usuario en otros clientes.';
   $('#save-profile').textContent = 'Crear usuario';
   $('#profile-error').textContent = '';
   $('#profile-dialog').showModal();
@@ -270,13 +307,13 @@ $('#company-form').addEventListener('submit', async event => {
     const response = await call('/api/platform/companies', {
       method:'POST',
       headers:{ 'content-type':'application/json' },
-      body:JSON.stringify({ companyName:data.get('companyName'), slug:data.get('slug'), adminName:data.get('adminName'), email:data.get('email'), username:data.get('username'), ...await newCredential(data.get('password')) })
+      body:JSON.stringify({ companyName:data.get('companyName'), slug:data.get('slug'), adminName:data.get('adminName'), email:data.get('email'), username:data.get('username') })
     });
     form.reset();
     $('#company-dialog').close();
     await refreshData();
     const result = response;
-    $('#company-result').innerHTML = `<div class="dialog-head"><div><p class="eyebrow">Empresa creada</p><h2>${escapeHtml(result.store.name)}</h2></div><button type="button" class="dialog-close" data-close-result aria-label="Cerrar">×</button></div><p>Se generó el usuario inicial <strong>@${escapeHtml(result.admin.username)}</strong> (${escapeHtml(result.admin.name)}). Deberá cambiar su contraseña en el primer ingreso.</p><div class="result-url-list"><div><span>Menú digital reservado</span><code>${escapeHtml(result.urls.menu)}</code></div><div><span>Panel del local reservado</span><code>${escapeHtml(result.urls.localAdmin)}</code></div><div><span>Gestión Restia</span><code>${escapeHtml(result.urls.superAdmin)}</code></div></div><div class="route-warning"><strong>Enrutamiento y DNS pendientes</strong><p>Estas direcciones todavía no están activas. Antes hay que preparar y desplegar el menú propio de ${escapeHtml(result.store.name)}, asignar su Worker de Cloudflare y conectar el host con TLS. No se apunta a la web de Burger Tin.</p></div><div class="dialog-actions"><button type="button" class="secondary" data-close-result>Cerrar</button><button type="button" data-open-company-users="${escapeHtml(result.store.id)}">Ver usuarios de la empresa</button></div>`;
+    $('#company-result').innerHTML = `<div class="dialog-head"><div><p class="eyebrow">Empresa creada</p><h2>${escapeHtml(result.store.name)}</h2></div><button type="button" class="dialog-close" data-close-result aria-label="Cerrar">×</button></div><p>Se generó el usuario inicial <strong>@${escapeHtml(result.admin.username)}</strong> (${escapeHtml(result.admin.name)}). Recibirá un enlace para crear su contraseña cuando el sitio y el panel estén listos por HTTPS.</p><div class="result-url-list"><div><span>Menú digital reservado</span><code>${escapeHtml(result.urls.menu)}</code></div><div><span>Panel del local reservado</span><code>${escapeHtml(result.urls.localAdmin)}</code></div><div><span>Gestión Restia</span><code>${escapeHtml(result.urls.superAdmin)}</code></div></div><div class="route-warning"><strong>Enrutamiento y DNS pendientes</strong><p>Estas direcciones todavía no están activas. Antes hay que preparar y desplegar el menú propio de ${escapeHtml(result.store.name)}, asignar su Worker de Cloudflare y conectar el host con TLS. No se apunta a la web de Burger Tin.</p></div><div class="dialog-actions"><button type="button" class="secondary" data-close-result>Cerrar</button><button type="button" data-open-company-users="${escapeHtml(result.store.id)}">Ver usuarios de la empresa</button></div>`;
     $('#company-result-dialog').showModal();
   } catch (error) {
     $('#company-error').textContent = error.message;
@@ -297,7 +334,23 @@ document.querySelector('.side-nav').addEventListener('click', event => {
   const button = event.target.closest('[data-platform-view]');
   if (!button) return;
   if (button.dataset.platformView === 'platform') renderProfileGroup('platform');
+  else if (button.dataset.platformView === 'urls') renderUrls();
   else renderCompanies();
+});
+
+$('#url-map').addEventListener('click', async event => {
+  const button = event.target.closest('[data-copy-url]');
+  if (!button) return;
+  const url = button.dataset.copyUrl;
+  const status = $('#url-copy-status');
+  try {
+    await navigator.clipboard.writeText(url);
+    status.textContent = `Copiado: ${url}`;
+    button.textContent = 'Copiado';
+    setTimeout(() => { button.textContent = 'Copiar'; }, 1600);
+  } catch {
+    status.textContent = 'No pudimos copiar automáticamente. Seleccioná la dirección y copiala desde el navegador.';
+  }
 });
 
 function openDomainConfiguration(storeId) {
@@ -343,6 +396,22 @@ $('#companies').addEventListener('click', event => {
   }
   const button = event.target.closest('[data-open-store]');
   if (button) renderProfileGroup('store', button.dataset.openStore);
+});
+
+$('#companies').addEventListener('click', async event => {
+  const button = event.target.closest('[data-check-welcome],[data-resend-welcome]');
+  if (!button) return;
+  const resend = Boolean(button.dataset.resendWelcome);
+  if (resend && !confirm('¿Querés enviar otra invitación? El enlace anterior dejará de funcionar.')) return;
+  const id = button.dataset.resendWelcome || button.dataset.checkWelcome;
+  const note = $('#welcome-action-status');
+  button.disabled = true; note.textContent = 'Comprobando el sitio y el estado del envío…';
+  try {
+    const result = await call(`/api/platform/companies/${encodeURIComponent(id)}/welcome`, {method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({resend})});
+    await refreshData();
+    note.textContent = result.welcome.message || ({sent:'El proveedor aceptó el correo de bienvenida.',activated:'El usuario ya activó su acceso.',sending:'El envío ya está en curso.'}[result.welcome.state] || 'Estado actualizado.');
+  } catch (error) { note.textContent = error.message; }
+  finally { button.disabled = false; }
 });
 
 $('#profile-form').addEventListener('click', event => {
