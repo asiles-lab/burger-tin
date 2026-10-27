@@ -9,6 +9,10 @@ PUBLIC_API_URL = "https://burger-tin-orders.burger-tin-orders.workers.dev"
 WHATSAPP_PHONE = "5491127798677"
 PAYMENTS_MODE = "sandbox"
 DEVICE_STORE_ID = "burger-tin"
+SALES_EMAIL_FROM = "Restia Ventas <notificaciones@restia.net.ar>"
+
+[triggers]
+crons = ["*/5 * * * *"]
 
 [[d1_databases]]
 binding = "DB"
@@ -23,3 +27,4 @@ migrations_dir = "migrations"
 # wrangler secret put SUPERADMIN_TOKEN
 # wrangler secret put DEVICE_TOKEN
 # wrangler secret put SETTINGS_ENCRYPTION_KEY
+# wrangler secret put RESEND_API_KEY

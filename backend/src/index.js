@@ -1,6 +1,7 @@
 import store from '../../catalog.json' with { type: 'json' };
 import { checkoutPaymentMethods, formatMoney, formatOrderCode, timingSafeEqualText, validateOrderInput } from './domain.js';
 import { normalizeBusinessHours, orderingAvailability, validateBusinessHours } from './business-hours.js';
+import { processPendingSaleNotifications, queueSaleNotification, sendSaleNotification } from './sale-notifications.js';
 
 const DEFAULT_STORE_ID = 'burger-tin';
 const GLOWRO_STORE_ID = 'glowro';
@@ -728,7 +729,7 @@ async function verifyWebhook(request, env, dataId, storeId) {
   return timingSafeEqualText(calculated, parts.v1);
 }
 
-async function mercadoPagoWebhook(request, env) {
+async function mercadoPagoWebhook(request, env, ctx) {
   const url = new URL(request.url);
   const webhookStoreId = url.searchParams.get('store') || DEFAULT_STORE_ID;
   if (webhookStoreId !== DEFAULT_STORE_ID) {
@@ -754,6 +755,8 @@ async function mercadoPagoWebhook(request, env) {
   const order = await env.DB.prepare("SELECT id, code, subtotal, status FROM orders WHERE store_id = ? AND id = ? AND payment_method = 'mercadopago'").bind(storeId, Number(orderId)).first();
   if (!order || order.status !== 'pending_payment' || Math.round(Number(payment.transaction_amount) * 100) !== Math.round(Number(order.subtotal) * 100)) return new Response('', { status: 200 });
   await confirmOrder(env, storeId, order.id, String(payment.id), storeId === DEFAULT_STORE_ID);
+  const notificationId = await queueSaleNotification(env, storeId, order.id);
+  if (notificationId) ctx?.waitUntil(sendSaleNotification(env, notificationId));
   return new Response('', { status: 200 });
 }
 
@@ -1125,7 +1128,7 @@ async function acknowledgePrint(request, env, id) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (request.method === 'OPTIONS') return new Response('', { status:204, headers:await corsHeaders(request, env) });
     if (!(await allowedOrigin(request, env))) return json({ error:'Origen no permitido.' }, 403);
@@ -1145,7 +1148,7 @@ export default {
     if (request.method === 'POST' && url.pathname === '/api/platform/companies') return createPlatformCompany(request, env);
     const companyDomainMatch = url.pathname.match(/^\/api\/platform\/companies\/([^/]+)\/domain$/);
     if (request.method === 'POST' && companyDomainMatch) return configureCompanyDomain(request, env, decodeURIComponent(companyDomainMatch[1]));
-    if (request.method === 'POST' && url.pathname === '/api/webhooks/mercadopago') return mercadoPagoWebhook(request, env);
+    if (request.method === 'POST' && url.pathname === '/api/webhooks/mercadopago') return mercadoPagoWebhook(request, env, ctx);
     if (request.method === 'GET' && url.pathname === '/api/admin/session') return adminSession(request, env);
     if (request.method === 'GET' && url.pathname === '/api/admin/orders') return listOrders(request, env);
     if (request.method === 'GET' && url.pathname === '/api/admin/reports/summary') return reportSummary(request, env);
@@ -1171,5 +1174,8 @@ export default {
     const ackMatch = url.pathname.match(/^\/api\/print-jobs\/([^/]+)\/ack$/);
     if (request.method === 'POST' && ackMatch) return acknowledgePrint(request, env, decodeURIComponent(ackMatch[1]));
     return json({ error:'No encontrado.' }, 404);
+  },
+  async scheduled(_event, env, ctx) {
+    ctx.waitUntil(processPendingSaleNotifications(env));
   }
 };
