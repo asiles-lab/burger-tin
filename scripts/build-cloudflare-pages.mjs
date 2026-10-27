@@ -14,7 +14,7 @@ await mkdir(platform, { recursive:true });
 await mkdir(landing, { recursive:true });
 
 const copy = (name, destination = store) => cp(join(root, name), join(destination, name), { recursive:true });
-for (const name of ['_headers','analytics-config.js','analytics.mjs','app.mjs','assets','catalog.json','checkout-config.js','index.html','order.mjs','privacidad.html','robots.txt','sitemap.xml','styles-v2.css','terminos.html','panel-pro.css','panel-pro.mjs','restia-platform.css']) await copy(name);
+for (const name of ['_headers','analytics-config.js','analytics.mjs','app.mjs','assets','catalog.json','checkout-config.js','index.html','order.mjs','privacidad.html','robots.txt','sitemap.xml','styles-v2.css','clean-food.css','terminos.html','panel-pro.css','panel-pro.mjs','restia-platform.css']) await copy(name);
 
 const localAdmin = (await readFile(join(root, 'admin.html'), 'utf8')).replace('<head>', '<head><base href="/">');
 await writeFile(join(store, 'admin', 'index.html'), localAdmin);

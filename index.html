@@ -8,51 +8,69 @@
   <meta name="description" content="El menú de Burger Tin. Elegí hamburguesas, promos, sanguches y papas; armá tu pedido y confirmalo por WhatsApp.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles-v2.css?v=20261025-1">
+  <link rel="stylesheet" href="clean-food.css?v=20261026-2">
   <script src="analytics-config.js?v=20261023-1"></script>
   <script src="checkout-config.js?v=2"></script>
-  <script type="module" src="app.mjs?v=20261025-2"></script>
+  <script type="module" src="app.mjs?v=20261026-1"></script>
 </head>
 <body>
   <a class="skip" href="#menu">Ir al menú</a>
   <header class="site-header">
     <a class="mini-brand" href="#inicio"><img src="assets/logo-burger-tun.png" alt="Burger Tin"></a>
     <nav aria-label="Navegación principal"><a href="#menu">Menú</a><a href="#como-pedir">Cómo pedir</a><a href="#contacto">Contacto</a></nav>
-    <button class="cart-trigger" data-open-cart><span>Mi pedido</span><b data-count>0</b></button>
+    <button class="cart-trigger" data-open-cart><span>Pedir ahora</span><b data-count>0</b></button>
   </header>
 
   <main>
     <section class="hero" id="inicio">
       <div class="hero-copy">
-        <p class="eyebrow"><span class="spark">✳</span> Burgers para disfrutar <span class="spark">✳</span></p>
-        <h1>¡ESTÁ<br>PARA UNAS<br><span>BURGUER</span><br>TIN!</h1>
-        <p class="hero-description">Hamburguesas, papas y promos para armar un pedido bien a tu gusto. Elegí acá y terminá por WhatsApp.</p>
-        <a class="hero-cta" href="#menu">Explorar el menú <span aria-hidden="true">↗</span></a>
-        <div class="hero-chips"><span>🍔 Mucho sabor</span><span>❤️ Hecho para compartir</span></div>
+        <p class="eyebrow"><span class="spark">●</span> Burger Tin · José C. Paz</p>
+        <h1>BURGERS<br>SIN VUELTAS.<br><span>PEDÍ FÁCIL.</span></h1>
+        <p class="hero-description">Hamburguesas increíbles, promos para compartir y un pedido simple de principio a fin.</p>
+        <div class="hero-actions"><a class="hero-cta" href="#menu">Ver el menú <span aria-hidden="true">→</span></a><button class="hero-secondary" data-open-cart>Armar mi pedido</button></div>
+        <div class="hero-chips"><span>✓ Pedido claro</span><span>✓ Retiro o envío</span><span>✓ Confirmación directa</span></div>
       </div>
-      <div class="hero-art"><div class="hero-blob"></div><img class="hero-image" src="assets/burger-campaign-v2.png" alt="Hamburguesa ilustrativa generada para la portada de Burger Tin" fetchpriority="high"><div class="hero-sticker"><span>Riquisimas!</span><small>✦ ✦ ✦</small></div><img class="hero-logo" src="assets/logo-burger-tun.png" alt="Logo de Burger Tin"><small class="hero-image-note">Imagen ilustrativa</small></div>
+      <div class="hero-art" aria-label="Hamburguesa Burger Tin"><div class="hero-glow" aria-hidden="true"></div><img class="hero-image" src="assets/food/la-tin-especial.webp" alt="La Tin Especial, hamburguesa con doble carne, cheddar y vegetales" width="1200" height="1200" fetchpriority="high"><img class="hero-logo" src="assets/logo-burger-tun.png" alt="Burger Tin"><div class="hero-sticker"><strong>Más pedida</strong><span>La Tin Especial</span></div></div>
     </section>
 
-    <section class="intro">
-      <span class="intro-doodle" aria-hidden="true">✺</span>
-      <p><strong>¡Hola, somos Burger Tin!</strong> Tu antojo empieza acá: mirá la carta, sumá lo que te guste y enviá el pedido por WhatsApp. <span>Atendemos en José C. Paz.</span></p>
+    <section class="quick-categories" aria-label="Categorías del menú">
+      <button data-filter="Hamburguesas"><span>🍔</span><strong>Hamburguesas</strong></button>
+      <button data-filter="Promos"><span>🔥</span><strong>Promos</strong></button>
+      <button data-filter="Sanguches"><span>🥪</span><strong>Sanguches</strong></button>
+      <button data-filter="Acompañamientos"><span>🍟</span><strong>Papas y más</strong></button>
+      <button data-filter="Extras"><span>＋</span><strong>Extras</strong></button>
+    </section>
+
+    <section class="featured" aria-labelledby="featured-title">
+      <div class="content-heading"><div><p>Favoritas de la casa</p><h2 id="featured-title">Elegí la que va con vos.</h2></div><a href="#menu">Ver todo el menú →</a></div>
+      <div class="featured-grid">
+        <article><div class="featured-image"><img src="assets/food/smash-clasica.webp" alt="Smash Clásica" width="1200" height="1200" loading="lazy"></div><h3>Smash Clásica</h3><p>Doble smash, cheddar, panceta y salsa de la casa.</p><button data-filter="Hamburguesas">Ver hamburguesas</button></article>
+        <article><div class="featured-image"><img src="assets/food/la-tin-especial.webp" alt="La Tin Especial" width="1200" height="1200" loading="lazy"><span>Favorita</span></div><h3>La Tin Especial</h3><p>Doble smash, cheddar, lechuga, tomate, cebolla y salsa de la casa.</p><button data-filter="Hamburguesas">Ver hamburguesas</button></article>
+        <article><div class="featured-image"><img src="assets/food/bbq-bacon.webp" alt="BBQ Bacon" width="1200" height="1200" loading="lazy"></div><h3>BBQ Bacon</h3><p>Doble smash, cheddar, panceta, salsa BBQ y cebolla crispy.</p><button data-filter="Hamburguesas">Ver hamburguesas</button></article>
+        <article><div class="featured-image"><img src="assets/food/chicken-tin.webp" alt="Chicken Tin" width="1200" height="1200" loading="lazy"></div><h3>Chicken Tin</h3><p>Pollo crispy, lechuga, tomate y mayonesa de la casa.</p><button data-filter="Hamburguesas">Ver hamburguesas</button></article>
+      </div>
     </section>
 
     <section class="menu" id="menu" aria-labelledby="menu-title">
-      <div class="section-title"><div><p>Elegí tus favoritos</p><h2 id="menu-title">Nuestro menú <span>✳</span></h2></div><span class="section-aside">Tu próxima favorita<br>está por acá ↓</span></div>
+      <div class="section-title"><div><p>Menú completo</p><h2 id="menu-title">Todo lo rico, en un solo lugar.</h2></div><span class="section-aside">Elegí, sumá y revisá<br>tu pedido cuando quieras.</span></div>
       <div class="filters" id="filters" aria-label="Filtrar menú"></div>
       <div id="menu-groups"><p class="loading">Prendiendo la plancha…</p></div>
-      <p class="menu-note">Productos, precios e imágenes tomados del catálogo oficial de WhatsApp. Disponibilidad y total final sujetos a confirmación del local.</p>
+      <p class="menu-note">Productos y precios del catálogo del local. Disponibilidad y total final sujetos a confirmación.</p>
     </section>
 
+    <section class="promo-highlight" aria-labelledby="promo-title"><div><p>Promo destacada</p><h2 id="promo-title">El plan completo,<br>sin complicarla.</h2><span>Elegí una promo y terminá tu pedido en minutos.</span><button data-filter="Promos">Ver promos →</button></div><div class="promo-visual"><img src="assets/food/bbq-bacon.webp" alt="Hamburguesa BBQ Bacon" width="1200" height="1200" loading="lazy"><span>BURGER<br>+ PAPAS</span></div></section>
+
     <section class="order-story" id="como-pedir">
-      <div class="story-photo"><img src="assets/ranch-doble.jpg" alt="Ranch Doble de Burger Tin" loading="lazy"><span>¡PEDIR ES<br>MUY FÁCIL!</span></div>
+      <div class="story-photo"><img src="assets/food/smash-clasica.webp" alt="Smash Clásica de Burger Tin" width="1200" height="1200" loading="lazy"><span>¡PEDIR ES<br>MUY FÁCIL!</span></div>
       <div class="steps-wrap">
         <p class="eyebrow">De la carta a tu mesa</p><h2>Así de <em>fácil.</em></h2>
         <ol class="steps"><li><b>1</b><div><h3>Elegí</h3><p>Sumá tus burgers, papas y extras.</p></div></li><li><b>2</b><div><h3>Completá</h3><p>Decinos tu nombre y si es envío o retiro.</p></div></li><li><b>3</b><div><h3>Confirmá</h3><p>WhatsApp se abre con todo el pedido escrito.</p></div></li></ol>
       </div>
     </section>
+
+    <section class="reviews" aria-labelledby="reviews-title"><div class="content-heading"><div><p>La comunidad Burger Tin</p><h2 id="reviews-title">Tu experiencia también cuenta.</h2></div></div><div class="review-grid"><article><span>★★★★★</span><h3>Opiniones verificadas</h3><p>Muy pronto vamos a compartir acá las experiencias reales de quienes ya pidieron.</p></article><article><span>01</span><h3>Pedido simple</h3><p>Elegí, revisá tu carrito y enviá todo en un solo mensaje.</p></article><article><span>02</span><h3>Atención directa</h3><p>El local confirma disponibilidad y coordina cada pedido.</p></article></div></section>
 
     <section class="contact" id="contacto">
       <div><p class="eyebrow">¿Listo para pedir?</p><h2>¡A COMER<br><span>RICO!</span></h2><p class="contact-copy">Tu pedido está a unos clics de distancia.</p></div>
@@ -60,7 +78,7 @@
     </section>
   </main>
 
-  <footer><img src="assets/logo-burger-tun.png" alt=""><p id="footer-business">Burger Tin · José C. Paz</p><a href="privacidad.html">Privacidad</a><a href="terminos.html">Condiciones</a><a href="https://wa.me/c/5491127798677" target="_blank" rel="noopener" data-whatsapp-source="catalogo">Catálogo original ↗</a></footer>
+  <footer><div class="footer-brand"><img src="assets/logo-burger-tun.png" alt="Burger Tin"><p>Más que burgers,<br>buenos momentos.</p></div><div><small>Ubicación</small><p id="footer-business">Av. Croacia 2221<br>José C. Paz</p></div><div><small>Horarios</small><p>Consultá disponibilidad<br>por WhatsApp</p></div><div><small>Pedidos y redes</small><a href="https://wa.me/5491127798677" target="_blank" rel="noopener" data-whatsapp-source="footer">WhatsApp ↗</a><a href="https://wa.me/c/5491127798677" target="_blank" rel="noopener" data-whatsapp-source="catalogo">Catálogo ↗</a></div><div><small>Información</small><a href="privacidad.html">Privacidad</a><a href="terminos.html">Condiciones</a></div></footer>
 
   <button class="mobile-cart" data-open-cart hidden aria-label="Ver mi pedido"><span class="floating-cart-icon" aria-hidden="true">🛒</span><span>Ver mi pedido <b data-count>0</b></span><strong data-total>$0</strong></button>
   <div class="toast" id="toast" role="status"></div>
@@ -83,5 +101,6 @@
     <img id="product-preview-image" src="" alt="">
     <div class="product-preview-copy"><p>Foto del catálogo</p><h2 id="product-preview-name"></h2><span id="product-preview-description"></span><strong id="product-preview-price"></strong></div>
   </dialog>
+
 </body>
 </html>
