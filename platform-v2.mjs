@@ -20,6 +20,36 @@ let profilesById = new Map();
 let welcomeEmailConfigured = false;
 let currentView = 'companies';
 let selectedStoreId = '';
+const themeStorageKey = 'restia-admin-theme';
+
+function setAdminTheme(theme, { persist = true } = {}) {
+  const dark = theme === 'dark';
+  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  if (persist) localStorage.setItem(themeStorageKey, dark ? 'dark' : 'light');
+  const toggle = $('#theme-toggle');
+  if (!toggle) return;
+  toggle.querySelector('.theme-label').textContent = dark ? 'Modo claro' : 'Modo oscuro';
+  toggle.setAttribute('aria-label', dark ? 'Activar modo claro' : 'Activar modo oscuro');
+  toggle.querySelector('svg').innerHTML = dark
+    ? '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'
+    : '<path d="M20.7 15.1A9 9 0 0 1 8.9 3.3 9 9 0 1 0 20.7 15.1Z"/>';
+}
+
+function requestConfirmation({ title, description, confirmLabel = 'Confirmar' }) {
+  const dialog = $('#action-dialog');
+  const button = $('#action-dialog-confirm');
+  dialog.returnValue = 'cancel';
+  $('#action-dialog-title').textContent = title;
+  $('#action-dialog-description').textContent = description;
+  button.textContent = confirmLabel;
+  return new Promise(resolve => {
+    dialog.addEventListener('close', () => resolve(dialog.returnValue === 'confirm'), { once:true });
+    dialog.showModal();
+    button.focus();
+  });
+}
+
+setAdminTheme(localStorage.getItem(themeStorageKey) || 'light', { persist:false });
 
 document.querySelector('.platform-brand').innerHTML = '<img src="assets/restia-wordmark.png" alt="Restia"><span>Tecnología para crecer.</span>';
 document.querySelector('.login-card').innerHTML = '<p class="eyebrow">Administración central</p><h1>Super Admin Restia</h1><p>Ingresá con tu usuario y contraseña.</p><form id="login-form"><label>Usuario<input name="username" required autocomplete="username" autocapitalize="none"></label><label>Contraseña<input name="password" type="password" required minlength="10" autocomplete="current-password"></label><button>Ingresar</button></form><p class="error" id="login-error" role="alert"></p>';
@@ -277,7 +307,10 @@ $('#login-form').addEventListener('submit', async event => {
   }
 });
 
-$('#logout').addEventListener('click', () => logout());
+$('#logout').addEventListener('click', async () => {
+  if (await requestConfirmation({ title:'¿Cerrar sesión?', description:'Vas a salir del Super Admin. Para volver a ingresar necesitarás tu usuario y contraseña.', confirmLabel:'Sí, salir' })) logout();
+});
+$('#theme-toggle').addEventListener('click', () => setAdminTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'));
 $('#new-profile').addEventListener('click', openCreateProfile);
 $('#back-companies').addEventListener('click', renderCompanies);
 
