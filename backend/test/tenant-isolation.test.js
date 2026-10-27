@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { catalogProducts, productImageBytes, publicStoreId } from '../src/index.js';
+import { authenticationStoreId, catalogProducts, productImageBytes, publicStoreId } from '../src/index.js';
 
 function tenantDatabase() {
   const calls = [];
@@ -35,6 +35,13 @@ test('resuelve GlowRo por el origen y no cae en Burger Tin', async () => {
   const DB = tenantDatabase();
   const request = new Request('https://api.example/api/catalog', { headers:{ origin:'https://glowro.restia.net.ar' } });
   assert.equal(await publicStoreId(request, { DB, ALLOWED_ORIGIN:'' }), 'glowro');
+});
+
+test('separa el acceso del mismo usuario por empresa y el Super Admin', async () => {
+  const DB = tenantDatabase();
+  const request = new Request('https://api.example/api/auth/challenge', { headers:{ origin:'https://glowro.restia.net.ar' } });
+  assert.equal(await authenticationStoreId(request, { DB, ALLOWED_ORIGIN:'' }, 'store'), 'glowro');
+  assert.equal(await authenticationStoreId(request, { DB, ALLOWED_ORIGIN:'' }, 'platform'), 'platform');
 });
 
 test('rechaza mezclar el origen de GlowRo con otro store solicitado', async () => {

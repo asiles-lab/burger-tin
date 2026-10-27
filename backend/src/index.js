@@ -30,6 +30,15 @@ export async function publicStoreId(request, env, { allowQuery = false } = {}) {
   if (originStore && requestedStore && originStore.id !== requestedStore.id) throw new Error('La empresa solicitada no coincide con el sitio de origen.');
   return originStore?.id || requestedStore?.id || DEFAULT_STORE_ID;
 }
+
+export async function authenticationStoreId(request, env, scope) {
+  if (scope === 'platform') return 'platform';
+  try {
+    return await publicStoreId(request, env);
+  } catch {
+    return '';
+  }
+}
 const securityHeaders = {
   'x-content-type-options': 'nosniff',
   'x-frame-options': 'DENY',
@@ -138,7 +147,8 @@ async function passwordChallenge(request, env) {
   const username = normalizedUsername(body.username);
   const scope = body.scope === 'platform' ? 'platform' : 'store';
   if (!/^[a-z0-9._-]{3,40}$/.test(username)) return publicJson(request, env, { error:'Ingresá un usuario válido.' }, 400);
-  const profile = await env.DB.prepare('SELECT store_id, permissions, password_salt FROM admin_profiles WHERE lower(username) = ? AND active = 1').bind(username).first();
+  const authStoreId = await authenticationStoreId(request, env, scope);
+  const profile = await env.DB.prepare('SELECT store_id, permissions, password_salt FROM admin_profiles WHERE store_id = ? AND lower(username) = ? AND active = 1').bind(authStoreId, username).first();
   const permissions = parsePermissions(profile?.permissions);
   const storeAccess = scope === 'store' && profile?.store_id && profile.store_id !== 'platform' && permissions.some(item => STORE_PERMISSIONS.includes(item))
     ? await env.DB.prepare('SELECT id FROM stores WHERE id = ? AND active = 1').bind(profile.store_id).first()
@@ -146,7 +156,7 @@ async function passwordChallenge(request, env) {
   const correctScope = scope === 'platform' ? permissions.includes('platform:manage') : Boolean(storeAccess);
   let salt = correctScope && profile?.password_salt ? profile.password_salt : '';
   if (!salt) {
-    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`restia:${scope}:${username}`));
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`restia:${scope}:${authStoreId || 'unresolved'}:${username}`));
     salt = bytesToBase64(new Uint8Array(digest).slice(0, 16));
   }
   return publicJson(request, env, { salt, iterations:PASSWORD_ITERATIONS });
@@ -188,7 +198,8 @@ async function login(request, env) {
   const passwordVerifier = String(body.passwordVerifier || '');
   const scope = body.scope === 'platform' ? 'platform' : 'store';
   if (!/^[a-z0-9._-]{3,40}$/.test(username) || !validCredentialMaterial(passwordVerifier, body.passwordSalt)) return publicJson(request, env, { error:'Usuario o contraseña incorrectos.' }, 401);
-  const profile = await env.DB.prepare(`SELECT * FROM admin_profiles WHERE lower(username) = ? AND active = 1`).bind(username).first();
+  const authStoreId = await authenticationStoreId(request, env, scope);
+  const profile = await env.DB.prepare(`SELECT * FROM admin_profiles WHERE store_id = ? AND lower(username) = ? AND active = 1`).bind(authStoreId, username).first();
   const permissions = parsePermissions(profile?.permissions);
   const storeAccess = scope === 'store' && profile?.store_id && profile.store_id !== 'platform' && permissions.some(item => STORE_PERMISSIONS.includes(item))
     ? await env.DB.prepare('SELECT id FROM stores WHERE id = ? AND active = 1').bind(profile.store_id).first()
@@ -929,7 +940,7 @@ async function platformProfiles(request, env) {
     await env.DB.prepare(`INSERT INTO admin_profiles (id, store_id, name, email, username, role, permissions, token_hash, password_hash, password_salt, password_iterations, active, must_change_password, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1, ?, ?)`)
       .bind(id, scope, name, email, username, role, JSON.stringify(permissions), await sha256(randomToken()), record.hash, record.salt, record.iterations, now, now).run();
   } catch (error) {
-    if (/unique/i.test(error.message)) return publicJson(request, env, { error:'Ese nombre de usuario ya existe.' }, 409);
+    if (/unique/i.test(error.message)) return publicJson(request, env, { error:'Ese nombre de usuario ya existe dentro de esta empresa.' }, 409);
     throw error;
   }
   return publicJson(request, env, { ok:true, id }, 201);
@@ -1045,7 +1056,7 @@ async function updatePlatformProfile(request, env, id) {
   try {
     await env.DB.batch(statements);
   } catch (error) {
-    if (/unique/i.test(error.message)) return publicJson(request, env, { error:'Ese nombre de usuario ya existe.' }, 409);
+    if (/unique/i.test(error.message)) return publicJson(request, env, { error:'Ese nombre de usuario ya existe dentro de esta empresa.' }, 409);
     throw error;
   }
   return publicJson(request, env, { ok:true });
