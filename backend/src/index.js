@@ -289,6 +289,8 @@ async function storeSettings(env, storeId) {
     webhookUrl: `${String(env.PUBLIC_API_URL || '').replace(/\/$/, '')}/api/webhooks/mercadopago?store=${encodeURIComponent(storeId)}`,
     deliveryFee: values.delivery_fee === undefined ? null : Number(values.delivery_fee),
     paymentMode: values.mp_mode || (storeId === DEFAULT_STORE_ID ? (env.PAYMENTS_MODE || 'sandbox') : 'sandbox'),
+    salesNotificationEnabled: values.sales_notification_enabled === '1',
+    salesNotificationEmail: values.sales_notification_email || '',
     businessHours
   };
 }
@@ -506,6 +508,7 @@ async function updateSettings(request, env) {
   const pickupAddress = String(body.pickupAddress || '').trim();
   const phone = String(body.phone || '').replace(/\D/g, '');
   const deliveryZones = String(body.deliveryZones || '').trim();
+  const hasThemeSettings = body.adminPrimary !== undefined || body.adminAccent !== undefined || body.applyColorsToStore !== undefined;
   const adminPrimary = String(body.adminPrimary || '').toLowerCase();
   const adminAccent = String(body.adminAccent || '').toLowerCase();
   let businessHours = null;
@@ -515,17 +518,27 @@ async function updateSettings(request, env) {
   if ((identity.storeId !== GLOWRO_STORE_ID && pickupAddress.length < 5) || pickupAddress.length > 200) return publicJson(request, env, { error:'Ingresá una dirección válida.' }, 400);
   if ((identity.storeId !== GLOWRO_STORE_ID && phone.length < 10) || (phone && (phone.length < 10 || phone.length > 15))) return publicJson(request, env, { error:'Ingresá el teléfono con código de país y área.' }, 400);
   if (deliveryZones.length > 250) return publicJson(request, env, { error:'Las zonas de entrega son demasiado largas.' }, 400);
-  if (!/^#[0-9a-f]{6}$/.test(adminPrimary) || !/^#[0-9a-f]{6}$/.test(adminAccent)) return publicJson(request, env, { error:'Elegí colores válidos.' }, 400);
+  if (hasThemeSettings && (!/^#[0-9a-f]{6}$/.test(adminPrimary) || !/^#[0-9a-f]{6}$/.test(adminAccent))) return publicJson(request, env, { error:'Elegí colores válidos.' }, 400);
   const statements = [
     upsertSetting(env, 'business', business, 0, identity.storeId),
     upsertSetting(env, 'pickup_address', pickupAddress, 0, identity.storeId),
     upsertSetting(env, 'phone', phone, 0, identity.storeId),
-    upsertSetting(env, 'delivery_zones', deliveryZones, 0, identity.storeId),
+    upsertSetting(env, 'delivery_zones', deliveryZones, 0, identity.storeId)
+  ];
+  if (hasThemeSettings) statements.push(
     upsertSetting(env, 'admin_primary', adminPrimary, 0, identity.storeId),
     upsertSetting(env, 'admin_accent', adminAccent, 0, identity.storeId),
     upsertSetting(env, 'apply_colors_to_store', body.applyColorsToStore ? '1' : '0', 0, identity.storeId)
-  ];
+  );
   if (businessHours) statements.push(upsertSetting(env, 'business_hours', JSON.stringify(businessHours), 0, identity.storeId));
+  if (body.salesNotificationEnabled !== undefined || body.salesNotificationEmail !== undefined) {
+    const notificationEmail = String(body.salesNotificationEmail || '').trim().toLowerCase();
+    const notificationsEnabled = Boolean(body.salesNotificationEnabled);
+    if (notificationEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(notificationEmail)) return publicJson(request, env, { error:'Ingresá un correo válido para las notificaciones de venta.' }, 400);
+    if (notificationsEnabled && !notificationEmail) return publicJson(request, env, { error:'Ingresá el correo que debe recibir las ventas.' }, 400);
+    statements.push(upsertSetting(env, 'sales_notification_email', notificationEmail, 1, identity.storeId));
+    statements.push(upsertSetting(env, 'sales_notification_enabled', notificationsEnabled ? '1' : '0', 0, identity.storeId));
+  }
   if (identity.storeId === GLOWRO_STORE_ID && body.deliveryFee !== undefined) {
     const fee = Number(body.deliveryFee);
     if (!Number.isFinite(fee) || fee < 0 || fee > 1000000 || Math.abs(Math.round(fee * 100) - fee * 100) > 0.000001) return publicJson(request, env, { error:'Ingresá un costo de envío válido.' }, 400);
@@ -551,7 +564,7 @@ async function updateSettings(request, env) {
     }
   }
   await env.DB.batch(statements);
-  await audit(env, identity, 'store.settings.update', 'store', identity.storeId, { mercadoPagoChanged:Boolean(body.disconnectMercadoPago || body.mpAccessToken), themeChanged:true, businessHoursChanged:Boolean(businessHours) });
+  await audit(env, identity, 'store.settings.update', 'store', identity.storeId, { mercadoPagoChanged:Boolean(body.disconnectMercadoPago || body.mpAccessToken), themeChanged:hasThemeSettings, businessHoursChanged:Boolean(businessHours), salesNotificationsChanged:body.salesNotificationEnabled !== undefined || body.salesNotificationEmail !== undefined });
   return publicJson(request, env, { ok:true, settings:await storeSettings(env, identity.storeId) });
 }
 
