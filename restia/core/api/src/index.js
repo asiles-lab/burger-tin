@@ -1,4 +1,4 @@
-import store from '../../tenants/burger-tin/catalog.json' with { type: 'json' };
+import store from '../../../../clients/burger-tin/config/catalog.json' with { type: 'json' };
 import { checkoutPaymentMethods, formatMoney, formatOrderCode, timingSafeEqualText, validateOrderInput } from './domain.js';
 import { normalizeBusinessHours, orderingAvailability, validateBusinessHours } from './business-hours.js';
 import { processPendingSaleNotifications, queueSaleNotification, sendSaleNotification } from './sale-notifications.js';

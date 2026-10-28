@@ -53,7 +53,7 @@ const meta = (html, property) => {
   return match ? decodeHtml(match[1]) : '';
 };
 
-const assetsDir = new URL('../tenants/burger-tin/assets/catalog/', import.meta.url);
+const assetsDir = new URL('../clients/burger-tin/site/assets/catalog/', import.meta.url);
 const evidence = [];
 await mkdir(assetsDir, { recursive: true });
 
@@ -69,7 +69,7 @@ for (const [id, sourceUrl] of products) {
   const contentType = imageResponse.headers.get('content-type') || 'image/jpeg';
   const extension = contentType.includes('webp') ? '.webp' : extname(new URL(imageUrl).pathname) || '.jpg';
   const filename = `${id}${extension}`;
-  await writeFile(new URL(`../tenants/burger-tin/assets/catalog/${filename}`, import.meta.url), Buffer.from(await imageResponse.arrayBuffer()));
+  await writeFile(new URL(`../clients/burger-tin/site/assets/catalog/${filename}`, import.meta.url), Buffer.from(await imageResponse.arrayBuffer()));
 
   evidence.push({
     id,

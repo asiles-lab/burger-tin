@@ -2,15 +2,16 @@
 
 Repositorio único de la plataforma Restia y sus comercios activos.
 
-## Componentes
+## Jerarquía
 
-- `apps/restia-site/`: sitio institucional de Restia.
-- `apps/restia-admin/`: Super Admin.
-- `tenants/burger-tin/`: tienda y administración de Burger Tin.
-- `tenants/glowro/`: tienda y administración de GlowRo, con su historial Git preservado.
-- `backend/`: API compartida, migraciones y pruebas de la base de datos.
-- `printer/`: instalador y agente de impresión para Windows.
-- `packages/admin-ui/`: estilos visuales compartidos por los paneles.
+- `restia/site/`: sitio institucional de Restia.
+- `restia/admin/`: administración central de Restia.
+- `restia/core/`: núcleo compartido del que dependen los clientes:
+  - `api/`: API, base de datos, migraciones y pruebas.
+  - `admin-ui/`: interfaz administrativa compartida.
+  - `printing/`: instalador y agente de impresión para Windows.
+- `clients/burger-tin/`: sitio, admin y configuración de Burger Tin.
+- `clients/glowro/`: sitio y admin de GlowRo, con su historial Git preservado.
 - `scripts/`: construcción y utilidades de publicación.
 - `archive/`: implementaciones históricas fuera del build activo.
 

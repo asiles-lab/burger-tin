@@ -5,12 +5,12 @@ El alta de empresa reserva un hostname como `glowro.restia.net.ar` y asigna el n
 ## Requisitos
 
 1. Preparar y desplegar el sitio personalizado de la empresa en un Worker con el nombre exacto que muestra el diálogo (`restia-tenant-<subdominio>`). Ese Worker debe servir el contenido de esa empresa. No usar `burger-tin-restia`.
-2. Antes de conectarlo, asegurar que el sitio usa el backend multiempresa con aislamiento para esa compañía. El enrutamiento del dominio por sí solo no cambia el catálogo ni el destino de las órdenes; el backend actual todavía usa Burger Tin como tienda pública predeterminada.
+2. Antes de conectarlo, asegurar que el sitio usa la API multiempresa con aislamiento para esa compañía. El enrutamiento del dominio por sí solo no cambia el catálogo ni el destino de las órdenes. La API debe resolver el comercio explícitamente y falla de forma segura cuando no puede identificarlo.
 3. Configurar las credenciales del backend de forma privada. No pegarlas en el navegador, en el formulario de empresa ni en Git:
 
    ```powershell
-   pnpm --dir backend exec wrangler secret put CLOUDFLARE_ACCOUNT_ID --config wrangler.toml
-   pnpm --dir backend exec wrangler secret put CLOUDFLARE_API_TOKEN --config wrangler.toml
+   pnpm --dir restia/core/api exec wrangler secret put CLOUDFLARE_ACCOUNT_ID --config wrangler.toml
+   pnpm --dir restia/core/api exec wrangler secret put CLOUDFLARE_API_TOKEN --config wrangler.toml
    ```
 
    El token debe estar limitado a la cuenta Restia y al permiso **Workers Scripts Write**. El identificador de cuenta no es secreto, pero se guarda con el mismo mecanismo para evitar agregarlo al repositorio.
@@ -18,8 +18,8 @@ El alta de empresa reserva un hostname como `glowro.restia.net.ar` y asigna el n
 4. Aplicar las migraciones nuevas de D1 y desplegar el Worker de pedidos/API para que exponga la acción de conexión:
 
    ```powershell
-   pnpm --dir backend exec wrangler d1 migrations apply burger-tin-orders --remote --config wrangler.toml
-   pnpm --dir backend exec wrangler deploy --config wrangler.toml
+   pnpm --dir restia/core/api exec wrangler d1 migrations apply burger-tin-orders --remote --config wrangler.toml
+   pnpm --dir restia/core/api exec wrangler deploy --config wrangler.toml
    ```
 
 5. Desplegar el Super Admin actualizado. El botón se habilita para una empresa en preparación y muestra el resultado o el error devuelto por Cloudflare.

@@ -1,6 +1,6 @@
 import { access, readFile, writeFile } from 'node:fs/promises';
 
-const catalogUrl = new URL('../tenants/burger-tin/catalog.json', import.meta.url);
+const catalogUrl = new URL('../clients/burger-tin/config/catalog.json', import.meta.url);
 const catalog = JSON.parse(await readFile(catalogUrl, 'utf8'));
 
 const imageById = {

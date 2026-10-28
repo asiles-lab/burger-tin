@@ -1,5 +1,5 @@
 {
-  "$schema": "./backend/node_modules/wrangler/config-schema.json",
+  "$schema": "./restia/core/api/node_modules/wrangler/config-schema.json",
   "name": "burger-tin-restia",
   "compatibility_date": "2026-10-25",
   "workers_dev": true,

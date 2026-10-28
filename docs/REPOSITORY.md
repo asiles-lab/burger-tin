@@ -12,21 +12,23 @@ Las carpetas locales históricas `burger-tin-pages` y `GlowRo_15_Octubre_26` fue
 
 | Componente | Fuente | Publicación |
 |---|---|---|
-| Institucional Restia | `apps/restia-site/` | `restia.net.ar` |
-| Super Admin | `apps/restia-admin/` | `admin.restia.net.ar` |
-| UI compartida de administración | `packages/admin-ui/` | incluida en los builds de administración |
-| Burger Tin | `tenants/burger-tin/` | `burger-tin.restia.net.ar` |
-| GlowRo | `tenants/glowro/dist/` | `glowro.restia.net.ar` |
-| API del backend | `backend/src/` | servicio `burger-tin-orders` |
-| Base de datos | `backend/migrations/` | base compartida con aislamiento por `store_id` |
-| Impresión | `printer/` | aplicación local para Windows |
+| Institucional Restia | `restia/site/` | `restia.net.ar` |
+| Super Admin Restia | `restia/admin/` | `admin.restia.net.ar` |
+| Núcleo visual compartido | `restia/core/admin-ui/` | incluido en los paneles de administración |
+| API compartida | `restia/core/api/src/` | servicio `burger-tin-orders` |
+| Base de datos | `restia/core/api/migrations/` | base compartida con aislamiento por `store_id` |
+| Impresión | `restia/core/printing/` | aplicación local para Windows |
+| Sitio Burger Tin | `clients/burger-tin/site/` | `burger-tin.restia.net.ar` |
+| Admin Burger Tin | `clients/burger-tin/admin/` | `burger-tin.restia.net.ar/admin/` |
+| Sitio GlowRo | `clients/glowro/site/` | `glowro.restia.net.ar` |
+| Admin GlowRo | `clients/glowro/admin/` | `glowro.restia.net.ar/admin/` |
 
 ## Comandos únicos
 
 Instalar las herramientas de desarrollo una sola vez:
 
 ```powershell
-corepack pnpm --dir backend install --frozen-lockfile
+corepack pnpm --dir restia/core/api install --frozen-lockfile
 ```
 
 Validar y construir:

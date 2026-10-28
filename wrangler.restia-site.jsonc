@@ -1,5 +1,5 @@
 {
-  "$schema": "./backend/node_modules/wrangler/config-schema.json",
+  "$schema": "./restia/core/api/node_modules/wrangler/config-schema.json",
   "name": "restia-site",
   "compatibility_date": "2026-10-26",
   "workers_dev": true,

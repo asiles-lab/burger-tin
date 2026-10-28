@@ -7,8 +7,8 @@ El catálogo público se resuelve por el dominio de origen y todas las consultas
 administrativas se filtran por el `store_id` de la sesión autenticada. Las
 pruebas de `tenant-isolation.test.js` deben pasar antes de cada despliegue.
 
-La copia histórica ubicada en `../../burger-tin-pages/backend` tiene el despliegue
-bloqueado para evitar que vuelva a sobrescribir este Worker.
+Las copias históricas duplicadas fueron eliminadas. Este directorio, dentro del
+núcleo Restia, es la única fuente autorizada para publicar la API.
 
 ## Avisos de ventas por correo
 

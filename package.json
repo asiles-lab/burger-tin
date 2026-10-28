@@ -5,12 +5,12 @@
   "type": "module",
   "packageManager": "pnpm@12.15.0",
   "scripts": {
-    "test": "npm --prefix backend test",
+    "test": "npm --prefix restia/core/api test",
     "build": "node scripts/build-cloudflare-pages.mjs",
-    "deploy:api": "npm --prefix backend run deploy",
-    "deploy:institutional": "node backend/node_modules/wrangler/bin/wrangler.js deploy --config wrangler.restia-site.jsonc",
-    "deploy:superadmin": "node backend/node_modules/wrangler/bin/wrangler.js deploy --config wrangler.restia-admin.jsonc",
-    "deploy:burger-tin": "node backend/node_modules/wrangler/bin/wrangler.js deploy --config wrangler.burger-tin.jsonc",
-    "deploy:glowro": "node backend/node_modules/wrangler/bin/wrangler.js deploy --config tenants/glowro/wrangler.restia.jsonc"
+    "deploy:api": "npm --prefix restia/core/api run deploy",
+    "deploy:institutional": "node restia/core/api/node_modules/wrangler/bin/wrangler.js deploy --config wrangler.restia-site.jsonc",
+    "deploy:superadmin": "node restia/core/api/node_modules/wrangler/bin/wrangler.js deploy --config wrangler.restia-admin.jsonc",
+    "deploy:burger-tin": "node restia/core/api/node_modules/wrangler/bin/wrangler.js deploy --config wrangler.burger-tin.jsonc",
+    "deploy:glowro": "node restia/core/api/node_modules/wrangler/bin/wrangler.js deploy --config clients/glowro/wrangler.restia.jsonc"
   }
 }
