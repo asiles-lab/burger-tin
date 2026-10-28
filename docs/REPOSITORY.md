@@ -6,15 +6,16 @@ La fuente oficial es este repositorio Git, conectado a `asiles-lab/burger-tin`.
 
 La rama de trabajo vigente es `feature/glowro-commerce`. Antes de establecer un flujo definitivo de producción deberá integrarse a `main` mediante revisión.
 
-Las carpetas locales históricas `burger-tin-pages` y `GlowRo_15_Octubre_26` dejan de ser fuentes oficiales. No se eliminan todavía: se conservan temporalmente para comparación y recuperación.
+Las carpetas locales históricas `burger-tin-pages` y `GlowRo_15_Octubre_26` fueron eliminadas después de verificar que su código y sus archivos pendientes estuvieran preservados en este repositorio.
 
 ## Mapa de componentes
 
 | Componente | Fuente | Publicación |
 |---|---|---|
-| Institucional Restia | `restia-site/` | `restia.net.ar` |
-| Super Admin | `platform.html`, `platform-v2.mjs`, estilos compartidos | `admin.restia.net.ar` |
-| Burger Tin | raíz web y `assets/` | `burger-tin.restia.net.ar` |
+| Institucional Restia | `apps/restia-site/` | `restia.net.ar` |
+| Super Admin | `apps/restia-admin/` | `admin.restia.net.ar` |
+| UI compartida de administración | `packages/admin-ui/` | incluida en los builds de administración |
+| Burger Tin | `tenants/burger-tin/` | `burger-tin.restia.net.ar` |
 | GlowRo | `tenants/glowro/dist/` | `glowro.restia.net.ar` |
 | API del backend | `backend/src/` | servicio `burger-tin-orders` |
 | Base de datos | `backend/migrations/` | base compartida con aislamiento por `store_id` |

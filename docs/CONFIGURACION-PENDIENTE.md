@@ -42,7 +42,7 @@ Mercado Pago aparecerá solamente después de configurar la cuenta y cambiar `me
 
 ## Flujo resultante
 
-- **Efectivo:** se guarda el pedido, se abre WhatsApp y el local pulsa `Confirmar e imprimir` en `panel.html`.
+- **Efectivo:** se guarda el pedido, se abre WhatsApp y el local pulsa `Confirmar e imprimir` desde `/admin/`.
 - **Mercado Pago:** el servidor calcula el importe, crea el checkout y espera el Webhook. Solo un pago `approved`, en ARS y por el total exacto confirma el pedido y genera la comanda.
 - **Impresora:** el agente consulta la cola, imprime una vez y confirma el trabajo. Si la notebook está desconectada, el trabajo queda pendiente.
 

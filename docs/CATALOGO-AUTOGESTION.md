@@ -4,7 +4,7 @@ El panel del local permite administrar la información del comercio, los colores
 
 ## Uso
 
-1. Abrir `panel.html` e ingresar con el token del local.
+1. Abrir `/admin/` en el dominio del comercio e ingresar con el usuario y la contraseña correspondientes.
 2. Pulsar **Configuración**, debajo de **Salir**.
 3. En **Información del local**, modificar dirección, teléfono, colores y conexión de Mercado Pago.
 4. En **Productos**, agregar, quitar o modificar nombre, precio y foto.
