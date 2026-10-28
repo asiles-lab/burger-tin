@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#faf7f4">
+  <meta name="description" content="GlowRo: descubrí productos Dr. Duval, armá tu pedido y pagá con Mercado Pago. Envíos a domicilio.">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="GlowRo — Tu piel, tu ritmo, tu glow">
+  <meta property="og:description" content="Skincare para elegir con calma, descubrir tu rutina y sentirte vos.">
+  <meta property="og:image" content="assets/social-card.svg">
+  <meta name="color-scheme" content="light">
+  <link rel="icon" type="image/png" href="assets/glowro-monogram.png?v=20261027-1">
+  <link rel="apple-touch-icon" href="assets/glowro-monogram.png?v=20261027-1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css?v=20261027-1">
+  <script defer src="catalog.js"></script>
+  <script defer src="app.js?v=20261026-5"></script>
+  <title>GlowRo — Tu piel, tu ritmo, tu glow</title>
+</head>
+<body>
+<a class="skip-link" href="#main">Ir al contenido</a>
+<svg class="svg-sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></symbol>
+  <symbol id="i-arrow-up" viewBox="0 0 24 24"><path d="M5 19 19 5M8 5h11v11"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 5 5L20 7"/></symbol>
+  <symbol id="i-bag" viewBox="0 0 24 24"><path d="M4 8h16l-1 12H5L4 8Zm4 0V6a4 4 0 0 1 8 0v2"/></symbol>
+  <symbol id="i-instagram" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r=".7" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="m5 5 14 14M19 5 5 19"/></symbol>
+  <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="m12 2 2.4 7.6L22 12l-7.6 2.4L12 22l-2.4-7.6L2 12l7.6-2.4L12 2Z"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+  <symbol id="i-heart" viewBox="0 0 24 24"><path d="M20.5 8.5c0 5.2-8.5 11-8.5 11s-8.5-5.8-8.5-11a5 5 0 0 1 8.5-3.5 5 5 0 0 1 8.5 3.5Z"/></symbol>
+</svg>
+<div class="topbar"><span class="topbar-star">✦</span> Cosmética profesional · Envíos a domicilio <span class="topbar-star">✦</span></div>
+<header class="site-header" id="inicio">
+  <div class="nav-shell container">
+    <a href="#inicio" class="brand brand-image" aria-label="GlowRo, ir al inicio"><img src="assets/glowro-wordmark-dark.png?v=20261027-1" alt="GlowRo Skin & Body Care"></a>
+    <nav class="desktop-nav" aria-label="Navegación principal">
+      <a href="#coleccion">Explorar</a>
+      <a href="#tu-rutina">Mi rutina</a>
+      <a href="#filosofia">Nuestra esencia</a>
+      <a href="#preguntas">Preguntas</a>
+    </nav>
+    <div class="header-actions">
+      <a class="nav-instagram" href="https://instagram.com/glowro_/" target="_blank" rel="noopener noreferrer" aria-label="Ver Instagram de GlowRo"><svg class="icon"><use href="#i-instagram"/></svg></a>
+      <button class="selection-btn" id="open-drawer" type="button" aria-label="Ver mi carrito" aria-haspopup="dialog"><svg class="icon"><use href="#i-bag"/></svg><span class="selection-text">Mi carrito</span><span class="selection-count" id="selection-count">0</span></button>
+      <button class="menu-toggle" id="menu-toggle" type="button" aria-expanded="false" aria-controls="mobile-nav" aria-label="Abrir menú"><svg class="icon"><use href="#i-menu"/></svg></button>
+    </div>
+  </div>
+  <nav id="mobile-nav" class="mobile-nav" aria-label="Navegación móvil" hidden>
+    <a href="#coleccion">Explorar</a><a href="#tu-rutina">Mi rutina</a><a href="#filosofia">Nuestra esencia</a><a href="#preguntas">Preguntas</a>
+    <a href="https://instagram.com/glowro_/" target="_blank" rel="noopener noreferrer">Instagram ↗</a>
+  </nav>
+</header>
+<main id="main">
+  <section class="hero-section container" aria-labelledby="hero-title">
+    <div class="hero-copy reveal">
+      <div class="eyebrow"><span class="eyebrow-line"></span> GLOWRO / SKINCARE & BEAUTY</div>
+      <h1 id="hero-title">Tu piel.<br>Tu ritmo.<br><span class="serif-accent">Tu glow.</span></h1>
+      <p class="hero-lead">El cuidado de tu piel no debería ser complicado. Descubrí productos, encontrá tu ritual y disfrutá de ese momento que es solo tuyo.</p>
+      <div class="hero-actions">
+        <a class="btn btn-dark" href="#coleccion">Explorar skincare <svg class="icon"><use href="#i-arrow"/></svg></a>
+        <a class="text-link" href="#tu-rutina">Descubrir mi rutina <svg class="icon"><use href="#i-arrow-up"/></svg></a>
+      </div>
+      <div class="hero-meta"><span class="mini-sparkle">✳</span> Elegí acá. Pagá con Mercado Pago. Recibilo en casa.</div>
+    </div>
+    <div class="hero-visual reveal" aria-label="Kit facial BE de Dr. Duval">
+      <img src="https://http2.mlstatic.com/D_Q_NP_2X_879218-MLA110297395762_052026-AB.webp" alt="Kit facial completo BE de Dr. Duval" width="920" height="1050" fetchpriority="high">
+      <div class="hero-photo-label"><span class="tiny-dot"></span> DR. DUVAL / KIT FACIAL BE</div>
+      <div class="hero-bottom-tag"><span>01 / 03</span><span>YOUR SKIN, YOUR STORY</span><svg class="icon"><use href="#i-sparkle"/></svg></div>
+    </div>
+    <div class="hero-bottom-strip"><span>BEAUTY IN YOUR OWN WAY</span><div></div><span>SELF CARE, EVERY DAY</span></div>
+  </section>
+  <section class="intro-statement section-pad" aria-label="Nuestra propuesta">
+    <div class="container statement-inner reveal"><span class="small-caps">LA IDEA DETRÁS DE GLOWRO</span><p>Sentirte bien en tu piel <em>también</em> es parte de tu rutina.</p><span class="statement-star">✳</span></div>
+  </section>
+  <section class="collection-section section-pad" id="coleccion" aria-labelledby="collection-title">
+    <div class="container">
+      <div class="section-heading reveal"><div><p class="eyebrow-section">01 — DESCUBRÍ</p><h2 id="collection-title">Encontrá tu <span>próximo favorito.</span></h2><p class="section-sub">Elegí tus productos, revisá el carrito y pedilos con envío a domicilio. Pagás de forma segura en Mercado Pago.</p></div><button class="all-link" type="button" onclick="document.getElementById('open-drawer').click()">Ver mi carrito <svg class="icon"><use href="#i-arrow-up"/></svg></button></div>
+      <div class="filter-chips" id="filters" aria-label="Filtrar productos">
+<button type="button" class="filter-chip is-active" data-filter="all" aria-pressed="true">Todos</button><button type="button" class="filter-chip" data-filter="kits" aria-pressed="false">Kits y combos</button><button type="button" class="filter-chip" data-filter="facial" aria-pressed="false">Faciales y sérums</button><button type="button" class="filter-chip" data-filter="corporal" aria-pressed="false">Corporales</button></div>
+      <div class="products-grid" id="products-grid"></div><noscript><p>Activá JavaScript para ver el catálogo y armar tu pedido.</p></noscript>
+      <p class="catalog-note"><svg class="icon"><use href="#i-sparkle"/></svg> Los precios se muestran en pesos argentinos. El total con envío aparece antes de ir a Mercado Pago.</p>
+    </div>
+  </section>
+  <section class="ritual-section section-pad" id="tu-rutina" aria-labelledby="ritual-title">
+    <div class="container ritual-layout">
+      <div class="ritual-copy reveal"><p class="eyebrow-section">02 — CONOCETE</p><h2 id="ritual-title">Una rutina<br>tan única <em>como vos.</em></h2><p>No necesitás veinte pasos para empezar a cuidarte. Respondé tres preguntas y llevate una guía inicial para conversar con GlowRo.</p><div class="ritual-footnote"><span class="ritual-number">03</span><span>PREGUNTAS<br>Y UN POQUITO MÁS DE CLARIDAD</span></div><div class="ritual-decor">✳</div></div>
+      <div class="quiz-card reveal" id="quiz-card">
+        <div class="quiz-top"><span class="quiz-label"><svg class="icon"><use href="#i-sparkle"/></svg> GLOWRO / SKIN QUIZ</span><span id="quiz-counter">01 / 03</span></div>
+        <div class="quiz-progress" aria-hidden="true"><span id="quiz-progress-bar"></span></div>
+        <div id="quiz-screen" aria-live="polite"></div>
+        <div class="quiz-nav" id="quiz-nav"><button type="button" class="quiz-back" id="quiz-back" disabled>Volver</button><button type="button" class="btn btn-dark quiz-next" id="quiz-next" disabled>Continuar <svg class="icon"><use href="#i-arrow"/></svg></button></div>
+        <p class="quiz-disclaimer">Una orientación general, no un diagnóstico dermatológico. Si tenés una condición de piel, consultá a un profesional.</p>
+      </div>
+    </div>
+  </section>
+  <section class="manifesto-section section-pad" id="filosofia" aria-labelledby="manifesto-title">
+    <div class="container manifesto-layout">
+      <div class="manifesto-art essence-collage reveal" aria-label="Una selección de productos Dr. Duval"><a class="essence-product essence-product-1" href="#coleccion" aria-label="Ver Sérum humectante BE · Ácido hialurónico en el catálogo"><img src="https://http2.mlstatic.com/D_Q_NP_2X_917511-MLA112771612636_062026-AB.webp" alt="Sérum humectante BE · Ácido hialurónico" loading="lazy" width="480" height="480"><span>HIDRATACIÓN <b aria-hidden="true">↗</b></span></a><a class="essence-product essence-product-2" href="#coleccion" aria-label="Ver Crema sedante con camomila en el catálogo"><img src="https://http2.mlstatic.com/D_Q_NP_2X_759106-MLA93401379240_092025-AB.webp" alt="Crema sedante con camomila" loading="lazy" width="480" height="480"><span>CUIDADO CORPORAL <b aria-hidden="true">↗</b></span></a><a class="essence-product essence-product-3" href="#coleccion" aria-label="Ver Gel de ácido hialurónico + vitamina C en el catálogo"><img src="https://http2.mlstatic.com/D_Q_NP_2X_667685-MLA113782014508_072026-AB.webp" alt="Gel de ácido hialurónico + vitamina C" loading="lazy" width="480" height="480"><span>TU RITUAL FACIAL <b aria-hidden="true">↗</b></span></a><div class="essence-caption">DISTINTOS CUIDADOS. TU MISMO GLOW. <span>✳</span></div></div>
+      <div class="manifesto-content reveal"><p class="eyebrow-section">03 — NUESTRA ESENCIA</p><h2 id="manifesto-title">El glow empieza <span>cuando te elegís.</span></h2><p>En GlowRo creemos que el skincare puede ser ese ratito del día que te dedicás a vos: sin reglas imposibles, sin apuros y sin comparaciones.</p><p>Una experiencia para descubrir lo que te gusta y crear una rutina a tu manera.</p><div class="manifesto-divider"></div><div class="manifesto-points"><div><span>01.</span><p>Explorá a tu ritmo.</p></div><div><span>02.</span><p>Consultá antes de elegir.</p></div><div><span>03.</span><p>Disfrutá el proceso.</p></div></div><a class="text-link manifesto-link" target="_blank" rel="noopener noreferrer" href="https://instagram.com/glowro_/">Conocé GlowRo en Instagram <svg class="icon"><use href="#i-arrow-up"/></svg></a></div>
+    </div>
+  </section>
+  <section class="how-section section-pad" aria-labelledby="how-title"><div class="container"><div class="section-heading reveal"><div><p class="eyebrow-section">04 — ASÍ DE SIMPLE</p><h2 id="how-title">De la inspiración <span>a tu ritual.</span></h2></div></div><div class="steps-grid"><div class="step reveal"><span class="step-number">01</span><div class="step-icon"><svg class="icon"><use href="#i-sparkle"/></svg></div><h3>Descubrí</h3><p>Explorá nuestros productos y precios actuales.</p></div><div class="step reveal"><span class="step-number">02</span><div class="step-icon"><svg class="icon"><use href="#i-bag"/></svg></div><h3>Elegí</h3><p>Agregá al carrito y completá tus datos para el envío.</p></div><div class="step reveal"><span class="step-number">03</span><div class="step-icon"><svg class="icon"><use href="#i-check"/></svg></div><h3>Pagá con Mercado Pago</h3><p>Confirmamos el pedido cuando se acredita el pago.</p></div></div></div></section>
+  <section class="faq-section section-pad" id="preguntas" aria-labelledby="faq-title"><div class="container faq-layout"><div class="reveal"><p class="eyebrow-section">05 — TE AYUDAMOS</p><h2 id="faq-title">¿Tenés <span>preguntas?</span></h2><p class="faq-sidecopy">Si necesitás ayuda para elegir, escribinos.</p><a class="btn btn-outline" href="https://ig.me/m/glowro_" target="_blank" rel="noopener noreferrer">Escribir por Instagram <svg class="icon"><use href="#i-arrow-up"/></svg></a></div><div class="faq-list reveal"><details><summary>¿Cómo hago un pedido?<span class="faq-plus">+</span></summary><p>Agregá productos al carrito, completá tus datos de envío y seguí al pago seguro de Mercado Pago.</p></details><details><summary>¿La guía de rutina es personalizada?<span class="faq-plus">+</span></summary><p>Es una orientación inicial. Para elegir productos específicos, consultá con GlowRo. Ante condiciones dermatológicas, hablá con un profesional de salud.</p></details><details><summary>¿Cuándo se confirma mi pedido?<span class="faq-plus">+</span></summary><p>Cuando Mercado Pago acredita el pago. El retorno a esta web por sí solo no confirma la compra.</p></details><details><summary>¿Hay retiro o pago en efectivo?<span class="faq-plus">+</span></summary><p>Por ahora los pedidos son únicamente con envío a domicilio y pago mediante Mercado Pago.</p></details></div></div></section>
+  <section class="closing-section"><div class="container closing-content reveal"><img class="closing-brand" src="assets/glowro-wordmark-light.png?v=20261027-1" alt="GlowRo Skin & Body Care"><div class="closing-spark">✳</div><p>UN MOMENTO PARA VOS</p><h2>Tu mejor glow<br>es sentirte vos.</h2><a href="#coleccion" class="btn btn-light">Explorar productos <svg class="icon"><use href="#i-arrow-up"/></svg></a><span class="closing-watermark" aria-hidden="true">glowro.</span></div></section>
+</main>
+<footer class="site-footer"><div class="container"><div class="footer-top"><div><a class="brand brand-image footer-brand" href="#inicio" aria-label="GlowRo, volver al inicio"><img src="assets/glowro-wordmark-dark.png?v=20261027-1" alt="GlowRo Skin & Body Care"></a><p>Skincare para cuidarte<br>a tu manera.</p></div><div class="footer-links"><div><h4>EXPLORAR</h4><a href="#coleccion">Productos</a><a href="#tu-rutina">Mi rutina</a><a href="#filosofia">Nuestra esencia</a></div><div><h4>HABLEMOS</h4><a href="https://instagram.com/glowro_/" target="_blank" rel="noopener noreferrer">Instagram ↗</a><a href="https://ig.me/m/glowro_" target="_blank" rel="noopener noreferrer">Mensaje directo ↗</a><a href="#preguntas">Preguntas frecuentes</a></div></div></div><div class="footer-bottom"><span>© <span id="year">2026</span> GlowRo. Hecho para brillar a tu manera.</span><span>LOVE YOUR SKIN. LOVE YOURSELF. <span class="tiny-heart">♥</span></span></div></div></footer>
+<button class="mobile-floating-selection" id="mobile-selection" type="button" aria-label="Abrir mi carrito"><svg class="icon"><use href="#i-bag"/></svg><span>Mi carrito</span><span class="mobile-count" id="mobile-selection-count">0</span></button>
+<div class="drawer-layer" id="drawer-layer" hidden><div class="drawer-backdrop" id="drawer-backdrop"></div><aside class="selection-drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title" tabindex="-1"><div class="drawer-top"><div><span class="small-caps">GLOWRO / PEDIDO</span><h2 id="drawer-title">Mi carrito <span id="drawer-title-count">(0)</span></h2></div><button id="close-drawer" class="drawer-close" type="button" aria-label="Cerrar carrito"><svg class="icon"><use href="#i-close"/></svg></button></div><p class="drawer-intro">Envíos a domicilio. Revisá productos, dirección y total antes de pagar.</p><div class="drawer-items" id="drawer-items"></div><form class="drawer-footer checkout-form" id="checkout-form"><div class="cart-summary"><span>Productos + envío</span><strong id="cart-total">$ 0</strong></div><p id="shipping-note">Costo de envío por configurar</p><p id="checkout-status" role="status">El pago se habilitará cuando GlowRo conecte Mercado Pago y configure el envío.</p><label>Nombre y apellido<input name="name" type="text" autocomplete="name" maxlength="80" required></label><label>Teléfono para la entrega<input name="phone" type="tel" autocomplete="tel" inputmode="tel" required></label><label>Dirección de entrega<input name="address" type="text" autocomplete="street-address" minlength="5" maxlength="250" required></label><label>Indicaciones opcionales<textarea name="notes" maxlength="500" rows="2"></textarea></label><button class="btn btn-dark drawer-copy" type="submit" id="drawer-copy" disabled>Continuar a Mercado Pago ↗</button></form></aside></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
