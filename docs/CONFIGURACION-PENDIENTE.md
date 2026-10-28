@@ -8,7 +8,7 @@ El servidor de pedidos y la base D1 ya están desplegados. GitHub Pages usa el b
 
 - Worker: `https://burger-tin-orders.burger-tin-orders.workers.dev`
 - Base D1: `burger-tin-orders`
-- `STAFF_TOKEN` y `DEVICE_TOKEN` configurados.
+- Accesos administrativos configurados. Las impresoras ahora usan credenciales individuales revocables.
 - Pendientes únicamente `MP_ACCESS_TOKEN` y `MP_WEBHOOK_SECRET` cuando se habilite Mercado Pago.
 
 ### 2. Mercado Pago
@@ -37,8 +37,9 @@ Mercado Pago aparecerá solamente después de configurar la cuenta y cambiar `me
 
 1. Ejecutar el ZIP del asistente de impresora.
 2. Elegir la cola OCPP-812.
-3. Cargar la URL del Worker y el mismo `DEVICE_TOKEN` durante la instalación del agente.
-4. Imprimir la comanda de prueba.
+3. En el panel del local, ir a **Configuración > Notebooks e impresoras**, registrar el equipo y copiar la credencial que se muestra una sola vez.
+4. Cargar la URL de la API y esa credencial durante la instalación del agente.
+5. Imprimir la comanda de prueba.
 
 ## Flujo resultante
 
@@ -51,6 +52,6 @@ Mercado Pago aparecerá solamente después de configurar la cuenta y cambiar `me
 - Precios recalculados en el servidor a partir del catálogo.
 - Credenciales fuera de GitHub Pages y del repositorio.
 - Webhook validado con HMAC-SHA256 y consulta posterior a la API de Mercado Pago.
-- Tokens diferentes para el panel y la notebook.
+- Cada notebook tiene una credencial propia, almacenada solo como hash en la base de datos y revocable sin afectar otros equipos.
 - Cola idempotente: un pedido crea un solo trabajo de impresión.
 - CORS limitado al origen de GitHub Pages.

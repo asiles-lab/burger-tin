@@ -50,6 +50,12 @@ test('rechaza mezclar el origen de GlowRo con otro store solicitado', async () =
   await assert.rejects(() => publicStoreId(request, { DB, ALLOWED_ORIGIN:'' }, { allowQuery:true }), /no coincide/);
 });
 
+test('no asigna Burger Tin cuando falta identificar el comercio', async () => {
+  const DB = tenantDatabase();
+  const request = new Request('https://api.example/api/catalog');
+  await assert.rejects(() => publicStoreId(request, { DB, ALLOWED_ORIGIN:'' }), /identificar la empresa/);
+});
+
 test('el catálogo consulta únicamente el store indicado', async () => {
   const DB = tenantDatabase();
   const products = await catalogProducts({ DB, PUBLIC_API_URL:'https://api.example' }, 'glowro');

@@ -29,7 +29,9 @@ export async function publicStoreId(request, env, { allowQuery = false } = {}) {
   const requestedStore = requestedId ? await activeStoreById(env, requestedId) : null;
   if (requestedId && !requestedStore) throw new Error('La empresa solicitada no existe o está desactivada.');
   if (originStore && requestedStore && originStore.id !== requestedStore.id) throw new Error('La empresa solicitada no coincide con el sitio de origen.');
-  return originStore?.id || requestedStore?.id || DEFAULT_STORE_ID;
+  const resolvedStoreId = originStore?.id || requestedStore?.id || '';
+  if (!resolvedStoreId) throw new Error('No pudimos identificar la empresa del sitio.');
+  return resolvedStoreId;
 }
 
 export async function authenticationStoreId(request, env, scope) {
@@ -180,6 +182,24 @@ async function adminIdentity(request, env) {
   `).bind(await sha256(supplied), new Date().toISOString()).first();
   if (!profile) return null;
   return { id:profile.id, name:profile.name, email:profile.email, username:profile.username, role:profile.role, storeId:profile.store_id, permissions:parsePermissions(profile.permissions), mustChangePassword:Boolean(profile.must_change_password) };
+}
+
+export async function printDeviceIdentity(request, env) {
+  const supplied = bearer(request);
+  if (!supplied) return null;
+  const device = await env.DB.prepare(`
+    SELECT d.id, d.store_id, d.name
+    FROM print_devices d JOIN stores s ON s.id = d.store_id
+    WHERE d.token_hash = ? AND d.active = 1 AND s.active = 1
+  `).bind(await sha256(supplied)).first();
+  if (!device) return null;
+  const now = new Date();
+  const staleBefore = new Date(now.getTime() - 5 * 60000).toISOString();
+  await env.DB.prepare(`
+    UPDATE print_devices SET last_seen_at = ?, updated_at = ?
+    WHERE id = ? AND (last_seen_at IS NULL OR last_seen_at < ?)
+  `).bind(now.toISOString(), now.toISOString(), device.id, staleBefore).run();
+  return { id:device.id, storeId:device.store_id, name:device.name };
 }
 
 async function requireAdmin(request, env, permission) {
@@ -639,9 +659,9 @@ async function createOrder(request, env) {
     if (previous) {
       if (['pending_cash', 'pending_payment'].includes(previous.status)) throw new Error('El numero ciclico aun pertenece a un pedido pendiente.');
       await env.DB.batch([
-        env.DB.prepare('DELETE FROM print_jobs WHERE order_id = ?').bind(previous.id),
-        env.DB.prepare('DELETE FROM order_items WHERE order_id = ?').bind(previous.id),
-        env.DB.prepare('DELETE FROM orders WHERE id = ?').bind(previous.id)
+        env.DB.prepare('DELETE FROM print_jobs WHERE store_id = ? AND order_id = ?').bind(storeId, previous.id),
+        env.DB.prepare('DELETE FROM order_items WHERE store_id = ? AND order_id = ?').bind(storeId, previous.id),
+        env.DB.prepare('DELETE FROM orders WHERE store_id = ? AND id = ?').bind(storeId, previous.id)
       ]);
     }
   } catch (error) {
@@ -656,17 +676,17 @@ async function createOrder(request, env) {
   `).bind(code, order.name, order.fulfillment, order.address || null, order.notes || null, order.paymentMethod, status, order.subtotal, now, storeId, order.phone || null).run();
   const orderId = inserted.meta.last_row_id;
   await env.DB.batch(order.items.map(item => env.DB.prepare(`
-    INSERT INTO order_items (order_id, product_id, name, quantity, unit_price, subtotal)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `).bind(orderId, item.productId, item.name, item.quantity, item.unitPrice, item.subtotal)));
+    INSERT INTO order_items (order_id, product_id, name, quantity, unit_price, subtotal, store_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).bind(orderId, item.productId, item.name, item.quantity, item.unitPrice, item.subtotal, storeId)));
 
   if (order.paymentMethod === 'mercadopago') {
     try {
       const checkout = await createMercadoPagoCheckout(env, storeId, orderId, code, order, settings.paymentMode);
-      await env.DB.prepare('UPDATE orders SET mp_preference_id = ? WHERE id = ?').bind(checkout.preferenceId, orderId).run();
+      await env.DB.prepare('UPDATE orders SET mp_preference_id = ? WHERE store_id = ? AND id = ?').bind(checkout.preferenceId, storeId, orderId).run();
       return publicJson(request, env, { code, status, paymentMethod: order.paymentMethod, checkoutUrl: checkout.url }, 201);
     } catch (error) {
-      await env.DB.prepare("UPDATE orders SET status = 'cancelled' WHERE id = ?").bind(orderId).run();
+      await env.DB.prepare("UPDATE orders SET status = 'cancelled' WHERE store_id = ? AND id = ?").bind(storeId, orderId).run();
       console.error('Mercado Pago preference error', error.message);
       return publicJson(request, env, { error: 'No pudimos iniciar Mercado Pago. Probá nuevamente.' }, 502);
     }
@@ -744,11 +764,9 @@ async function verifyWebhook(request, env, dataId, storeId) {
 
 async function mercadoPagoWebhook(request, env, ctx) {
   const url = new URL(request.url);
-  const webhookStoreId = url.searchParams.get('store') || DEFAULT_STORE_ID;
-  if (webhookStoreId !== DEFAULT_STORE_ID) {
-    const company = await env.DB.prepare('SELECT id FROM stores WHERE id = ? AND active = 1').bind(webhookStoreId).first();
-    if (!company) return new Response('', { status: 401 });
-  }
+  const webhookStoreId = String(url.searchParams.get('store') || '').trim().toLowerCase();
+  const company = webhookStoreId ? await activeStoreById(env, webhookStoreId) : null;
+  if (!company) return new Response('', { status: 401 });
   let body = {};
   try { body = await request.json(); } catch {}
   const dataId = url.searchParams.get('data.id') || String(body?.data?.id || '');
@@ -782,9 +800,9 @@ async function confirmOrder(env, storeId, orderId, paymentId = null, enqueuePrin
       .bind(now, paymentId, storeId, orderId).run();
   }
   if (enqueuePrint) {
-    const jobId = `print-${orderId}`;
-    await env.DB.prepare("INSERT OR IGNORE INTO print_jobs (id, order_id, status, created_at) VALUES (?, ?, 'queued', ?)")
-      .bind(jobId, orderId, now).run();
+    const jobId = `print-${storeId}-${orderId}`;
+    await env.DB.prepare("INSERT OR IGNORE INTO print_jobs (id, order_id, status, created_at, store_id) VALUES (?, ?, 'queued', ?, ?)")
+      .bind(jobId, orderId, now, storeId).run();
   }
 }
 
@@ -803,8 +821,8 @@ async function listOrders(request, env) {
   const [result, counts] = await env.DB.batch([
     env.DB.prepare(`
     SELECT o.*, pj.status AS print_status,
-      (SELECT json_group_array(json_object('name', oi.name, 'quantity', oi.quantity)) FROM order_items oi WHERE oi.order_id = o.id) AS items_json
-    FROM orders o LEFT JOIN print_jobs pj ON pj.order_id = o.id
+      (SELECT json_group_array(json_object('name', oi.name, 'quantity', oi.quantity)) FROM order_items oi WHERE oi.store_id = o.store_id AND oi.order_id = o.id) AS items_json
+    FROM orders o LEFT JOIN print_jobs pj ON pj.order_id = o.id AND pj.store_id = o.store_id
     WHERE o.store_id = ? AND ${queries[view]}
     ORDER BY o.created_at ${direction} LIMIT ${limit}
     `).bind(identity.storeId),
@@ -825,8 +843,8 @@ async function clearHistory(request, env) {
   const pending = await env.DB.prepare("SELECT COUNT(*) AS total FROM orders WHERE store_id = ? AND status IN ('pending_cash', 'pending_payment')").bind(identity.storeId).first();
   if (Number(pending?.total) > 0) return publicJson(request, env, { error:'Primero confirma o cancela todos los pedidos pendientes.' }, 409);
   await env.DB.batch([
-    env.DB.prepare("DELETE FROM print_jobs WHERE order_id IN (SELECT id FROM orders WHERE store_id = ? AND status IN ('confirmed', 'cancelled'))").bind(identity.storeId),
-    env.DB.prepare("DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE store_id = ? AND status IN ('confirmed', 'cancelled'))").bind(identity.storeId),
+    env.DB.prepare("DELETE FROM print_jobs WHERE store_id = ? AND order_id IN (SELECT id FROM orders WHERE store_id = ? AND status IN ('confirmed', 'cancelled'))").bind(identity.storeId, identity.storeId),
+    env.DB.prepare("DELETE FROM order_items WHERE store_id = ? AND order_id IN (SELECT id FROM orders WHERE store_id = ? AND status IN ('confirmed', 'cancelled'))").bind(identity.storeId, identity.storeId),
     env.DB.prepare("DELETE FROM orders WHERE store_id = ? AND status IN ('confirmed', 'cancelled')").bind(identity.storeId),
     env.DB.prepare("UPDATE order_counters SET value = 0 WHERE store_id = ? AND name = 'orders'").bind(identity.storeId)
   ]);
@@ -845,12 +863,12 @@ async function staffAction(request, env, code, action) {
     await confirmOrder(env, identity.storeId, order.id);
   } else if (action === 'cancel') {
     if (!['pending_cash', 'pending_payment'].includes(order.status)) return publicJson(request, env, { error:'Solo se pueden cancelar pedidos pendientes.' }, 409);
-    await env.DB.prepare("UPDATE orders SET status='cancelled' WHERE id=?").bind(order.id).run();
+    await env.DB.prepare("UPDATE orders SET status='cancelled' WHERE store_id=? AND id=?").bind(identity.storeId, order.id).run();
   } else if (action === 'reprint') {
     if (order.status !== 'confirmed') return publicJson(request, env, { error:'El pedido aun no esta confirmado.' }, 409);
     const now = new Date().toISOString();
-    await env.DB.prepare("UPDATE print_jobs SET status='queued', device_id=NULL, leased_until=NULL, last_error=NULL, created_at=? WHERE order_id=?")
-      .bind(now, order.id).run();
+    await env.DB.prepare("UPDATE print_jobs SET status='queued', device_id=NULL, leased_until=NULL, last_error=NULL, created_at=? WHERE store_id=? AND order_id=?")
+      .bind(now, identity.storeId, order.id).run();
   }
   await audit(env, identity, `order.${action}`, 'order', code);
   return publicJson(request, env, { ok:true });
@@ -879,8 +897,8 @@ async function reportSummary(request, env) {
   `).bind(identity.storeId, `-${days} days`).first();
   const top = await env.DB.prepare(`
     SELECT oi.name, SUM(oi.quantity) AS quantity
-    FROM order_items oi JOIN orders o ON o.id = oi.order_id
-    WHERE o.store_id = ? AND o.status = 'confirmed' AND datetime(o.confirmed_at) >= datetime('now', ?)
+    FROM order_items oi JOIN orders o ON o.id = oi.order_id AND o.store_id = oi.store_id
+    WHERE oi.store_id = ? AND o.status = 'confirmed' AND datetime(o.confirmed_at) >= datetime('now', ?)
     GROUP BY oi.name ORDER BY quantity DESC, oi.name LIMIT 5
   `).bind(identity.storeId, `-${days} days`).all();
   return publicJson(request, env, {
@@ -1092,25 +1110,81 @@ async function deletePlatformProfile(request, env, id) {
   return publicJson(request, env, { ok:true });
 }
 
-async function nextPrintJob(request, env) {
-  if (!requireBearer(request, env.DEVICE_TOKEN)) return json({ error:'No autorizado.' }, 401);
-  const deviceId = new URL(request.url).searchParams.get('deviceId') || '';
-  if (!deviceId || deviceId.length > 100) return json({ error:'Dispositivo invalido.' }, 400);
+async function listPrintDevices(request, env) {
+  const identity = await requireAdmin(request, env, 'store:manage');
+  if (!identity) return publicJson(request, env, { error:'No autorizado.' }, 401);
+  const result = await env.DB.prepare(`
+    SELECT id, name, active, last_seen_at, created_at, updated_at
+    FROM print_devices WHERE store_id = ? ORDER BY active DESC, name
+  `).bind(identity.storeId).all();
+  return publicJson(request, env, { devices:(result.results || []).map(device => ({ ...device, active:Boolean(device.active) })) });
+}
+
+async function createPrintDevice(request, env) {
+  const identity = await requireAdmin(request, env, 'store:manage');
+  if (!identity) return publicJson(request, env, { error:'No autorizado.' }, 401);
+  let body;
+  try { body = await readJson(request); } catch (error) { return publicJson(request, env, { error:error.message }, 400); }
+  const name = String(body.name || '').trim();
+  if (name.length < 2 || name.length > 80) return publicJson(request, env, { error:'Ingresá un nombre de dispositivo válido.' }, 400);
+  const id = crypto.randomUUID(), token = randomToken(), now = new Date().toISOString();
+  try {
+    await env.DB.prepare(`
+      INSERT INTO print_devices (id, store_id, name, token_hash, active, created_at, updated_at)
+      VALUES (?, ?, ?, ?, 1, ?, ?)
+    `).bind(id, identity.storeId, name, await sha256(token), now, now).run();
+  } catch {
+    return publicJson(request, env, { error:'Ya existe un dispositivo con ese nombre.' }, 409);
+  }
+  await audit(env, identity, 'print-device.create', 'print-device', id, { name });
+  return publicJson(request, env, { device:{ id, name, active:true, created_at:now }, token }, 201);
+}
+
+async function rotatePrintDevice(request, env, id) {
+  const identity = await requireAdmin(request, env, 'store:manage');
+  if (!identity) return publicJson(request, env, { error:'No autorizado.' }, 401);
+  const token = randomToken(), now = new Date().toISOString();
+  const result = await env.DB.prepare(`
+    UPDATE print_devices SET token_hash = ?, active = 1, updated_at = ?
+    WHERE id = ? AND store_id = ?
+  `).bind(await sha256(token), now, id, identity.storeId).run();
+  if (!result.meta.changes) return publicJson(request, env, { error:'Dispositivo inexistente.' }, 404);
+  await env.DB.prepare("UPDATE print_jobs SET status='queued', device_id=NULL, leased_until=NULL WHERE store_id=? AND device_id=? AND status='leased'")
+    .bind(identity.storeId, id).run();
+  await audit(env, identity, 'print-device.rotate', 'print-device', id);
+  return publicJson(request, env, { ok:true, token });
+}
+
+async function disablePrintDevice(request, env, id) {
+  const identity = await requireAdmin(request, env, 'store:manage');
+  if (!identity) return publicJson(request, env, { error:'No autorizado.' }, 401);
+  const result = await env.DB.prepare('UPDATE print_devices SET active = 0, updated_at = ? WHERE id = ? AND store_id = ?')
+    .bind(new Date().toISOString(), id, identity.storeId).run();
+  if (!result.meta.changes) return publicJson(request, env, { error:'Dispositivo inexistente.' }, 404);
+  await env.DB.prepare("UPDATE print_jobs SET status='queued', device_id=NULL, leased_until=NULL WHERE store_id=? AND device_id=? AND status='leased'")
+    .bind(identity.storeId, id).run();
+  await audit(env, identity, 'print-device.disable', 'print-device', id);
+  return publicJson(request, env, { ok:true });
+}
+
+export async function nextPrintJob(request, env) {
+  const device = await printDeviceIdentity(request, env);
+  if (!device) return json({ error:'No autorizado.' }, 401);
   const now = new Date();
   const job = await env.DB.prepare(`
     SELECT pj.id, pj.order_id FROM print_jobs pj JOIN orders o ON o.id = pj.order_id
-    WHERE o.store_id = ? AND (pj.status='queued' OR (pj.status='leased' AND pj.leased_until < ?))
+    WHERE pj.store_id = ? AND o.store_id = pj.store_id AND (pj.status='queued' OR (pj.status='leased' AND pj.leased_until < ?))
     ORDER BY pj.created_at LIMIT 1
-  `).bind(String(env.DEVICE_STORE_ID || DEFAULT_STORE_ID), now.toISOString()).first();
+  `).bind(device.storeId, now.toISOString()).first();
   if (!job) return json(null);
   const leaseUntil = new Date(now.getTime() + 60000).toISOString();
   const claimed = await env.DB.prepare(`
     UPDATE print_jobs SET status='leased', device_id=?, leased_until=?, attempts=attempts+1
-    WHERE id=? AND (status='queued' OR (status='leased' AND leased_until < ?))
-  `).bind(deviceId, leaseUntil, job.id, now.toISOString()).run();
+    WHERE id=? AND store_id=? AND (status='queued' OR (status='leased' AND leased_until < ?))
+  `).bind(device.id, leaseUntil, job.id, device.storeId, now.toISOString()).run();
   if (!claimed.meta.changes) return json(null);
-  const order = await env.DB.prepare('SELECT * FROM orders WHERE id = ?').bind(job.order_id).first();
-  const items = await env.DB.prepare('SELECT * FROM order_items WHERE order_id = ? ORDER BY id').bind(job.order_id).all();
+  const order = await env.DB.prepare('SELECT * FROM orders WHERE store_id = ? AND id = ?').bind(device.storeId, job.order_id).first();
+  const items = await env.DB.prepare('SELECT * FROM order_items WHERE store_id = ? AND order_id = ? ORDER BY id').bind(device.storeId, job.order_id).all();
   return json({
     id: job.id,
     order: {
@@ -1126,17 +1200,20 @@ async function nextPrintJob(request, env) {
   });
 }
 
-async function acknowledgePrint(request, env, id) {
-  if (!requireBearer(request, env.DEVICE_TOKEN)) return json({ error:'No autorizado.' }, 401);
+export async function acknowledgePrint(request, env, id) {
+  const device = await printDeviceIdentity(request, env);
+  if (!device) return json({ error:'No autorizado.' }, 401);
   const body = await readJson(request);
   if (!['printed', 'already_printed', 'failed'].includes(body.status)) return json({ error:'Estado invalido.' }, 400);
+  let result;
   if (body.status === 'failed') {
-    await env.DB.prepare("UPDATE print_jobs SET status='queued', leased_until=NULL, last_error=? WHERE id=?")
-      .bind(String(body.error || 'Error de impresion').slice(0, 300), id).run();
+    result = await env.DB.prepare("UPDATE print_jobs SET status='queued', device_id=NULL, leased_until=NULL, last_error=? WHERE id=? AND store_id=? AND device_id=? AND status='leased'")
+      .bind(String(body.error || 'Error de impresion').slice(0, 300), id, device.storeId, device.id).run();
   } else {
-    await env.DB.prepare("UPDATE print_jobs SET status='printed', printed_at=?, leased_until=NULL WHERE id=?")
-      .bind(new Date().toISOString(), id).run();
+    result = await env.DB.prepare("UPDATE print_jobs SET status='printed', printed_at=?, leased_until=NULL WHERE id=? AND store_id=? AND device_id=? AND status='leased'")
+      .bind(new Date().toISOString(), id, device.storeId, device.id).run();
   }
+  if (!result.meta.changes) return json({ error:'Trabajo inexistente o asignado a otro dispositivo.' }, 409);
   return json({ ok:true });
 }
 
@@ -1171,6 +1248,11 @@ export default {
     if (request.method === 'GET' && url.pathname === '/api/admin/settings') return adminSettings(request, env);
     if (request.method === 'PATCH' && url.pathname === '/api/admin/settings') return updateSettings(request, env);
     if (request.method === 'POST' && url.pathname === '/api/admin/mercadopago/check') return checkMercadoPagoApi(request, env);
+    if (request.method === 'GET' && url.pathname === '/api/admin/print-devices') return listPrintDevices(request, env);
+    if (request.method === 'POST' && url.pathname === '/api/admin/print-devices') return createPrintDevice(request, env);
+    const printDeviceMatch = url.pathname.match(/^\/api\/admin\/print-devices\/([^/]+)\/(rotate|disable)$/);
+    if (request.method === 'POST' && printDeviceMatch && printDeviceMatch[2] === 'rotate') return rotatePrintDevice(request, env, decodeURIComponent(printDeviceMatch[1]));
+    if (request.method === 'POST' && printDeviceMatch && printDeviceMatch[2] === 'disable') return disablePrintDevice(request, env, decodeURIComponent(printDeviceMatch[1]));
     const productMatch = url.pathname.match(/^\/api\/admin\/products\/([^/]+)$/);
     if (request.method === 'PATCH' && productMatch) return updateProduct(request, env, decodeURIComponent(productMatch[1]));
     if (request.method === 'DELETE' && productMatch) return deleteProduct(request, env, decodeURIComponent(productMatch[1]));

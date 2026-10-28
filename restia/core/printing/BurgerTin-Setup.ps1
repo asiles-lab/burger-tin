@@ -157,8 +157,6 @@ function Install-Agent {
 
     $apiUrl = $apiText.Text.Trim()
     if ($apiUrl -and -not $apiUrl.StartsWith('https://')) { throw 'La URL del servidor debe comenzar con https://.' }
-    $deviceId = $deviceText.Text.Trim()
-    if (-not $deviceId) { $deviceId = 'burger-tin-' + [Guid]::NewGuid().ToString('N').Substring(0, 12); $deviceText.Text = $deviceId }
     $environment = 'diagnostic'
     $tokenPath = Join-Path $script:DataRoot 'device-token.dpapi'
     if ($apiUrl) {
@@ -171,7 +169,6 @@ function Install-Agent {
         printerName = [string]$printerCombo.SelectedItem
         printerMode = if ($modeCombo.SelectedIndex -eq 0) { 'windows' } else { 'escpos' }
         apiBaseUrl = $apiUrl
-        deviceId = $deviceId
         pollSeconds = 8
         columns = 42
         cutPaper = $true
@@ -292,8 +289,8 @@ $refreshButton.Size = [Drawing.Size]::new(120, 38)
 $tabPrinter.Controls.Add($refreshButton)
 
 $tabAgent = New-StepTab '4. Agente' 'Instalar la aplicacion local' "Podes dejar servidor y token vacios para instalar en modo diagnostico.`r`nCuando exista el servidor de comandas, se cargan aqui y el agente queda automatico al iniciar Windows."
-$labels = @('Servidor HTTPS (opcional):','Token del dispositivo (opcional):','Identificador de notebook:')
-$ys = @(142, 187, 232)
+$labels = @('Servidor HTTPS (opcional):','Credencial del equipo (opcional):')
+$ys = @(142, 187)
 for ($i=0; $i -lt $labels.Count; $i++) {
     $label = [Windows.Forms.Label]::new(); $label.Text=$labels[$i]; $label.Location=[Drawing.Point]::new(28,$ys[$i]+5); $label.Size=[Drawing.Size]::new(220,24); $tabAgent.Controls.Add($label)
 }
@@ -309,9 +306,8 @@ if (Test-Path -LiteralPath $bundledTokenPath) {
         finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bundledTokenPointer) }
     } catch { $tokenText.Clear() }
 }
-$deviceText = [Windows.Forms.TextBox]::new(); $deviceText.Location=[Drawing.Point]::new(250,230); $deviceText.Size=[Drawing.Size]::new(430,28); $deviceText.Text='burger-tin-' + $env:COMPUTERNAME.ToLowerInvariant(); $tabAgent.Controls.Add($deviceText)
-$installButton = [Windows.Forms.Button]::new(); $installButton.Text='Instalar agente'; $installButton.Location=[Drawing.Point]::new(250,274); $installButton.Size=[Drawing.Size]::new(170,38); $tabAgent.Controls.Add($installButton)
-$testButton = [Windows.Forms.Button]::new(); $testButton.Text='Imprimir prueba'; $testButton.Location=[Drawing.Point]::new(435,274); $testButton.Size=[Drawing.Size]::new(170,38); $tabAgent.Controls.Add($testButton)
+$installButton = [Windows.Forms.Button]::new(); $installButton.Text='Instalar agente'; $installButton.Location=[Drawing.Point]::new(250,230); $installButton.Size=[Drawing.Size]::new(170,38); $tabAgent.Controls.Add($installButton)
+$testButton = [Windows.Forms.Button]::new(); $testButton.Text='Imprimir prueba'; $testButton.Location=[Drawing.Point]::new(435,230); $testButton.Size=[Drawing.Size]::new(170,38); $tabAgent.Controls.Add($testButton)
 
 $log = [Windows.Forms.RichTextBox]::new()
 $log.Location = [Drawing.Point]::new(22, 435)

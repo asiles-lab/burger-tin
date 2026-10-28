@@ -17,6 +17,7 @@ Repositorio único de la plataforma Restia y sus comercios activos.
 
 La documentación operativa está en [`docs/REPOSITORY.md`](docs/REPOSITORY.md).
 El mapa físico y las reglas de ubicación están en [`docs/STRUCTURE.md`](docs/STRUCTURE.md).
+El ambiente de pruebas independiente está documentado en [`docs/QA.md`](docs/QA.md).
 
 ## Verificación
 

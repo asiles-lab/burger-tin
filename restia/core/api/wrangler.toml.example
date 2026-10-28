@@ -8,7 +8,6 @@ PUBLIC_SITE_URL = "https://burger-tin.restia.net.ar/"
 PUBLIC_API_URL = "https://burger-tin-orders.YOUR-SUBDOMAIN.workers.dev"
 WHATSAPP_PHONE = "5491127798677"
 PAYMENTS_MODE = "sandbox"
-DEVICE_STORE_ID = "burger-tin"
 
 [[d1_databases]]
 binding = "DB"
@@ -21,5 +20,4 @@ migrations_dir = "migrations"
 # wrangler secret put MP_WEBHOOK_SECRET
 # Bootstrap técnico inicial; no se usa para el ingreso cotidiano.
 # wrangler secret put SUPERADMIN_TOKEN
-# wrangler secret put DEVICE_TOKEN
 # wrangler secret put SETTINGS_ENCRYPTION_KEY

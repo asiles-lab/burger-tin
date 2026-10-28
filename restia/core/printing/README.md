@@ -8,7 +8,7 @@ Este paquete prepara una notebook con Windows 10 u 11 para usar una impresora t�
 2. Descarga el controlador universal desde el sitio oficial de OCOM.
 3. Verifica tamaño y dos huellas SHA-256 antes de permitir la instalación.
 4. Abre el instalador del fabricante y luego detecta las colas de impresión disponibles.
-5. Instala el agente local, guarda el token con cifrado DPAPI del usuario y crea una tarea que se inicia al entrar a Windows.
+5. Instala el agente local, guarda la credencial exclusiva de ese equipo con cifrado DPAPI del usuario y crea una tarea que se inicia al entrar a Windows.
 6. Permite probar con una impresora comun de Windows en hoja A4 o con la termica en formato ESC/POS y corte.
 
 ## Uso en la notebook del local
@@ -35,11 +35,15 @@ El ejecutable interno es antiguo y su firma Authenticode aparece como `HashMisma
 
 ## Qué falta para recibir pedidos reales
 
-El agente queda listo para trabajar con el servidor de comandas, pero por defecto se instala en modo `diagnostic`. Para producción hay que desplegar el backend que recibe la confirmación del local y entrega trabajos con este contrato:
+El agente queda listo para trabajar con la API de comandas, pero por defecto se instala en modo `diagnostic`. Para producción primero se registra la notebook desde **Administración > Configuración > Notebooks e impresoras**. La credencial se muestra una sola vez y se pega en el instalador de ese equipo.
 
-- `GET /api/print-jobs/next?deviceId=...`
+La API usa este contrato:
+
+- `GET /api/print-jobs/next`
 - `POST /api/print-jobs/{id}/ack` con `printed` o `already_printed`
-- encabezado `Authorization: Bearer <token del dispositivo>`
+- encabezado `Authorization: Bearer <credencial exclusiva del equipo>`
+
+El comercio y el equipo no se aceptan por parámetros: se obtienen de la credencial. Rotar o desactivar una credencial no afecta a las demás notebooks del comercio.
 
 La web no imprime al abrir WhatsApp. El trabajo se crea solamente después de que el local confirma el pago; el agente evita duplicados guardando los últimos 500 identificadores impresos.
 

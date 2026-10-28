@@ -1,8 +1,9 @@
 'use strict';
 
 // GlowRo — catálogo público con respaldo estático; el servidor valida importes y pagos.
-const API = 'https://burger-tin-orders.burger-tin-orders.workers.dev';
-const STORE_ID = 'glowro';
+const RUNTIME = window.RESTIA_CLIENT_CONFIG || window.BURGER_TIN_CHECKOUT || {};
+const API = String(RUNTIME.apiBaseUrl || '').replace(/\/$/, '');
+const STORE_ID = String(RUNTIME.storeId || 'glowro');
 const CONTACT = {
   instagram: 'https://instagram.com/glowro_/',
   dm: 'https://ig.me/m/glowro_'

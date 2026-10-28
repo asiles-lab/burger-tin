@@ -1,0 +1,28 @@
+name = "restia-api-qa"
+main = "../../restia/core/api/src/index.js"
+compatibility_date = "2026-10-01"
+workers_dev = true
+preview_urls = true
+
+[vars]
+ALLOWED_ORIGIN = "https://qa.restia.net.ar,https://admin-qa.restia.net.ar,https://burger-tin-qa.restia.net.ar,https://glowro-qa.restia.net.ar"
+PUBLIC_SITE_URL = "https://burger-tin-qa.restia.net.ar/"
+PUBLIC_API_URL = "https://api-qa.restia.net.ar"
+WHATSAPP_PHONE = "5491100000000"
+PAYMENTS_MODE = "sandbox"
+SALES_EMAIL_FROM = "Restia QA <notificaciones@restia.net.ar>"
+
+[[routes]]
+pattern = "api-qa.restia.net.ar"
+custom_domain = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "restia-qa"
+database_id = "REPLACE_WITH_QA_DATABASE_ID"
+migrations_dir = "../../restia/core/api/migrations"
+
+# QA nunca debe reutilizar secretos de producción.
+# Configurar de forma independiente:
+# wrangler secret put SUPERADMIN_TOKEN
+# wrangler secret put SETTINGS_ENCRYPTION_KEY

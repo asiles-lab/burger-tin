@@ -86,7 +86,7 @@ $pollSeconds = [Math]::Max(5, [int]$config.pollSeconds)
 
 do {
     try {
-        $job = Invoke-AgentRequest -Method GET -Uri "$baseUrl/api/print-jobs/next?deviceId=$([Uri]::EscapeDataString($config.deviceId))" -Token $token -Body $null
+        $job = Invoke-AgentRequest -Method GET -Uri "$baseUrl/api/print-jobs/next" -Token $token -Body $null
         $hasJobId = $null -ne $job -and @($job.PSObject.Properties.Name) -contains 'id' -and -not [string]::IsNullOrWhiteSpace([string]$job.id)
         if ($hasJobId) {
             if (@(Get-PrintedIds) -contains [string]$job.id) {

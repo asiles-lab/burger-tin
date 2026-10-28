@@ -1,0 +1,14 @@
+{
+  "$schema": "../../restia/core/api/node_modules/wrangler/config-schema.json",
+  "name": "glowro-qa",
+  "compatibility_date": "2026-10-25",
+  "workers_dev": true,
+  "preview_urls": true,
+  "assets": {
+    "directory": "../../.cloudflare-dist/qa/glowro",
+    "not_found_handling": "404-page"
+  },
+  "routes": [
+    { "pattern": "glowro-qa.restia.net.ar", "custom_domain": true }
+  ]
+}

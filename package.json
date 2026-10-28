@@ -7,10 +7,16 @@
   "scripts": {
     "test": "npm --prefix restia/core/api test",
     "build": "node scripts/build-cloudflare-pages.mjs",
+    "build:qa": "node scripts/build-cloudflare-pages.mjs --environment=qa",
     "deploy:api": "npm --prefix restia/core/api run deploy",
     "deploy:institutional": "node restia/core/api/node_modules/wrangler/bin/wrangler.js deploy --config wrangler.restia-site.jsonc",
     "deploy:superadmin": "node restia/core/api/node_modules/wrangler/bin/wrangler.js deploy --config wrangler.restia-admin.jsonc",
     "deploy:burger-tin": "node restia/core/api/node_modules/wrangler/bin/wrangler.js deploy --config wrangler.burger-tin.jsonc",
-    "deploy:glowro": "node restia/core/api/node_modules/wrangler/bin/wrangler.js deploy --config clients/glowro/wrangler.restia.jsonc"
+    "deploy:glowro": "node restia/core/api/node_modules/wrangler/bin/wrangler.js deploy --config clients/glowro/wrangler.restia.jsonc",
+    "deploy:qa:api": "node restia/core/api/node_modules/wrangler/bin/wrangler.js deploy --config environments/qa/wrangler.api.toml",
+    "deploy:qa:institutional": "node restia/core/api/node_modules/wrangler/bin/wrangler.js deploy --config environments/qa/wrangler.site.jsonc",
+    "deploy:qa:superadmin": "node restia/core/api/node_modules/wrangler/bin/wrangler.js deploy --config environments/qa/wrangler.admin.jsonc",
+    "deploy:qa:burger-tin": "node restia/core/api/node_modules/wrangler/bin/wrangler.js deploy --config environments/qa/wrangler.burger-tin.jsonc",
+    "deploy:qa:glowro": "node restia/core/api/node_modules/wrangler/bin/wrangler.js deploy --config environments/qa/wrangler.glowro.jsonc"
   }
 }
