@@ -119,6 +119,7 @@ html[data-theme=dark] .dual-brand .restia-brand{filter:brightness(0) invert(1)}
 .product-copy label,.price-cell{display:grid;gap:5px}
 .product-copy label>span,.price-cell>span,.row-photo>span{color:var(--muted);font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.04em}
 .product-copy input{font-weight:700}
+.product-row input,.add-product-form input,.form-grid input,.business-day input[type=time]{color:#172033;-webkit-text-fill-color:#172033}
 .product-copy textarea{width:100%;min-height:54px;margin:0!important;padding:10px 12px;border:1px solid #d0d5dd;border-radius:9px;background:#fff;color:#344054;font:inherit;font-size:.8rem;line-height:1.35;resize:vertical;outline:none}
 .product-copy textarea:focus{border-color:var(--admin-primary);box-shadow:0 0 0 3px color-mix(in srgb,var(--admin-primary) 14%,transparent)}
 .money-input{display:grid;grid-template-columns:auto 1fr;align-items:center;overflow:hidden;border:1px solid #d0d5dd;border-radius:9px;background:#fff}
@@ -167,6 +168,7 @@ html[data-theme=dark] .dual-brand .restia-brand{filter:brightness(0) invert(1)}
 html[data-theme=dark] .business-day,html[data-theme=dark] .schedule-master{background:#111821}
 html[data-theme=dark] .business-day .day-toggle span{color:#eef2f7}
 html[data-theme=dark] .business-day input[type=time],html[data-theme=dark] .product-copy textarea,html[data-theme=dark] .money-input{background:#0f151e;color:#eef2f7;border-color:#3a4657}
+html[data-theme=dark] .product-row input,html[data-theme=dark] .add-product-form input,html[data-theme=dark] .form-grid input,html[data-theme=dark] .business-day input[type=time]{color:#eef2f7;-webkit-text-fill-color:#eef2f7}
 html[data-theme=dark] .money-input>span{color:#b4becb}
 html[data-theme=dark] .connection-pill.neutral{background:#253040;color:#d9e0e9}
 html[data-theme=dark] .form-actions{background:rgba(21,28,37,.94)}
