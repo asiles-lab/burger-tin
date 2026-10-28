@@ -1,0 +1,16 @@
+{
+  "name": "restia-platform",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "packageManager": "pnpm@12.15.0",
+  "scripts": {
+    "test": "npm --prefix backend test",
+    "build": "node scripts/build-cloudflare-pages.mjs",
+    "deploy:api": "npm --prefix backend run deploy",
+    "deploy:institutional": "node backend/node_modules/wrangler/bin/wrangler.js deploy --config wrangler.restia-site.jsonc",
+    "deploy:superadmin": "node backend/node_modules/wrangler/bin/wrangler.js deploy --config wrangler.restia-admin.jsonc",
+    "deploy:burger-tin": "node backend/node_modules/wrangler/bin/wrangler.js deploy --config wrangler.burger-tin.jsonc",
+    "deploy:glowro": "node backend/node_modules/wrangler/bin/wrangler.js deploy --config tenants/glowro/wrangler.restia.jsonc"
+  }
+}

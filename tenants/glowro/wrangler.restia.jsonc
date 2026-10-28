@@ -1,5 +1,5 @@
 {
-  "$schema": "../2026-10-23/s/work/burger-tin-pages/backend/node_modules/wrangler/config-schema.json",
+  "$schema": "../../backend/node_modules/wrangler/config-schema.json",
   "name": "restia-tenant-glowro",
   "compatibility_date": "2026-10-25",
   "workers_dev": true,
