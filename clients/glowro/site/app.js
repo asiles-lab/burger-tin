@@ -14,12 +14,19 @@ const storageKey = 'glowro-cart-v1';
 const cart = new Map();
 let checkoutReady = false;
 let deliveryFee = null;
+let selectedShipping = null;
+let shippingConfigured = false;
+let availableShippingMethods = [];
 try {
   const saved = JSON.parse(localStorage.getItem(storageKey) || '[]');
   if (Array.isArray(saved)) for (const [id, quantity] of saved) if (typeof id === 'string' && Number.isInteger(quantity) && quantity > 0 && quantity <= 30) cart.set(id, quantity);
 } catch (_) { /* private/incognito browsers */ }
 function persist() { try { localStorage.setItem(storageKey, JSON.stringify([...cart])); } catch (_) {} }
 function escapeHTML(value) { return String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function resetShippingQuote(message='Ingresá tu localidad o código postal para ver las opciones disponibles.') { selectedShipping=null;availableShippingMethods=[];deliveryFee=null;$('shipping-methods').innerHTML=`<p>${escapeHTML(message)}</p>`;$('address-field').hidden=true;$('address-field').querySelector('input').required=false; }
+function applyShippingMethod(method) { selectedShipping=method;deliveryFee=typeof method.fee==='number'?method.fee:null;const needsAddress=method.id!=='pickup';$('address-field').hidden=!needsAddress;$('address-field').querySelector('input').required=needsAddress;if(method.id==='coordinate')$('shipping-note').textContent='Costo de envío a coordinar · no incluido en el pago';else if(method.fee===0)$('shipping-note').textContent=method.id==='pickup'?'Retiro sin cargo':'Envío sin cargo';else $('shipping-note').textContent=`Envío: ${pesos(method.fee)}`;renderSelection();}
+function renderShippingMethods(methods,outsideCoverage=false){if(!methods.length){resetShippingQuote(outsideCoverage?'Tu ubicación está fuera de las zonas configuradas. Contactá a GlowRo para consultar alternativas.':'No hay métodos de entrega disponibles.');return;}availableShippingMethods=methods;$('shipping-methods').innerHTML=methods.map(method=>`<label class="shipping-option"><input type="radio" name="shippingMethod" value="${escapeHTML(method.id)}"><span><strong>${escapeHTML(method.label)}</strong><small>${method.fee===null?'Costo a confirmar':method.fee===0?'Sin cargo':pesos(method.fee)}${method.zoneName?` · ${escapeHTML(method.zoneName)}`:''}</small>${method.address?`<em>${escapeHTML(method.address)}</em>`:''}${method.description?`<em>${escapeHTML(method.description)}</em>`:''}</span></label>`).join('');if(methods.length===1){const input=$('shipping-methods').querySelector('input');input.checked=true;applyShippingMethod(methods[0]);}}
+async function quoteShipping(){if(!checkoutReady||!cart.size)return;const button=$('quote-shipping'),form=$('checkout-form'),data=new FormData(form);button.disabled=true;button.textContent='Calculando…';$('checkout-status').textContent='';try{const response=await fetch(`${API}/api/shipping/quote`,{method:'POST',headers:{'content-type':'application/json','x-requested-with':'restia-web'},body:JSON.stringify({locality:data.get('locality'),postalCode:data.get('postalCode'),items:[...cart].map(([id,quantity])=>({id,quantity}))})}),result=await response.json();if(!response.ok)throw new Error(result.error||'No pudimos calcular el envío.');selectedShipping=null;deliveryFee=null;renderShippingMethods(result.methods||[],result.outsideCoverage);renderSelection();}catch(error){resetShippingQuote(error.message);$('checkout-status').textContent=error.message;renderSelection();}finally{button.disabled=false;button.textContent='Ver opciones para mi ubicación';}}
 function renderSelection() {
   const entries = [...cart].filter(([id]) => ITEMS[id]);
   const n = entries.reduce((sum, [, quantity]) => sum + quantity, 0);
@@ -41,15 +48,15 @@ function renderSelection() {
     target.innerHTML = entries.map(([id, quantity]) => `<div class="drawer-item"><img src="${escapeHTML(ITEMS[id].image || 'assets/serums.svg')}" alt="" width="70" height="75"><div><h3>${escapeHTML(ITEMS[id].name)}</h3><p>${quantity} × ${pesos(ITEMS[id].price)} = ${pesos(quantity * ITEMS[id].price)}</p><div class="quantity-controls"><button type="button" data-remove="${id}" aria-label="Quitar una unidad de ${escapeHTML(ITEMS[id].name)}">−</button><strong>${quantity}</strong><button type="button" data-add="${id}" aria-label="Agregar una unidad de ${escapeHTML(ITEMS[id].name)}">+</button></div></div></div>`).join('');
   }
   const productsTotal = entries.reduce((sum, [id, quantity]) => sum + ITEMS[id].price * quantity, 0);
-  $('cart-total').textContent = pesos(productsTotal + (deliveryFee ?? 0));
-  $('shipping-note').textContent = deliveryFee === null ? 'Costo de envío por configurar' : deliveryFee === 0 ? 'Envío incluido' : `Envío: ${pesos(deliveryFee)}`;
-  $('drawer-copy').disabled = !n || !checkoutReady;
-  $('checkout-status').textContent = checkoutReady ? '' : 'El pago se habilitará cuando GlowRo conecte Mercado Pago y configure el envío.';
+  $('cart-total').textContent = pesos(productsTotal + (typeof deliveryFee==='number' ? deliveryFee : 0));
+  if(!selectedShipping)$('shipping-note').textContent='Elegí un método de entrega';
+  $('drawer-copy').disabled = !n || !checkoutReady || !selectedShipping;
+  if(!checkoutReady)$('checkout-status').textContent=shippingConfigured?'El pago online no está disponible en este momento.':'GlowRo todavía no configuró métodos de entrega.';
 }
 function addToCart(id) {
   if (!ITEMS[id]) return;
   cart.set(id, Math.min(30, (cart.get(id) || 0) + 1));
-  persist(); renderSelection();
+  persist(); resetShippingQuote(); renderSelection();
   toast('Agregado al carrito');
   openDrawer();
 }
@@ -57,7 +64,7 @@ document.addEventListener('click', e => {
   const trigger = e.target.closest('[data-add]');
   if (trigger) addToCart(trigger.dataset.add);
   const remove = e.target.closest('[data-remove]');
-  if (remove) { const q = cart.get(remove.dataset.remove) || 0; if (q <= 1) cart.delete(remove.dataset.remove); else cart.set(remove.dataset.remove, q - 1); persist(); renderSelection(); }
+  if (remove) { const q = cart.get(remove.dataset.remove) || 0; if (q <= 1) cart.delete(remove.dataset.remove); else cart.set(remove.dataset.remove, q - 1); persist(); resetShippingQuote(); renderSelection(); }
 });
 
 const drawer = $('drawer-layer');
@@ -68,6 +75,9 @@ $('open-drawer').addEventListener('click', openDrawer);
 $('mobile-selection').addEventListener('click', openDrawer);
 $('close-drawer').addEventListener('click', closeDrawer);
 $('drawer-backdrop').addEventListener('click', closeDrawer);
+$('quote-shipping').addEventListener('click', quoteShipping);
+$('shipping-methods').addEventListener('change',event=>{const input=event.target.closest('input[name="shippingMethod"]');if(!input)return;const method=availableShippingMethods.find(item=>item.id===input.value);if(method)applyShippingMethod(method);});
+$('checkout-form').addEventListener('input',event=>{if(!['locality','postalCode'].includes(event.target.name)||!selectedShipping)return;resetShippingQuote('La ubicación cambió. Volvé a calcular las opciones.');renderSelection();});
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') { if (!drawer.hidden) closeDrawer(); else closeMenu(); }
   if (e.key === 'Tab' && !drawer.hidden) {
@@ -94,13 +104,13 @@ async function copyText(text) {
 }
 $('checkout-form').addEventListener('submit', async event => {
   event.preventDefault();
-  if (!checkoutReady || !cart.size) return;
+  if (!checkoutReady || !cart.size || !selectedShipping) return;
   const button = $('drawer-copy');
   button.disabled = true;
   $('checkout-status').textContent = 'Preparando el pago seguro…';
   const data = new FormData(event.currentTarget);
   try {
-    const response = await fetch(`${API}/api/orders`, {method:'POST', headers:{'content-type':'application/json','x-requested-with':'restia-web'}, body:JSON.stringify({name:data.get('name'),phone:data.get('phone'),address:data.get('address'),notes:data.get('notes'),fulfillment:'delivery',paymentMethod:'mercadopago',items:[...cart].map(([id,quantity]) => ({id,quantity}))})});
+    const response = await fetch(`${API}/api/orders`, {method:'POST', headers:{'content-type':'application/json','x-requested-with':'restia-web'}, body:JSON.stringify({name:data.get('name'),phone:data.get('phone'),address:data.get('address'),locality:data.get('locality'),postalCode:data.get('postalCode'),notes:data.get('notes'),shippingMethod:selectedShipping.id,fulfillment:selectedShipping.id==='pickup'?'pickup':'delivery',paymentMethod:'mercadopago',items:[...cart].map(([id,quantity]) => ({id,quantity}))})});
     const result = await response.json();
     if (!response.ok || !result.checkoutUrl) throw new Error(result.error || 'No pudimos preparar el pago.');
     location.assign(result.checkoutUrl);
@@ -213,8 +223,9 @@ async function loadLiveCatalog() {
     Object.assign(ITEMS, Object.fromEntries(PRODUCTS.map(product => [product.id, product])));
     for (const id of cart.keys()) if (!ITEMS[id]) cart.delete(id);
     persist();
-    deliveryFee = Number.isFinite(data.deliveryFee) && data.deliveryFee >= 0 ? data.deliveryFee : null;
-    checkoutReady = Boolean(data.mercadoPagoEnabled && data.paymentMode === 'production' && deliveryFee !== null);
+    shippingConfigured = Boolean(data.shipping && [data.shipping.pickup?.enabled,data.shipping.delivery?.enabled,data.shipping.coordinate?.enabled].some(Boolean));
+    checkoutReady = Boolean(data.mercadoPagoEnabled && data.paymentMode === 'production' && shippingConfigured);
+    resetShippingQuote();
     renderProducts();
   } catch (error) {
     checkoutReady = false;

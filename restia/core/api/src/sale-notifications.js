@@ -29,7 +29,8 @@ function argentinaDate(value) {
 
 export function buildSaleEmail({ store, order, items }) {
   const itemTotal = items.reduce((sum, item) => sum + Number(item.subtotal || 0), 0);
-  const shipping = Math.max(0, Math.round((Number(order.subtotal || 0) - itemTotal) * 100) / 100);
+  const shipping = Math.max(0, Math.round(Number(order.shipping_fee ?? (Number(order.subtotal || 0) - itemTotal)) * 100) / 100);
+  const total = Number(order.total ?? order.subtotal ?? (itemTotal + shipping));
   const delivery = order.fulfillment === 'delivery' ? 'Envío a domicilio' : 'Retiro en el local';
   const rows = items.map(item => `
     <tr>
@@ -76,7 +77,7 @@ export function buildSaleEmail({ store, order, items }) {
             <tbody>${rows}${shippingRow}</tbody>
             <tfoot><tr>
               <td colspan="2" style="padding:16px 8px 4px;font-size:17px;font-weight:700">Total cobrado</td>
-              <td style="padding:16px 8px 4px;text-align:right;font-size:20px;font-weight:700">${money(order.subtotal)}</td>
+              <td style="padding:16px 8px 4px;text-align:right;font-size:20px;font-weight:700">${money(total)}</td>
             </tr></tfoot>
           </table>
           ${notes}
@@ -99,7 +100,7 @@ export function buildSaleEmail({ store, order, items }) {
     '',
     ...itemLines,
     shipping > 0 ? `Envío: ${money(shipping)}` : '',
-    `TOTAL COBRADO: ${money(order.subtotal)}`,
+    `TOTAL COBRADO: ${money(total)}`,
     order.notes ? `Observaciones: ${order.notes}` : ''
   ].filter(Boolean).join('\n');
 
@@ -178,7 +179,7 @@ export async function sendSaleNotification(env, id) {
       env.DB.prepare('SELECT id, name FROM stores WHERE id = ? AND active = 1').bind(claimed.store_id).first(),
       env.DB.prepare(`
         SELECT id, code, customer_name, customer_phone, fulfillment, address, notes,
-               subtotal, confirmed_at, payment_method, status
+               subtotal, product_subtotal, shipping_fee, total, confirmed_at, payment_method, status
         FROM orders WHERE store_id = ? AND id = ?
       `).bind(claimed.store_id, claimed.order_id).first(),
       env.DB.prepare(`

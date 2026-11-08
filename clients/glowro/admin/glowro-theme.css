@@ -1,0 +1,63 @@
+:root{color-scheme:light;--color-canvas:#f5f4f2;--color-surface:#fff;--color-surface-subtle:#faf9f7;--color-text:#202126;--color-text-muted:#606570;--color-border:#dedfdc;--color-border-strong:#c4c7c4;--color-action:#302c31;--color-action-hover:#1f1c20;--color-accent:#a45f62;--color-accent-soft:#f5e9e8;--color-focus:#8e4e53;--color-success:#176b52;--color-success-soft:#e5f5ee;--color-warning:#805b13;--color-warning-soft:#fff4d8;--color-error:#a52a2a;--color-error-soft:#fdebea;--admin-primary:var(--color-action);--admin-accent:var(--color-accent);--line:var(--color-border);--muted:var(--color-text-muted);accent-color:var(--color-accent)}
+html[data-theme=dark]{color-scheme:dark;--color-canvas:#0f1115;--color-surface:#171a20;--color-surface-subtle:#1d2027;--color-text:#f2f1ef;--color-text-muted:#b5b8c0;--color-border:#343943;--color-border-strong:#505762;--color-action:#e7d9d8;--color-action-hover:#f4e9e8;--color-accent:#d69a9a;--color-accent-soft:#392729;--color-focus:#e0aaaa;--color-success:#7ed2b2;--color-success-soft:#17382f;--color-warning:#e6c073;--color-warning-soft:#392f1b;--color-error:#ffaaa2;--color-error-soft:#412326}
+body,.workspace,.page-section,.login-shell{background:var(--color-canvas);color:var(--color-text)}
+.sidebar,.topbar,.login-card,.settings-card,.order,.summary-strip>div,.metric-card,.history-tools,.section-toolbar,.product-table,.add-product-form,.empty-module,.action-dialog{background:var(--color-surface);color:var(--color-text);border-color:var(--color-border)}
+.topbar{background:color-mix(in srgb,var(--color-surface) 94%,transparent)}
+label,.views .view.active,.topbar h1,.settings-card h2,.products-head h2,.product-copy input{color:var(--color-text)}
+input,textarea,select,.product-copy textarea,.money-input,.business-day input[type=time]{background:var(--color-surface);color:var(--color-text);-webkit-text-fill-color:var(--color-text);border-color:var(--color-border-strong)}
+input::placeholder,textarea::placeholder{color:var(--color-text-muted);opacity:.82}
+input:focus-visible,textarea:focus-visible,select:focus-visible,button:focus-visible,.row-photo label:focus-within{outline:3px solid color-mix(in srgb,var(--color-focus) 34%,transparent);outline-offset:2px;border-color:var(--color-focus);box-shadow:none}
+button{background:var(--color-action);color:var(--color-surface);box-shadow:none;transition:background .18s ease,color .18s ease,border-color .18s ease}
+button:hover{background:var(--color-action-hover);transform:none;box-shadow:none}
+button:disabled{background:var(--color-surface-subtle);color:var(--color-text-muted);border-color:var(--color-border);cursor:not-allowed;opacity:.72}
+.login-card button,.form-actions button,.products-head>button,.add-product-form button[type=submit]{background:var(--color-action);color:var(--color-surface)}
+.secondary,.icon-button,.row-photo label,.check-mp-button{background:var(--color-surface);color:var(--color-text);border:1px solid var(--color-border-strong)}
+.secondary:hover,.icon-button:hover,.row-photo label:hover,.check-mp-button:hover{background:var(--color-surface-subtle);color:var(--color-text)}
+.side-link{color:var(--color-text-muted)}.side-link:hover{background:var(--color-surface-subtle);color:var(--color-text)}.side-link.active{background:var(--color-accent-soft);color:var(--color-text)}.side-link.active>span,.eyebrow{color:var(--color-accent)}
+.connection-pill.connected{background:var(--color-success-soft);color:var(--color-success)}
+.form-actions p{color:var(--color-success)}.form-actions p.is-error{color:var(--color-error)}
+.danger,.danger-text{color:var(--color-error)!important}.danger{background:var(--color-surface)!important;border-color:color-mix(in srgb,var(--color-error) 48%,var(--color-border))!important}.danger:hover{background:var(--color-error-soft)!important}
+.danger-solid{background:var(--color-error);color:#fff}.danger-solid:hover{background:color-mix(in srgb,var(--color-error) 82%,#000)}
+.settings-warning{background:var(--color-warning-soft);border-color:color-mix(in srgb,var(--color-warning) 35%,var(--color-border))}.settings-warning p,.settings-warning strong{color:var(--color-warning)}
+.tag{background:var(--color-accent-soft);color:var(--color-text)}
+::selection{background:var(--color-accent);color:#fff}*{scrollbar-color:var(--color-border-strong) var(--color-canvas);caret-color:var(--color-accent)}
+html[data-theme=dark] body,html[data-theme=dark] .workspace,html[data-theme=dark] .page-section,html[data-theme=dark] .login-shell{background:var(--color-canvas);color:var(--color-text)}
+html[data-theme=dark] .sidebar,html[data-theme=dark] .topbar,html[data-theme=dark] .login-card,html[data-theme=dark] .settings-card,html[data-theme=dark] .order,html[data-theme=dark] .summary-strip>div,html[data-theme=dark] .metric-card,html[data-theme=dark] .history-tools,html[data-theme=dark] .section-toolbar,html[data-theme=dark] .product-table,html[data-theme=dark] .add-product-form,html[data-theme=dark] .empty-module,html[data-theme=dark] dialog{background:var(--color-surface);color:var(--color-text);border-color:var(--color-border)}
+html[data-theme=dark] input,html[data-theme=dark] textarea,html[data-theme=dark] select,html[data-theme=dark] .business-day input[type=time],html[data-theme=dark] .product-copy textarea,html[data-theme=dark] .money-input{background:var(--color-surface);color:var(--color-text);-webkit-text-fill-color:var(--color-text);border-color:var(--color-border-strong)}
+html[data-theme=dark] .secondary,html[data-theme=dark] .icon-button,html[data-theme=dark] .row-photo label,html[data-theme=dark] .check-mp-button{background:var(--color-surface);color:var(--color-text);border-color:var(--color-border-strong)}
+html[data-theme=dark] .side-link.active{background:var(--color-accent-soft);color:var(--color-text)}html[data-theme=dark] .side-link.active>span{color:var(--color-accent)}
+
+/* Productos: el módulo conserva la misma jerarquía en oscuro sin alterar el tema claro. */
+html[data-theme=dark] #products-area .products-head,
+html[data-theme=dark] #products-area .add-product-form,
+html[data-theme=dark] #products-area .product-row{color:var(--color-text)}
+html[data-theme=dark] #products-area .add-product-form,
+html[data-theme=dark] #products-area .product-row{background:var(--color-surface);border-color:var(--color-border);box-shadow:0 8px 24px rgba(0,0,0,.16)}
+html[data-theme=dark] #products-area .product-table{background:transparent;border-color:transparent}
+html[data-theme=dark] #products-area .product-table-head{background:var(--color-surface-subtle);color:var(--color-text-muted);border-color:var(--color-border)}
+html[data-theme=dark] #products-area .product-row+.product-row{border-color:var(--color-border)}
+html[data-theme=dark] #products-area .product-cell img,
+html[data-theme=dark] #products-area .image-preview{background:var(--color-surface-subtle);border-color:var(--color-border-strong)}
+html[data-theme=dark] #products-area label,
+html[data-theme=dark] #products-area .product-copy input,
+html[data-theme=dark] #products-area .product-copy textarea,
+html[data-theme=dark] #products-area .money-input,
+html[data-theme=dark] #products-area .money-input input{color:var(--color-text);-webkit-text-fill-color:var(--color-text)}
+html[data-theme=dark] #products-area .product-copy input,
+html[data-theme=dark] #products-area .product-copy textarea,
+html[data-theme=dark] #products-area .money-input,
+html[data-theme=dark] #products-area .add-product-form input,
+html[data-theme=dark] #products-area .add-product-form textarea{background:var(--color-surface-subtle);border-color:var(--color-border-strong)}
+html[data-theme=dark] #products-area .product-copy label>span,
+html[data-theme=dark] #products-area .price-cell>span,
+html[data-theme=dark] #products-area .row-photo>span,
+html[data-theme=dark] #products-area .products-head p,
+html[data-theme=dark] #products-area .catalog-status,
+html[data-theme=dark] #products-area .add-product-form small,
+html[data-theme=dark] #products-area .money-input>span{color:var(--color-text-muted)}
+html[data-theme=dark] #products-area .row-photo label{background:var(--color-surface-subtle);color:var(--color-text);border-color:var(--color-border-strong)}
+html[data-theme=dark] #products-area .row-photo label:hover{background:var(--color-accent-soft);border-color:var(--color-accent)}
+html[data-theme=dark] #products-area .save-note{color:var(--color-success)}
+html[data-theme=dark] .action-dialog{background:var(--color-surface);color:var(--color-text);border:1px solid var(--color-border)}
+html[data-theme=dark] .action-dialog-copy p{color:var(--color-text-muted)}
+html[data-theme=dark] .action-dialog-icon{background:var(--color-error-soft);color:var(--color-error)}

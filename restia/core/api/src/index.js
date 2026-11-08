@@ -2,6 +2,8 @@ import store from '../../../../clients/burger-tin/config/catalog.json' with { ty
 import { checkoutPaymentMethods, formatMoney, formatOrderCode, timingSafeEqualText, validateOrderInput } from './domain.js';
 import { normalizeBusinessHours, orderingAvailability, validateBusinessHours } from './business-hours.js';
 import { processPendingSaleNotifications, queueSaleNotification, sendSaleNotification } from './sale-notifications.js';
+import { normalizeShippingConfig, publicShippingConfig, shippingMethodsForCart, validateShippingConfig } from './shipping.js';
+import { mercadoPagoCharge, orderPaymentAmounts } from './mercado-pago.js';
 
 const DEFAULT_STORE_ID = 'burger-tin';
 const GLOWRO_STORE_ID = 'glowro';
@@ -295,6 +297,13 @@ async function storeSettings(env, storeId) {
   let savedBusinessHours = null;
   try { savedBusinessHours = JSON.parse(values.business_hours || 'null'); } catch {}
   const businessHours = normalizeBusinessHours(savedBusinessHours);
+  let savedShippingConfig = null;
+  try { savedShippingConfig = JSON.parse(values.shipping_config || 'null'); } catch {}
+  const shippingConfig = normalizeShippingConfig(savedShippingConfig, {
+    pickupAddress:values.pickup_address,
+    deliveryZones:values.delivery_zones,
+    deliveryFee:values.delivery_fee
+  });
   return {
     business: values.business || (storeId === DEFAULT_STORE_ID ? store.business : 'Nueva empresa'),
     phone: values.phone || (storeId === DEFAULT_STORE_ID ? env.WHATSAPP_PHONE || store.phone : ''),
@@ -311,7 +320,8 @@ async function storeSettings(env, storeId) {
     paymentMode: values.mp_mode || (storeId === DEFAULT_STORE_ID ? (env.PAYMENTS_MODE || 'sandbox') : 'sandbox'),
     salesNotificationEnabled: values.sales_notification_enabled === '1',
     salesNotificationEmail: values.sales_notification_email || '',
-    businessHours
+    businessHours,
+    shippingConfig
   };
 }
 
@@ -418,6 +428,7 @@ async function getCatalog(request, env) {
       mercadoPagoEnabled: settings.mercadoPagoEnabled,
       paymentMode: settings.paymentMode,
       deliveryFee: settings.deliveryFee,
+      shipping: publicShippingConfig(settings.shippingConfig),
       businessHours: settings.businessHours,
       ordering: orderingAvailability(settings.businessHours),
       theme: { primary:settings.storePrimary, accent:settings.storeAccent },
@@ -534,6 +545,14 @@ async function updateSettings(request, env) {
   let businessHours = null;
   try { if (body.businessHours !== undefined) businessHours = validateBusinessHours(body.businessHours); }
   catch (error) { return publicJson(request, env, { error:error.message }, 400); }
+  let shippingConfig = null;
+  try {
+    if (body.shippingConfig !== undefined) shippingConfig = validateShippingConfig(body.shippingConfig, {
+      pickupAddress,
+      deliveryZones,
+      deliveryFee:body.deliveryFee
+    });
+  } catch (error) { return publicJson(request, env, { error:error.message }, 400); }
   if (business.length < 2 || business.length > 80) return publicJson(request, env, { error:'Ingresá un nombre de local válido.' }, 400);
   if ((identity.storeId !== GLOWRO_STORE_ID && pickupAddress.length < 5) || pickupAddress.length > 200) return publicJson(request, env, { error:'Ingresá una dirección válida.' }, 400);
   if ((identity.storeId !== GLOWRO_STORE_ID && phone.length < 10) || (phone && (phone.length < 10 || phone.length > 15))) return publicJson(request, env, { error:'Ingresá el teléfono con código de país y área.' }, 400);
@@ -551,6 +570,7 @@ async function updateSettings(request, env) {
     upsertSetting(env, 'apply_colors_to_store', body.applyColorsToStore ? '1' : '0', 0, identity.storeId)
   );
   if (businessHours) statements.push(upsertSetting(env, 'business_hours', JSON.stringify(businessHours), 0, identity.storeId));
+  if (shippingConfig) statements.push(upsertSetting(env, 'shipping_config', JSON.stringify(shippingConfig), 0, identity.storeId));
   if (body.salesNotificationEnabled !== undefined || body.salesNotificationEmail !== undefined) {
     const notificationEmail = String(body.salesNotificationEmail || '').trim().toLowerCase();
     const notificationsEnabled = Boolean(body.salesNotificationEnabled);
@@ -584,7 +604,7 @@ async function updateSettings(request, env) {
     }
   }
   await env.DB.batch(statements);
-  await audit(env, identity, 'store.settings.update', 'store', identity.storeId, { mercadoPagoChanged:Boolean(body.disconnectMercadoPago || body.mpAccessToken), themeChanged:hasThemeSettings, businessHoursChanged:Boolean(businessHours), salesNotificationsChanged:body.salesNotificationEnabled !== undefined || body.salesNotificationEmail !== undefined });
+  await audit(env, identity, 'store.settings.update', 'store', identity.storeId, { mercadoPagoChanged:Boolean(body.disconnectMercadoPago || body.mpAccessToken), themeChanged:hasThemeSettings, businessHoursChanged:Boolean(businessHours), shippingChanged:Boolean(shippingConfig), salesNotificationsChanged:body.salesNotificationEnabled !== undefined || body.salesNotificationEmail !== undefined });
   return publicJson(request, env, { ok:true, settings:await storeSettings(env, identity.storeId) });
 }
 
@@ -615,6 +635,7 @@ async function updateProductImage(request, env, id) {
   if (length > 900000) return publicJson(request, env, { error:'La imagen supera el máximo de 900 KB.' }, 413);
   const bytes = await request.arrayBuffer();
   if (bytes.byteLength < 100 || bytes.byteLength > 900000) return publicJson(request, env, { error:'La imagen está vacía o es demasiado pesada.' }, 400);
+  if (!validImageBytes(type, new Uint8Array(bytes))) return publicJson(request, env, { error:'El contenido del archivo no coincide con una imagen válida.' }, 415);
   const now = new Date().toISOString();
   const result = await env.DB.prepare(`
     UPDATE products SET image_data = ?, image_type = ?, image_updated_at = ?, updated_at = ? WHERE store_id = ? AND id = ?
@@ -622,6 +643,49 @@ async function updateProductImage(request, env, id) {
   if (!result.meta.changes) return publicJson(request, env, { error:'Producto inexistente.' }, 404);
   await audit(env, identity, 'product.image.update', 'product', id, { type, bytes:bytes.byteLength });
   return publicJson(request, env, { ok:true, image:`${String(env.PUBLIC_API_URL || '').replace(/\/$/, '')}/api/catalog/images/${encodeURIComponent(id)}?store=${encodeURIComponent(identity.storeId)}&v=${encodeURIComponent(now)}` });
+}
+
+export function validImageBytes(type, bytes) {
+  if (!(bytes instanceof Uint8Array) || bytes.byteLength < 12) return false;
+  if (type === 'image/jpeg') return bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+  if (type === 'image/png') return [0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a].every((byte, index) => bytes[index] === byte);
+  if (type === 'image/webp') return String.fromCharCode(...bytes.slice(0, 4)) === 'RIFF' && String.fromCharCode(...bytes.slice(8, 12)) === 'WEBP';
+  return false;
+}
+
+async function deleteProductImage(request, env, id) {
+  const identity = await requireAdmin(request, env, 'products:manage');
+  if (!identity) return publicJson(request, env, { error:'No autorizado.' }, 401);
+  const now = new Date().toISOString();
+  const result = await env.DB.prepare(`
+    UPDATE products SET image_data = NULL, image_type = NULL, image_updated_at = NULL, updated_at = ?
+    WHERE store_id = ? AND id = ? AND active = 1
+  `).bind(now, identity.storeId, id).run();
+  if (!result.meta.changes) return publicJson(request, env, { error:'Producto inexistente.' }, 404);
+  await audit(env, identity, 'product.image.delete', 'product', id);
+  const product = await env.DB.prepare('SELECT default_image FROM products WHERE store_id = ? AND id = ?').bind(identity.storeId, id).first();
+  return publicJson(request, env, { ok:true, image:product?.default_image || '' });
+}
+
+async function quoteShipping(request, env) {
+  try {
+    const storeId = await publicStoreId(request, env);
+    const body = await readJson(request);
+    const cart = validateOrderInput({ name:'Cotización', fulfillment:'pickup', paymentMethod:'cash', items:body.items }, await catalogProducts(env, storeId));
+    const settings = await storeSettings(env, storeId);
+    const methods = shippingMethodsForCart(settings.shippingConfig, {
+      subtotal:cart.subtotal,
+      locality:body.locality,
+      postalCode:body.postalCode
+    });
+    return publicJson(request, env, {
+      subtotal:cart.subtotal,
+      methods,
+      outsideCoverage:Boolean(settings.shippingConfig.delivery.enabled && !methods.some(method => method.id === 'delivery'))
+    });
+  } catch (error) {
+    return publicJson(request, env, { error:error.message || 'No pudimos calcular el envío.' }, 400);
+  }
 }
 
 async function createOrder(request, env) {
@@ -633,14 +697,39 @@ async function createOrder(request, env) {
     settings = await storeSettings(env, storeId);
     const availability = orderingAvailability(settings.businessHours);
     if (!availability.open) return publicJson(request, env, { error:availability.message, ordering:availability }, 409);
-    order = validateOrderInput(await readJson(request), await catalogProducts(env, storeId));
+    const body = await readJson(request);
+    order = validateOrderInput(body, await catalogProducts(env, storeId));
+    order.productSubtotal = order.subtotal;
+    order.shippingFee = 0;
+    order.total = order.productSubtotal;
     if (storeId === GLOWRO_STORE_ID) {
-      if (order.paymentMethod !== 'mercadopago' || order.fulfillment !== 'delivery') throw new Error('GlowRo acepta únicamente envíos con Mercado Pago.');
-      if (order.phone.length < 10 || order.phone.length > 15) throw new Error('Ingresá un teléfono de contacto para el envío.');
-      if (settings.deliveryFee === null) throw new Error('El costo de envío todavía no está configurado.');
-      order.shippingFee = settings.deliveryFee;
-      order.subtotal = Math.round((order.subtotal + settings.deliveryFee) * 100) / 100;
+      if (order.paymentMethod !== 'mercadopago') throw new Error('GlowRo acepta pagos mediante Mercado Pago.');
+      if (order.phone.length < 10 || order.phone.length > 15) throw new Error('Ingresá un teléfono de contacto para la entrega.');
+      const methods = shippingMethodsForCart(settings.shippingConfig, { subtotal:order.subtotal, locality:body.locality, postalCode:body.postalCode });
+      const selected = methods.find(method => method.id === body.shippingMethod);
+      if (!selected) throw new Error('El método de entrega ya no está disponible para esta ubicación. Volvé a calcular el envío.');
+      if (selected.id === 'pickup') {
+        order.fulfillment = 'pickup';
+        order.address = '';
+      } else {
+        if (String(body.address || '').trim().length < 5) throw new Error('Ingresá la dirección de entrega.');
+        const locality = String(body.locality || '').trim();
+        const postalCode = String(body.postalCode || '').trim();
+        if (!locality && !postalCode) throw new Error('Ingresá la localidad o el código postal.');
+        order.fulfillment = 'delivery';
+        order.address = [String(body.address || '').trim(), locality, postalCode ? `CP ${postalCode}` : ''].filter(Boolean).join(' · ').slice(0, 250);
+      }
+      order.shippingMethod = selected.id;
+      order.shippingFee = selected.fee === null ? 0 : selected.fee;
+      order.shippingCostPending = selected.fee === null;
+      if (order.shippingCostPending) order.notes = ['Envío a coordinar: costo no incluido en el pago.', order.notes].filter(Boolean).join(' ').slice(0, 500);
+      order.total = Math.round((order.productSubtotal + order.shippingFee) * 100) / 100;
     }
+    const amounts = orderPaymentAmounts(order);
+    order.productSubtotal = amounts.productSubtotal;
+    order.shippingFee = amounts.shippingFee;
+    order.total = amounts.total;
+    order.subtotal = order.total;
     if (order.paymentMethod === 'mercadopago' && !settings.mercadoPagoEnabled) throw new Error('Mercado Pago todavía no está conectado para esta tienda.');
     if (order.paymentMethod === 'mercadopago' && settings.paymentMode !== 'production') throw new Error('Los cobros online todavía no están activados para esta tienda.');
   }
@@ -671,9 +760,9 @@ async function createOrder(request, env) {
   const now = new Date().toISOString();
   const status = order.paymentMethod === 'cash' ? 'pending_cash' : 'pending_payment';
   const inserted = await env.DB.prepare(`
-    INSERT INTO orders (code, customer_name, fulfillment, address, notes, payment_method, status, subtotal, created_at, store_id, customer_phone)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).bind(code, order.name, order.fulfillment, order.address || null, order.notes || null, order.paymentMethod, status, order.subtotal, now, storeId, order.phone || null).run();
+    INSERT INTO orders (code, customer_name, fulfillment, address, notes, payment_method, status, subtotal, product_subtotal, shipping_fee, total, created_at, store_id, customer_phone)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(code, order.name, order.fulfillment, order.address || null, order.notes || null, order.paymentMethod, status, order.total, order.productSubtotal, order.shippingFee, order.total, now, storeId, order.phone || null).run();
   const orderId = inserted.meta.last_row_id;
   await env.DB.batch(order.items.map(item => env.DB.prepare(`
     INSERT INTO order_items (order_id, product_id, name, quantity, unit_price, subtotal, store_id)
@@ -705,14 +794,10 @@ async function createMercadoPagoCheckout(env, storeId, orderId, code, order, pay
   const company = storeId === DEFAULT_STORE_ID ? null : await env.DB.prepare('SELECT public_host FROM stores WHERE id = ? AND active = 1').bind(storeId).first();
   const siteUrl = storeId === DEFAULT_STORE_ID ? env.PUBLIC_SITE_URL : (company?.public_host ? `https://${company.public_host}/` : '');
   if (!credentials.accessToken || !env.PUBLIC_API_URL || !siteUrl) throw new Error('Mercado Pago no esta configurado.');
+  const charge = mercadoPagoCharge(order);
   const body = {
-    items: order.items.map(item => ({
-      id: item.productId,
-      title: item.name,
-      currency_id: 'ARS',
-      quantity: item.quantity,
-      unit_price: item.unitPrice
-    })).concat(order.shippingFee > 0 ? [{id:'delivery',title:'Envío a domicilio',currency_id:'ARS',quantity:1,unit_price:order.shippingFee}] : []),
+    items: charge.items,
+    ...(charge.shipments ? { shipments:charge.shipments } : {}),
     external_reference: `${storeId}:${orderId}`,
     notification_url: `${env.PUBLIC_API_URL.replace(/\/$/, '')}/api/webhooks/mercadopago?store=${encodeURIComponent(storeId)}`,
     back_urls: {
@@ -723,7 +808,15 @@ async function createMercadoPagoCheckout(env, storeId, orderId, code, order, pay
     auto_return: 'approved',
     ...(checkoutPaymentMethods(storeId) ? { payment_methods: checkoutPaymentMethods(storeId) } : {}),
     statement_descriptor: storeId === GLOWRO_STORE_ID ? 'GLOWRO' : (storeId === DEFAULT_STORE_ID ? 'BURGER TIN' : 'RESTIA'),
-    metadata: { restia_store:storeId, restia_order_id:String(orderId), public_order_code:code }
+    metadata: {
+      restia_store:storeId,
+      restia_order_id:String(orderId),
+      public_order_code:code,
+      shipping_method:order.shippingMethod || order.fulfillment,
+      product_subtotal:charge.amounts.productSubtotal,
+      shipping_fee:charge.amounts.shippingFee,
+      total:charge.amounts.total
+    }
   };
   const response = await fetch('https://api.mercadopago.com/checkout/preferences', {
     method: 'POST',
@@ -783,8 +876,8 @@ async function mercadoPagoWebhook(request, env, ctx) {
 
   const [storeId, orderId] = String(payment.external_reference).split(':', 2);
   if (storeId !== webhookStoreId || !/^\d+$/.test(orderId || '')) return new Response('', { status: 200 });
-  const order = await env.DB.prepare("SELECT id, code, subtotal, status FROM orders WHERE store_id = ? AND id = ? AND payment_method = 'mercadopago'").bind(storeId, Number(orderId)).first();
-  if (!order || order.status !== 'pending_payment' || Math.round(Number(payment.transaction_amount) * 100) !== Math.round(Number(order.subtotal) * 100)) return new Response('', { status: 200 });
+  const order = await env.DB.prepare("SELECT id, code, COALESCE(total, subtotal) AS total, status FROM orders WHERE store_id = ? AND id = ? AND payment_method = 'mercadopago'").bind(storeId, Number(orderId)).first();
+  if (!order || order.status !== 'pending_payment' || Math.round(Number(payment.transaction_amount) * 100) !== Math.round(Number(order.total) * 100)) return new Response('', { status: 200 });
   await confirmOrder(env, storeId, order.id, String(payment.id), storeId === DEFAULT_STORE_ID);
   const notificationId = await queueSaleNotification(env, storeId, order.id);
   if (notificationId) ctx?.waitUntil(sendSaleNotification(env, notificationId));
@@ -1227,6 +1320,7 @@ export default {
     if (declaredLength > 1000000) return publicJson(request, env, { error:'Solicitud demasiado grande.' }, 413);
     if (request.method === 'GET' && url.pathname === '/health') return json({ ok:true, service:'burger-tin-orders' });
     if (request.method === 'GET' && url.pathname === '/api/catalog') return getCatalog(request, env);
+    if (request.method === 'POST' && url.pathname === '/api/shipping/quote') return quoteShipping(request, env);
     const catalogImageMatch = url.pathname.match(/^\/api\/catalog\/images\/([^/]+)$/);
     if (request.method === 'GET' && catalogImageMatch) return getCatalogImage(request, env, decodeURIComponent(catalogImageMatch[1]));
     if (request.method === 'POST' && url.pathname === '/api/orders') return createOrder(request, env);
@@ -1258,6 +1352,7 @@ export default {
     if (request.method === 'DELETE' && productMatch) return deleteProduct(request, env, decodeURIComponent(productMatch[1]));
     const productImageMatch = url.pathname.match(/^\/api\/admin\/products\/([^/]+)\/image$/);
     if (request.method === 'POST' && productImageMatch) return updateProductImage(request, env, decodeURIComponent(productImageMatch[1]));
+    if (request.method === 'DELETE' && productImageMatch) return deleteProductImage(request, env, decodeURIComponent(productImageMatch[1]));
     if (request.method === 'DELETE' && url.pathname === '/api/admin/history') return clearHistory(request, env);
     const staffMatch = url.pathname.match(/^\/api\/admin\/orders\/([^/]+)\/(confirm|reprint|cancel)$/);
     if (request.method === 'POST' && staffMatch) return staffAction(request, env, decodeURIComponent(staffMatch[1]), staffMatch[2]);

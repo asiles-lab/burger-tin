@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { authenticationStoreId, catalogProducts, productImageBytes, publicStoreId } from '../src/index.js';
+import { authenticationStoreId, catalogProducts, productImageBytes, publicStoreId, validImageBytes } from '../src/index.js';
 
 function tenantDatabase() {
   const calls = [];
@@ -74,4 +74,11 @@ test('convierte el BLOB de D1 a bytes antes de servir una imagen', () => {
   const bytes = productImageBytes(jpegFromD1);
   assert.ok(bytes instanceof Uint8Array);
   assert.deepEqual([...bytes], jpegFromD1);
+});
+
+test('valida la firma real de las imágenes antes de guardarlas', () => {
+  const jpeg = Uint8Array.from([0xff,0xd8,0xff,0xe0,0,0,0,0,0,0,0,0]);
+  const fake = Uint8Array.from([0x3c,0x73,0x63,0x72,0x69,0x70,0x74,0x3e,0,0,0,0]);
+  assert.equal(validImageBytes('image/jpeg', jpeg), true);
+  assert.equal(validImageBytes('image/jpeg', fake), false);
 });
