@@ -2,7 +2,7 @@ ALTER TABLE glowro_confirmation_emails ADD COLUMN content_json TEXT;
 ALTER TABLE orders ADD COLUMN mp_status TEXT;
 CREATE TABLE glowro_mail_settings (id INTEGER PRIMARY KEY CHECK(id=1), value TEXT NOT NULL);
 CREATE TABLE glowro_messages (
- id TEXT PRIMARY KEY, order_id INTEGER REFERENCES orders(id), stage TEXT NOT NULL,
+ id TEXT PRIMARY KEY, order_id INTEGER REFERENCES orders(id) ON DELETE SET NULL, stage TEXT NOT NULL,
  recipient TEXT NOT NULL, content_json TEXT NOT NULL, actor TEXT NOT NULL,
  status TEXT NOT NULL DEFAULT 'pending', attempts INTEGER NOT NULL DEFAULT 0,
  created_at TEXT NOT NULL, first_attempt_at TEXT, lease_until TEXT, next_attempt_at TEXT,

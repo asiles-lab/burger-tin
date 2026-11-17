@@ -949,7 +949,6 @@ async function listOrders(request, env) {
 async function clearHistory(request, env) {
   const identity = await requireAdmin(request, env, 'orders:manage');
   if (!identity) return publicJson(request, env, { error:'No autorizado.' }, 401);
-  if (identity.storeId === GLOWRO_STORE_ID) return publicJson(request,env,{error:'Los pedidos se conservan para seguimiento, comunicaciones y trazabilidad.'},409);
   const pending = await env.DB.prepare("SELECT COUNT(*) AS total FROM orders WHERE store_id = ? AND status IN ('pending_cash', 'pending_payment')").bind(identity.storeId).first();
   if (Number(pending?.total) > 0) return publicJson(request, env, { error:'Primero confirma o cancela todos los pedidos pendientes.' }, 409);
   await env.DB.batch([
@@ -1362,7 +1361,7 @@ export default {
       if (!/^[0-9a-f-]{72}$/.test(token) || await publicStoreId(request, env) !== GLOWRO_STORE_ID) return publicJson(request, env, { error:'Consulta inválida.' }, 400);
       const order = await env.DB.prepare("SELECT id, code, status, mp_status, mp_payment_id, total, shipping_fee FROM orders WHERE store_id = 'glowro' AND confirmation_token_hash = ? AND payment_method = 'mercadopago'").bind(await sha256(token)).first();
       const approved=order?.status==='confirmed' && Boolean(order.mp_payment_id);
-      const purchase=approved ? {transaction_id:order.code,value:Number(order.total)-Number(order.shipping_fee||0),shipping:Number(order.shipping_fee||0),currency:'ARS',items:(await env.DB.prepare("SELECT product_id, name, quantity, unit_price FROM order_items WHERE order_id=? AND store_id='glowro'").bind(order.id).all()).results.map(i=>({item_id:i.product_id,item_name:i.name,price:Number(i.unit_price),quantity:Number(i.quantity)}))} : undefined;
+      const purchase=approved ? {transaction_id:`GR-${order.id}`,value:Number(order.total)-Number(order.shipping_fee||0),shipping:Number(order.shipping_fee||0),currency:'ARS',items:(await env.DB.prepare("SELECT product_id, name, quantity, unit_price FROM order_items WHERE order_id=? AND store_id='glowro'").bind(order.id).all()).results.map(i=>({item_id:i.product_id,item_name:i.name,price:Number(i.unit_price),quantity:Number(i.quantity)}))} : undefined;
       return publicJson(request, env, order ? { code:order.code, status:approved ? 'approved' : order.status === 'cancelled' ? 'cancelled' : order.mp_status==='rejected' ? 'rejected' : order.mp_status==='cancelled' ? 'cancelled' : 'pending',purchase } : { error:'Pedido no encontrado.' }, order ? 200 : 404);
     }
     if (request.method === 'POST' && url.pathname === '/api/auth/challenge') return passwordChallenge(request, env);
