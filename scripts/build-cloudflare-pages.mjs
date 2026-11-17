@@ -68,6 +68,24 @@ await cp(landingSource, landing, { recursive:true });
 for (const name of ['analytics-config.js','analytics.mjs']) await copyFrom(burgerSiteSource, name, landing);
 
 await cp(glowroSiteSource, glowro, { recursive:true });
+const routineGuides = JSON.parse(await readFile(join(glowroSiteSource, 'rutinas', 'guides.json'), 'utf8'));
+const routineTemplate = await readFile(join(glowroSiteSource, 'rutinas', 'index.html'), 'utf8');
+const htmlAttribute = value => String(value).replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[character]));
+for (const guide of routineGuides) {
+  if (!/^[a-z0-9-]+$/.test(guide.slug)) throw new Error(`Slug de rutina inválido: ${guide.slug}`);
+  const destination = join(glowro, 'rutinas', guide.slug);
+  await mkdir(destination, {recursive:true});
+  const title = `${guide.title} — GlowRo`;
+  const html = routineTemplate
+    .replace('<body data-guide="">', `<body data-guide="${htmlAttribute(guide.slug)}">`)
+    .replace('<title>Tus rituales GlowRo</title>', `<title>${htmlAttribute(title)}</title>`)
+    .replace('<meta name="description" content="Tus rituales GlowRo: guías de cuidado facial y corporal con productos del catálogo actual.">', `<meta name="description" content="${htmlAttribute(guide.summary)}">`)
+    .replace('<meta property="og:title" content="Tus rituales GlowRo">', `<meta property="og:title" content="${htmlAttribute(title)}">`)
+    .replace('<meta property="og:description" content="Descubrí cómo combinar tus productos favoritos y crear una rutina a tu manera.">', `<meta property="og:description" content="${htmlAttribute(guide.summary)}">`)
+    .replace('<meta property="og:image" content="https://glowro.restia.net.ar/assets/glowro-hero-products.webp">', `<meta property="og:image" content="${htmlAttribute(guide.heroImage)}">`)
+    .replace('<link rel="canonical" href="https://glowro.restia.net.ar/rutinas/">', `<link rel="canonical" href="https://glowro.restia.net.ar/rutinas/${guide.slug}/">`);
+  await writeFile(join(destination, 'index.html'), html);
+}
 const ga4Id=process.env.GLOWRO_GA4_MEASUREMENT_ID || '';
 if(ga4Id && !/^G-[A-Z0-9]+$/.test(ga4Id)) throw new Error('GLOWRO_GA4_MEASUREMENT_ID inválido');
 await writeFile(join(glowro,'analytics-config.js'),`window.GLOWRO_GA4_ID = ${JSON.stringify(ga4Id)};\n`);

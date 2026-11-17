@@ -221,7 +221,8 @@ function renderQuizResult() {
   $('quiz-counter').textContent = 'TU RESULTADO';
   $('quiz-progress-bar').style.width = '100%';
   $('quiz-nav').hidden = true;
-  $('quiz-screen').innerHTML = `<span class="quiz-result-eyebrow">✳ TU PUNTO DE PARTIDA</span><h3 class="quiz-result-title">${r.title}</h3><p class="quiz-result-copy">Una orientación general para empezar a conversar con GlowRo; no reemplaza el asesoramiento profesional.</p><ul class="quiz-result-steps">${r.steps.map((s,i) => `<li><span>${i+1}</span>${s}</li>`).join('')}</ul>${recommendation}<div class="quiz-result-actions"><button class="btn btn-dark" type="button" id="quiz-copy"><svg class="icon"><use href="#i-copy"/></svg> Copiar mi guía</button><a class="btn btn-outline" href="${CONTACT.dm}" target="_blank" rel="noopener noreferrer">Consultar por Instagram <svg class="icon"><use href="#i-arrow-up"/></svg></a></div><button type="button" class="quiz-reset" id="quiz-reset">Volver a empezar ↺</button>`;
+  const guide = r.skin === 'sensible' ? 'hidratacion-esencial' : r.priority === 'luminosidad' ? 'glow-diario' : r.priority === 'equilibrar' || r.skin === 'grasa' || r.skin === 'mixta' ? 'limpieza-equilibrada' : 'hidratacion-esencial';
+  $('quiz-screen').innerHTML = `<span class="quiz-result-eyebrow">✳ TU PUNTO DE PARTIDA</span><h3 class="quiz-result-title">${r.title}</h3><p class="quiz-result-copy">Una orientación general para empezar a conversar con GlowRo; no reemplaza el asesoramiento profesional.</p><ul class="quiz-result-steps">${r.steps.map((s,i) => `<li><span>${i+1}</span>${s}</li>`).join('')}</ul>${recommendation}<div class="quiz-result-actions"><button class="btn btn-dark" type="button" id="quiz-copy"><svg class="icon"><use href="#i-copy"/></svg> Copiar mi guía</button><a class="btn btn-outline" href="/rutinas/${guide}/">Explorar una guía relacionada ↗</a><a class="btn btn-outline" href="${CONTACT.dm}" target="_blank" rel="noopener noreferrer">Consultar por Instagram <svg class="icon"><use href="#i-arrow-up"/></svg></a></div><button type="button" class="quiz-reset" id="quiz-reset">Volver a empezar ↺</button>`;
 }
 
 
@@ -295,6 +296,7 @@ async function loadLiveCatalog() {
     renderProducts();
     if ($('quiz-screen').querySelector('.quiz-result-title')) renderQuizResult();
     syncProductFromUrl();
+    if (new URL(location.href).searchParams.get('carrito') === '1') { history.replaceState(history.state, '', '/'); openDrawer(); }
   } catch (error) {
     catalogLoaded = true;
     liveCatalogVerified = false;

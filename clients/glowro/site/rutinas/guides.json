@@ -1,0 +1,187 @@
+[
+  {
+    "slug": "ritual-be",
+    "title": "Ritual BE · Rutina completa",
+    "eyebrow": "FACIAL · MAÑANA Y NOCHE",
+    "summary": "Una base simple de limpieza, humectación y cuidado diario con el kit facial BE.",
+    "goal": "Hidratación y luminosidad del rostro.",
+    "filters": ["facial", "mañana", "noche", "combos"],
+    "heroId": "MLA3273725744",
+    "heroImage": "https://http2.mlstatic.com/D_Q_NP_2X_879218-MLA110297395762_052026-AB.webp",
+    "productIds": ["MLA3273725744"],
+    "morning": [
+      {"label":"Limpiar","text":"Usá el gel de limpieza BE sobre rostro y cuello y enjuagá. Seguí las indicaciones del envase.","badge":"Componente declarado del kit"},
+      {"label":"Aplicar sérum","text":"Sobre la piel limpia, aplicá el sérum humectante antes de la crema.","badge":"Componente declarado del kit"},
+      {"label":"Hidratar","text":"Continuá con la crema ligera.","badge":"Componente declarado del kit"},
+      {"label":"Proteger","text":"Completá con un protector solar de amplio espectro FPS 30 o superior.","badge":"Paso adicional · no incluido"}
+    ],
+    "night": [
+      {"label":"Limpiar","text":"Limpiá rostro y cuello con el gel de limpieza BE.","badge":"Componente declarado del kit"},
+      {"label":"Aplicar sérum","text":"Aplicá el sérum humectante sobre la piel limpia.","badge":"Componente declarado del kit"},
+      {"label":"Hidratar","text":"Finalizá con la crema ligera.","badge":"Componente declarado del kit"}
+    ],
+    "occasional": "El tónico exfoliante BE con ácido salicílico es un paso ocasional después de limpiar, según tolerancia y etiqueta. No lo uses la misma noche que retinol; suspendé si irrita.",
+    "cautions": "No superpongas exfoliantes ni aumentes la frecuencia por tu cuenta. El protector solar se compra por separado: GlowRo no ofrece uno actualmente."
+  },
+  {
+    "slug": "hidratacion-esencial",
+    "title": "Hidratación esencial",
+    "eyebrow": "FACIAL · MAÑANA Y NOCHE",
+    "summary": "Sérum y crema como centro de una rutina breve y adaptable.",
+    "goal": "Acompañar la humectación facial sin sumar pasos innecesarios.",
+    "filters": ["facial", "mañana", "noche", "combos"],
+    "heroId": "MLA1871516611",
+    "heroImage": "https://http2.mlstatic.com/D_Q_NP_2X_729396-MLA119110010175_102026-AB.webp",
+    "productIds": ["MLA1871516611", "MLA3540591174", "product-1e260bae"],
+    "productNote": "El combo es una compra independiente. Los productos individuales se muestran como alternativas y no se agregan junto al combo automáticamente.",
+    "morning": [
+      {"label":"Limpiar","text":"Empezá con una limpieza facial suave.","badge":"Paso adicional · no incluido"},
+      {"label":"Aplicar sérum","text":"Aplicá el sérum humectante sobre la piel limpia, antes de la crema.","badge":"Declarado en el combo"},
+      {"label":"Hidratar","text":"Continuá con la crema hidratante.","badge":"Declarado en el combo"},
+      {"label":"Proteger","text":"Terminá con protector solar de amplio espectro FPS 30 o superior.","badge":"Paso adicional · no incluido"}
+    ],
+    "night": [
+      {"label":"Limpiar","text":"Limpiá el rostro antes de aplicar otros productos.","badge":"Paso adicional · no incluido"},
+      {"label":"Aplicar sérum","text":"Usá el sérum humectante sobre la piel limpia.","badge":"Declarado en el combo"},
+      {"label":"Hidratar","text":"Finalizá con la crema hidratante.","badge":"Declarado en el combo"}
+    ],
+    "cautions": "Los productos individuales pueden no corresponder exactamente a la presentación del combo. Verificá la etiqueta de lo recibido. GlowRo no ofrece protector solar actualmente."
+  },
+  {
+    "slug": "glow-diario",
+    "title": "Glow diario · Hidratación y luminosidad",
+    "eyebrow": "FACIAL · MAÑANA Y NOCHE",
+    "summary": "Una guía para elegir un sérum o gel humectante sin aplicar todas las opciones a la vez.",
+    "goal": "Limpieza, humectación y una apariencia luminosa.",
+    "filters": ["facial", "mañana", "noche"],
+    "heroId": "product-24714b19",
+    "heroImage": "https://burger-tin-orders.burger-tin-orders.workers.dev/api/catalog/images/product-24714b19?store=glowro",
+    "productIds": ["product-ea670d4a", "product-24714b19", "MLA1919960989", "product-1e260bae", "MLA1816654927", "MLA3540591174"],
+    "productNote": "El sérum con ácido hialurónico y vitamina C, el gel con esos activos y los sérums BE son alternativas para explorar; elegí uno según tu piel y la etiqueta.",
+    "morning": [
+      {"label":"Limpiar","text":"Limpiá rostro y cuello con el gel de limpieza con humectación limón; enjuagá según el envase.","badge":"Producto individual"},
+      {"label":"Elegir un activo","text":"Elegí el sérum con ácido hialurónico y vitamina C o el gel con esos activos. No necesitás aplicar ambos.","badge":"Elegí una alternativa"},
+      {"label":"Hidratar","text":"Continuá con la crema facial ligera BE.","badge":"Producto individual"},
+      {"label":"Proteger","text":"Sumá protector solar de amplio espectro FPS 30 o superior.","badge":"Paso adicional · no incluido"}
+    ],
+    "night": [
+      {"label":"Limpiar","text":"Volvé a limpiar la piel con el gel de limpieza.","badge":"Producto individual"},
+      {"label":"Elegir un sérum","text":"Podés elegir el sérum con ácido hialurónico y vitamina C, el sérum BE con aloe vera y vitamina E o el humectante BE. Usá una opción, no todas juntas.","badge":"Elegí una alternativa"},
+      {"label":"Hidratar","text":"Terminá con la crema facial ligera BE.","badge":"Producto individual"}
+    ],
+    "cautions": "El gel con ácido hialurónico y vitamina C es otra opción individual, no un paso obligatorio. Si tu piel reacciona, suspendé el producto y consultá. GlowRo no ofrece protector solar actualmente."
+  },
+  {
+    "slug": "ritual-nocturno-retinol",
+    "title": "Ritual nocturno con retinol",
+    "eyebrow": "FACIAL · NOCHE",
+    "summary": "Tres opciones con retinol para conocer, sin convertirlas en capas obligatorias.",
+    "goal": "Cuidado cosmético nocturno según las instrucciones de cada envase.",
+    "filters": ["facial", "noche", "combos"],
+    "heroId": "MLA3590377816",
+    "heroImage": "https://http2.mlstatic.com/D_Q_NP_2X_913917-MLA114388006301_072026-AB.webp",
+    "productIds": ["MLA3590377816", "MLA1852505259", "product-a3c58b14"],
+    "productNote": "El combo y los productos individuales son alternativas de compra. No agregamos un kit y sus componentes a la vez.",
+    "morning": [
+      {"label":"Proteger","text":"Usá protector solar de amplio espectro FPS 30 o superior durante el día.","badge":"Paso adicional · no incluido"}
+    ],
+    "night": [
+      {"label":"Limpiar","text":"Prepará la piel con una limpieza suave.","badge":"Paso adicional · no incluido"},
+      {"label":"Elegir retinol","text":"Elegí el combo o un producto individual con retinol y seguí su etiqueta. Introducilo gradualmente según las indicaciones recibidas.","badge":"Elegí una alternativa"},
+      {"label":"Hidratar","text":"Si elegiste solo un sérum, completá con una hidratante adecuada sin otro retinol.","badge":"Paso adicional, si corresponde"}
+    ],
+    "cautions": "No combines retinol y exfoliantes en la misma noche. No uses retinoides durante el embarazo. Si aparece irritación, suspendé y consultá a un profesional. No indicamos usar juntos el sérum y la crema con retinol del combo sin verificar su etiqueta. GlowRo no ofrece protector solar actualmente."
+  },
+  {
+    "slug": "limpieza-equilibrada",
+    "title": "Limpieza equilibrada",
+    "eyebrow": "FACIAL · PIEL MIXTA O GRASA",
+    "summary": "Limpieza e hidratación con un exfoliante que se reserva para ocasiones puntuales.",
+    "goal": "Una rutina facial ordenada sin sobreexfoliar.",
+    "filters": ["facial", "mañana", "noche", "combos"],
+    "heroId": "MLA3273725744",
+    "heroImage": "https://http2.mlstatic.com/D_Q_NP_2X_879218-MLA110297395762_052026-AB.webp",
+    "productIds": ["MLA3273725744"],
+    "morning": [
+      {"label":"Limpiar","text":"Usá el gel de limpieza del kit BE y enjuagá.","badge":"Componente declarado del kit"},
+      {"label":"Hidratar","text":"Continuá con el sérum humectante y la crema ligera, siguiendo sus etiquetas.","badge":"Componentes declarados del kit"},
+      {"label":"Proteger","text":"Completá con protector solar de amplio espectro FPS 30 o superior.","badge":"Paso adicional · no incluido"}
+    ],
+    "night": [
+      {"label":"Limpiar","text":"Limpiá rostro y cuello con el gel del kit.","badge":"Componente declarado del kit"},
+      {"label":"Hidratar","text":"Aplicá el sérum humectante y después la crema ligera.","badge":"Componentes declarados del kit"}
+    ],
+    "occasional": "El tónico BE con ácido salicílico se aplica tras la limpieza según etiqueta y tolerancia. Reservalo para ocasiones puntuales: el fabricante no aporta aquí una frecuencia exacta.",
+    "cautions": "No uses el tónico exfoliante la misma noche que retinol. Evitá la exfoliación si la piel está irritada y consultá ante afecciones dermatológicas. GlowRo no ofrece protector solar actualmente."
+  },
+  {
+    "slug": "body-glow",
+    "title": "Body Glow · Cuidado por zonas",
+    "eyebrow": "CORPORAL",
+    "summary": "Tres cremas corporales para necesidades y zonas diferentes, sin promesas de tratamiento.",
+    "goal": "Humectación y cuidado cosmético del cuerpo.",
+    "filters": ["corporal"],
+    "heroId": "MLA3747021162",
+    "heroImage": "https://burger-tin-orders.burger-tin-orders.workers.dev/api/catalog/images/MLA3747021162?store=glowro",
+    "productIds": ["MLA3747021162", "product-f7588e1a", "product-ffc1afa4"],
+    "productNote": "Son opciones por zona: elegí la que corresponda. No es necesario aplicar las tres sobre la misma área.",
+    "steps": [
+      {"label":"Cuerpo","text":"La crema de ordeñe Plus se presenta para humectar y suavizar la piel corporal. Aplicala según su envase.","badge":"Opción corporal"},
+      {"label":"Pies y piernas","text":"La crema nutritiva está orientada a la humectación de pies y piernas. Respetá las indicaciones de la etiqueta.","badge":"Opción por zona"},
+      {"label":"Elasticidad","text":"La crema reafirmante antiestrías es una opción cosmética para hidratar y acompañar la elasticidad de la piel.","badge":"Opción corporal"}
+    ],
+    "cautions": "Ninguna de estas cremas promete eliminar estrías ni tratar una enfermedad. Suspendé si aparece irritación."
+  },
+  {
+    "slug": "dia-y-noche-antiage",
+    "title": "Rutina de día y noche antiage · 5 pasos",
+    "eyebrow": "COMBO · COMPONENTES POR VERIFICAR",
+    "summary": "Conocé el kit y su precio actual. El detalle de sus cinco pasos necesita confirmación del fabricante.",
+    "goal": "Cuidado facial de día y noche según el contenido real del kit.",
+    "filters": ["facial", "mañana", "noche", "combos"],
+    "heroId": "MLA3268197470",
+    "heroImage": "https://http2.mlstatic.com/D_Q_NP_2X_811152-MLA118975818549_102026-AB.webp",
+    "productIds": ["MLA3268197470"],
+    "review": "La descripción publicada menciona retinol, vitamina C y activos humectantes, pero no identifica los cinco envases ni el orden de aplicación. Confirmá el contenido y las etiquetas antes de seguir una secuencia.",
+    "cautions": "No combines retinol y exfoliantes automáticamente. No uses retinoides durante el embarazo. Usá protección solar de amplio espectro FPS 30 o superior de día; no está en el catálogo GlowRo."
+  },
+  {
+    "slug": "limpieza-profunda",
+    "title": "Set de limpieza facial profunda · 4 productos",
+    "eyebrow": "COMBO · COMPONENTES POR VERIFICAR",
+    "summary": "Un set para explorar; sus cuatro productos y el modo de uso necesitan confirmación.",
+    "goal": "Limpieza facial según los componentes exactos del set.",
+    "filters": ["facial", "combos"],
+    "heroId": "MLA2057761893",
+    "heroImage": "https://http2.mlstatic.com/D_Q_NP_2X_619035-MLA117077183981_092026-AB.webp",
+    "productIds": ["MLA2057761893"],
+    "review": "La descripción menciona limpieza, exfoliación, tratamiento con pH balanceado y tonificación, pero no identifica los cuatro envases ni su frecuencia. No damos un protocolo hasta verificar etiquetas.",
+    "cautions": "La exfoliación excesiva puede irritar. Evitá superponer exfoliantes y retinol la misma noche."
+  },
+  {
+    "slug": "kit-facial-gold",
+    "title": "Kit facial Gold · Firmeza y luminosidad",
+    "eyebrow": "COMBO · COMPONENTES POR VERIFICAR",
+    "summary": "Una propuesta de cuidado facial cuya composición y pasos requieren validación.",
+    "goal": "Cuidado cosmético facial de acuerdo con los productos que integren el kit.",
+    "filters": ["facial", "combos"],
+    "heroId": "MLA3922754008",
+    "heroImage": "https://http2.mlstatic.com/D_Q_NP_2X_619897-MLA115853121412_092026-AB.webp",
+    "productIds": ["MLA3922754008"],
+    "review": "La descripción actual no enumera los componentes del kit. Antes de publicar un paso a paso, necesitamos confirmar la lista y las instrucciones de cada envase.",
+    "cautions": "Si el kit incluye activos exfoliantes o retinol, seguí las precauciones de sus etiquetas y consultá ante irritación."
+  },
+  {
+    "slug": "cuidado-profesional",
+    "title": "Cuidado profesional · Guía de productos",
+    "eyebrow": "USO PROFESIONAL",
+    "summary": "Conocé cuatro productos para trabajo cosmetológico y consultá su protocolo antes de utilizarlos.",
+    "goal": "Identificar el uso declarado de productos profesionales sin convertirlo en instrucciones domésticas.",
+    "filters": ["corporal", "facial", "cuidado-profesional"],
+    "heroId": "product-199336e8",
+    "heroImage": "https://burger-tin-orders.burger-tin-orders.workers.dev/api/catalog/images/product-199336e8?store=glowro",
+    "productIds": ["product-9d2216d3", "product-afed3a89", "product-3973fd34", "product-199336e8"],
+    "review": "La crema base corporal y la crema base profesional se describen como bases para tratamientos; el gel criógeno es de efecto frío intenso. No se indican técnicas, tiempos ni frecuencias sin protocolo del fabricante.",
+    "cautions": "La mascarilla de fango facial requiere una máscara hidrofílica descartable como base, según la ficha del producto. No la apliques directamente siguiendo una guía doméstica. Consultá las instrucciones del fabricante o a un profesional."
+  }
+]
