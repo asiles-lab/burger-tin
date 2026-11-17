@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import { buildGlowroConfirmation, queueGlowroConfirmations, sendGlowroConfirmation } from '../src/glowro-confirmations.js';
-import worker, { glowroOrderHasNoActivePayment } from '../src/index.js';
+import worker, { glowroOrderHasNoActivePayment, reconcileGlowroPendingPayments } from '../src/index.js';
 
 function database() {
   const db = new DatabaseSync(':memory:');
@@ -89,6 +89,34 @@ test('webhook firmado valida estado e importe con Mercado Pago y encola una vez'
     db.exec("UPDATE orders SET status='cancelled', mp_payment_id=NULL");
     await worker.fetch(request(),env,null);
     assert.equal(db.prepare('SELECT status FROM orders').get().status,'confirmed');
+    assert.equal(db.prepare('SELECT count(*) n FROM glowro_confirmation_emails').get().n,2);
+  } finally {globalThis.fetch=original;}
+});
+
+test('reconcilia un pago aprobado tras perder el webhook, sin duplicar correos', async()=>{
+  const {db,env}=database(); seed(db,'pending_payment');
+  db.exec("CREATE TABLE store_settings(store_id TEXT, key TEXT, value TEXT); ALTER TABLE orders ADD COLUMN confirmed_at TEXT; UPDATE orders SET mp_payment_id=NULL;");
+  const keyBytes=crypto.getRandomValues(new Uint8Array(32)); env.SETTINGS_ENCRYPTION_KEY=Buffer.from(keyBytes).toString('base64');
+  const key=await crypto.subtle.importKey('raw',keyBytes,'AES-GCM',false,['encrypt']);
+  const iv=crypto.getRandomValues(new Uint8Array(12));
+  const encrypted=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,new TextEncoder().encode('access-token'));
+  db.prepare("INSERT INTO store_settings VALUES('glowro','mp_access_token',?)").run(`${Buffer.from(iv).toString('base64')}.${Buffer.from(encrypted).toString('base64')}`);
+  const original=globalThis.fetch;
+  let payment={id:123,status:'approved',external_reference:'glowro:1',currency_id:'ARS',transaction_amount:1000};
+  globalThis.fetch=async url=>String(url).includes('/payments/search')
+    ? Response.json({paging:{total:1},results:[payment]})
+    : Response.json(payment);
+  try {
+    await reconcileGlowroPendingPayments(env);
+    assert.equal(db.prepare('SELECT status FROM orders').get().status,'pending_payment');
+    payment={...payment,transaction_amount:1250,currency_id:'USD'};
+    await reconcileGlowroPendingPayments(env);
+    assert.equal(db.prepare('SELECT status FROM orders').get().status,'pending_payment');
+    payment={...payment,currency_id:'ARS'};
+    await reconcileGlowroPendingPayments(env);
+    await reconcileGlowroPendingPayments(env);
+    assert.equal(db.prepare('SELECT status FROM orders').get().status,'confirmed');
+    assert.equal(db.prepare('SELECT mp_payment_id FROM orders').get().mp_payment_id,'123');
     assert.equal(db.prepare('SELECT count(*) n FROM glowro_confirmation_emails').get().n,2);
   } finally {globalThis.fetch=original;}
 });

@@ -900,6 +900,30 @@ async function mercadoPagoWebhook(request, env, ctx) {
   return new Response('', { status: 200 });
 }
 
+export async function reconcileGlowroPendingPayments(env) {
+  const orders = await env.DB.prepare("SELECT id, total FROM orders WHERE store_id='glowro' AND status='pending_payment' AND payment_method='mercadopago' AND mp_payment_id IS NULL ORDER BY id DESC LIMIT 20").bind().all();
+  if (!orders.results?.length) return;
+  const { accessToken } = await paymentCredentials(env, GLOWRO_STORE_ID);
+  if (!accessToken) return;
+  for (const order of orders.results) {
+    try {
+      const reference = `${GLOWRO_STORE_ID}:${order.id}`;
+      const search = await fetch(`https://api.mercadopago.com/v1/payments/search?external_reference=${encodeURIComponent(reference)}&sort=date_created&criteria=desc&limit=50`, { headers:{ authorization:`Bearer ${accessToken}` }, cache:'no-store' });
+      if (!search.ok) continue;
+      const data = await search.json();
+      if (!Array.isArray(data?.results) || !Number.isSafeInteger(data?.paging?.total) || data.paging.total > data.results.length) continue;
+      const candidates = data.results.filter(payment => payment.external_reference === reference && payment.status === 'approved' && /^\d+$/.test(String(payment.id)));
+      if (candidates.length !== 1) continue;
+      const detail = await fetch(`https://api.mercadopago.com/v1/payments/${encodeURIComponent(candidates[0].id)}`, { headers:{ authorization:`Bearer ${accessToken}` }, cache:'no-store' });
+      if (!detail.ok) continue;
+      const payment = await detail.json();
+      if (String(payment.id) !== String(candidates[0].id) || payment.status !== 'approved' || payment.external_reference !== reference || payment.currency_id !== 'ARS' || Math.round(Number(payment.transaction_amount) * 100) !== Math.round(Number(order.total) * 100)) continue;
+      await confirmOrder(env, GLOWRO_STORE_ID, order.id, String(payment.id), false);
+      await queueGlowroConfirmations(env, order.id);
+    } catch { /* A failed lookup leaves the order pending for the next scheduled check. */ }
+  }
+}
+
 async function confirmOrder(env, storeId, orderId, paymentId = null, enqueuePrint = true, allowCancelledPaidOrder = false) {
   const now = new Date().toISOString();
   const order = await env.DB.prepare('SELECT id, status FROM orders WHERE store_id = ? AND id = ?').bind(storeId, orderId).first();
@@ -1427,6 +1451,7 @@ export default {
   async scheduled(_event, env, ctx) {
     ctx.waitUntil(processPendingSaleNotifications(env));
     ctx.waitUntil(processGlowroConfirmations(env));
+    ctx.waitUntil(reconcileGlowroPendingPayments(env).then(() => processGlowroConfirmations(env)));
     ctx?.waitUntil(processMessages(env));
   }
 };
