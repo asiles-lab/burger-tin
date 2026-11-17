@@ -883,12 +883,12 @@ async function mercadoPagoWebhook(request, env, ctx) {
   const [storeId, orderId] = String(payment.external_reference).split(':', 2);
   if (storeId !== webhookStoreId || !/^\d+$/.test(orderId || '') || payment.external_reference !== `${storeId}:${orderId}`) return new Response('', { status: 200 });
   const order = await env.DB.prepare("SELECT id, code, COALESCE(total, subtotal) AS total, status, mp_payment_id FROM orders WHERE store_id = ? AND id = ? AND payment_method = 'mercadopago'").bind(storeId, Number(orderId)).first();
-  if (!order || !['pending_payment','confirmed'].includes(order.status) || (order.status === 'confirmed' && String(order.mp_payment_id) !== String(payment.id)) || Math.round(Number(payment.transaction_amount) * 100) !== Math.round(Number(order.total) * 100)) return new Response('', { status: 200 });
+  if (!order || (!['pending_payment','confirmed'].includes(order.status) && !(storeId === GLOWRO_STORE_ID && order.status === 'cancelled')) || (order.status === 'confirmed' && String(order.mp_payment_id) !== String(payment.id)) || Math.round(Number(payment.transaction_amount) * 100) !== Math.round(Number(order.total) * 100)) return new Response('', { status: 200 });
   if (payment.status !== 'approved') {
     if(storeId===GLOWRO_STORE_ID && ['pending','in_process','rejected','cancelled'].includes(payment.status)) await env.DB.prepare("UPDATE orders SET mp_status=? WHERE id=? AND store_id='glowro' AND status='pending_payment'").bind(payment.status,order.id).run();
     return new Response('',{status:200});
   }
-  await confirmOrder(env, storeId, order.id, String(payment.id), storeId === DEFAULT_STORE_ID);
+  await confirmOrder(env, storeId, order.id, String(payment.id), storeId === DEFAULT_STORE_ID, storeId === GLOWRO_STORE_ID && order.status === 'cancelled');
   if (storeId === GLOWRO_STORE_ID) {
     await queueGlowroConfirmations(env, order.id);
     if (ctx) ctx.waitUntil(processGlowroConfirmations(env));
@@ -900,12 +900,12 @@ async function mercadoPagoWebhook(request, env, ctx) {
   return new Response('', { status: 200 });
 }
 
-async function confirmOrder(env, storeId, orderId, paymentId = null, enqueuePrint = true) {
+async function confirmOrder(env, storeId, orderId, paymentId = null, enqueuePrint = true, allowCancelledPaidOrder = false) {
   const now = new Date().toISOString();
   const order = await env.DB.prepare('SELECT id, status FROM orders WHERE store_id = ? AND id = ?').bind(storeId, orderId).first();
-  if (!order || order.status === 'cancelled') throw new Error('Pedido inexistente o cancelado.');
+  if (!order || (order.status === 'cancelled' && !allowCancelledPaidOrder)) throw new Error('Pedido inexistente o cancelado.');
   if (order.status !== 'confirmed') {
-    await env.DB.prepare("UPDATE orders SET status = 'confirmed', confirmed_at = ?, mp_payment_id = COALESCE(?, mp_payment_id) WHERE store_id = ? AND id = ? AND status IN ('pending_payment','pending_cash')")
+    await env.DB.prepare(`UPDATE orders SET status = 'confirmed', confirmed_at = ?, mp_payment_id = COALESCE(?, mp_payment_id) WHERE store_id = ? AND id = ? AND status IN (${allowCancelledPaidOrder ? "'pending_payment','pending_cash','cancelled'" : "'pending_payment','pending_cash'"})`)
       .bind(now, paymentId, storeId, orderId).run();
   }
   if (enqueuePrint) {
@@ -964,15 +964,22 @@ async function clearHistory(request, env) {
 async function staffAction(request, env, code, action) {
   const identity = await requireAdmin(request, env, 'orders:manage');
   if (!identity) return publicJson(request, env, { error:'No autorizado.' }, 401);
-  const order = await env.DB.prepare('SELECT id, status, payment_method FROM orders WHERE store_id = ? AND code = ?').bind(identity.storeId, code).first();
-  if (identity.storeId === GLOWRO_STORE_ID && action === 'cancel' && order?.status === 'pending_payment') return publicJson(request, env, { error:'Este pedido podría estar en proceso de pago. Verificá su estado en Mercado Pago antes de cancelarlo.' }, 409);
+  const order = await env.DB.prepare('SELECT id, status, payment_method, mp_payment_id FROM orders WHERE store_id = ? AND code = ?').bind(identity.storeId, code).first();
   if (!order) return publicJson(request, env, { error:'Pedido inexistente.' }, 404);
   if (action === 'confirm') {
     if (order.payment_method !== 'cash') return publicJson(request, env, { error:'Mercado Pago solo se confirma mediante Webhook.' }, 409);
     await confirmOrder(env, identity.storeId, order.id);
   } else if (action === 'cancel') {
     if (!['pending_cash', 'pending_payment'].includes(order.status)) return publicJson(request, env, { error:'Solo se pueden cancelar pedidos pendientes.' }, 409);
-    await env.DB.prepare("UPDATE orders SET status='cancelled' WHERE store_id=? AND id=?").bind(identity.storeId, order.id).run();
+    if (identity.storeId === GLOWRO_STORE_ID && order.status === 'pending_payment') {
+      if (order.mp_payment_id) return publicJson(request, env, { error:'El pedido ya tiene un pago asociado.' }, 409);
+      let unpaid;
+      try { unpaid = await glowroOrderHasNoActivePayment(env, order.id); }
+      catch { return publicJson(request, env, { error:'No pudimos verificar el pago en Mercado Pago. No se anuló el pedido; intentá de nuevo más tarde.' }, 503); }
+      if (!unpaid) return publicJson(request, env, { error:'Mercado Pago registra un pago activo o aprobado. El pedido sigue pendiente; revisalo antes de anularlo.' }, 409);
+    }
+    const cancelled = await env.DB.prepare("UPDATE orders SET status='cancelled' WHERE store_id=? AND id=? AND status IN ('pending_cash','pending_payment')").bind(identity.storeId, order.id).run();
+    if (!cancelled.meta?.changes) return publicJson(request, env, { error:'El pedido cambió de estado. Actualizá la lista.' }, 409);
   } else if (action === 'reprint') {
     if (order.status !== 'confirmed') return publicJson(request, env, { error:'El pedido aun no esta confirmado.' }, 409);
     const now = new Date().toISOString();
@@ -981,6 +988,18 @@ async function staffAction(request, env, code, action) {
   }
   await audit(env, identity, `order.${action}`, 'order', code);
   return publicJson(request, env, { ok:true });
+}
+
+export async function glowroOrderHasNoActivePayment(env, orderId) {
+  const { accessToken } = await paymentCredentials(env, GLOWRO_STORE_ID);
+  if (!accessToken) throw new Error('Mercado Pago no está configurado. No se anuló el pedido.');
+  const reference = `${GLOWRO_STORE_ID}:${orderId}`;
+  const url = `https://api.mercadopago.com/v1/payments/search?external_reference=${encodeURIComponent(reference)}&sort=date_created&criteria=desc&limit=50`;
+  const response = await fetch(url, { headers:{ authorization:`Bearer ${accessToken}` }, cache:'no-store' });
+  if (!response.ok) throw new Error('No se pudo consultar Mercado Pago. No se anuló el pedido.');
+  const data = await response.json().catch(()=>null);
+  if (!Array.isArray(data?.results) || !Number.isSafeInteger(data?.paging?.total) || data.paging.total > data.results.length) throw new Error('No se pudo verificar todos los pagos. No se anuló el pedido.');
+  return data.results.every(payment => payment.external_reference === reference && ['rejected','cancelled'].includes(payment.status));
 }
 
 async function adminSession(request, env) {

@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DatabaseSync } from 'node:sqlite';
 import { buildGlowroConfirmation, queueGlowroConfirmations, sendGlowroConfirmation } from '../src/glowro-confirmations.js';
-import worker from '../src/index.js';
+import worker, { glowroOrderHasNoActivePayment } from '../src/index.js';
 
 function database() {
   const db = new DatabaseSync(':memory:');
@@ -86,5 +86,39 @@ test('webhook firmado valida estado e importe con Mercado Pago y encola una vez'
     snapshot={...snapshot,status:'approved',transaction_amount:1000}; await worker.fetch(request(),env,null); assert.equal(db.prepare('SELECT status FROM orders').get().status,'pending_payment');
     snapshot={...snapshot,transaction_amount:1250}; await worker.fetch(request(),env,null); await worker.fetch(request(),env,null);
     assert.equal(db.prepare('SELECT status FROM orders').get().status,'confirmed'); assert.equal(db.prepare('SELECT count(*) n FROM glowro_confirmation_emails').get().n,2);
+    db.exec("UPDATE orders SET status='cancelled', mp_payment_id=NULL");
+    await worker.fetch(request(),env,null);
+    assert.equal(db.prepare('SELECT status FROM orders').get().status,'confirmed');
+    assert.equal(db.prepare('SELECT count(*) n FROM glowro_confirmation_emails').get().n,2);
+  } finally {globalThis.fetch=original;}
+});
+
+test('anulación consulta pagos reales y falla cerrada si hay pago activo o consulta incompleta', async()=>{
+  const {db,env}=database();
+  db.exec("CREATE TABLE store_settings(store_id TEXT, key TEXT, value TEXT)");
+  const keyBytes=crypto.getRandomValues(new Uint8Array(32)); env.SETTINGS_ENCRYPTION_KEY=Buffer.from(keyBytes).toString('base64');
+  const key=await crypto.subtle.importKey('raw',keyBytes,'AES-GCM',false,['encrypt']);
+  const iv=crypto.getRandomValues(new Uint8Array(12));
+  const encrypted=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,new TextEncoder().encode('access-token'));
+  db.prepare("INSERT INTO store_settings VALUES('glowro','mp_access_token',?)").run(`${Buffer.from(iv).toString('base64')}.${Buffer.from(encrypted).toString('base64')}`);
+  const original=globalThis.fetch;
+  let payments=[]; let total=0; let responseStatus=200;
+  globalThis.fetch=async(url,options)=>{
+    assert.equal(new URL(url).searchParams.get('external_reference'),'glowro:1');
+    assert.equal(options.headers.authorization,'Bearer access-token');
+    return Response.json({paging:{total},results:payments},{status:responseStatus});
+  };
+  try {
+    assert.equal(await glowroOrderHasNoActivePayment(env,1),true);
+    payments=[{external_reference:'glowro:1',status:'pending'}];total=1;
+    assert.equal(await glowroOrderHasNoActivePayment(env,1),false);
+    payments=[{external_reference:'glowro:1',status:'approved'}];
+    assert.equal(await glowroOrderHasNoActivePayment(env,1),false);
+    payments=[{external_reference:'glowro:1',status:'rejected'}];
+    assert.equal(await glowroOrderHasNoActivePayment(env,1),true);
+    total=2;
+    await assert.rejects(glowroOrderHasNoActivePayment(env,1),/verificar todos los pagos/);
+    responseStatus=503;
+    await assert.rejects(glowroOrderHasNoActivePayment(env,1),/No se pudo consultar Mercado Pago/);
   } finally {globalThis.fetch=original;}
 });
