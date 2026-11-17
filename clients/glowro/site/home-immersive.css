@@ -1,0 +1,153 @@
+/* Homepage composition. Existing commerce and navigation behavior stays intact. */
+.topbar {display:none}
+.site-header {
+  position:sticky;
+  top:0;
+  margin-bottom:-78px;
+  background:transparent;
+  border-color:transparent;
+  color:#fff6f3;
+  transition:background-color .25s ease,color .25s ease,border-color .25s ease;
+}
+.site-header.is-scrolled,.site-header:has(.mobile-nav:not([hidden])) {
+  background:rgba(255,249,246,.97);
+  border-bottom:1px solid #e7d8d8;
+  color:var(--rose-depth);
+  backdrop-filter:blur(14px);
+  -webkit-backdrop-filter:blur(14px);
+}
+.site-header.is-scrolled .brand-image img,.site-header:has(.mobile-nav:not([hidden])) .brand-image img {
+  filter:brightness(0) saturate(100%) invert(18%) sepia(18%) saturate(1084%) hue-rotate(289deg) brightness(90%);
+}
+.nav-shell {height:78px;gap:22px}
+.brand-image {width:164px;flex:none}
+.desktop-nav {gap:clamp(16px,2vw,34px);margin-right:12px}
+.desktop-nav a,.nav-withdraw {color:inherit;font-weight:500}
+.desktop-nav a:hover,.nav-withdraw:hover {color:#f4c4d1}
+.site-header.is-scrolled .desktop-nav a:hover,.site-header.is-scrolled .nav-withdraw:hover {color:#a45872}
+.header-actions {gap:10px}
+.nav-withdraw {display:inline-flex;align-items:center;min-height:44px;font-size:.68rem;text-decoration:underline;text-underline-offset:4px;white-space:nowrap}
+.nav-instagram {border-color:#fff8f596;color:inherit}
+.site-header.is-scrolled .nav-instagram {border-color:#d8bec6}
+.selection-btn {background:#fff7f3;color:var(--rose-depth);min-height:42px}
+.selection-btn:hover {background:#f2dce3}
+.site-header.is-scrolled .selection-btn {background:var(--rose-depth);color:#fff7f3}
+.site-header.is-scrolled .selection-btn:hover {background:#71495a}
+.menu-toggle {color:inherit}
+
+.hero-section.container {
+  position:relative;
+  isolation:isolate;
+  display:flex;
+  align-items:center;
+  width:100%;
+  max-width:none;
+  min-height:100svh;
+  margin:0;
+  padding:120px max(5.8vw,calc((100% - var(--container))/2)) 70px;
+  overflow:hidden;
+  background:#442733;
+  color:#fff5f1;
+}
+.hero-background {
+  position:absolute;
+  inset:0;
+  z-index:-2;
+  width:100%;
+  height:100%;
+  max-width:none;
+  object-fit:cover;
+  object-position:45% center;
+}
+.hero-section::after {
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:-1;
+  pointer-events:none;
+  background:linear-gradient(90deg,rgba(38,19,29,.68) 0%,rgba(48,24,34,.42) 29%,rgba(49,24,34,.08) 56%,transparent 76%);
+}
+.hero-copy {width:min(47%,600px);padding:0}
+.hero-copy h1 {
+  margin:0 0 28px;
+  max-width:none;
+  font-size:clamp(4.5rem,7vw,7.5rem);
+  font-weight:300;
+  letter-spacing:-.055em;
+  line-height:1.04;
+  text-wrap:nowrap;
+}
+.serif-accent {color:#f4bdcc}
+.hero-lead {max-width:420px;color:#fff2f0;font-size:clamp(.95rem,1.25vw,1.2rem);line-height:1.65}
+.hero-actions {gap:28px;margin-top:36px}
+.hero-actions .btn-dark {background:#fff1eb;color:#492b38}
+.hero-actions .btn-dark:hover {background:#f8dce4}
+.hero-actions .text-link {color:#fff5f1;border-color:#f8dce4}
+
+.collection-section {background:#fcf9f7;color:var(--rose-depth)}
+.collection-section .eyebrow-section {color:#916274}
+.collection-section .section-heading h2 span {color:#a56b7e}
+.collection-section .section-sub,.collection-section .catalog-note {color:#735b63}
+.collection-section .all-link:hover {color:#a45872}
+.collection-section .filter-chip {border-color:#d9c2c9;background:#fffaf8;color:var(--rose-depth)}
+.collection-section .filter-chip:hover {border-color:#aa7185}
+.collection-section .filter-chip.is-active {background:var(--rose-depth);border-color:var(--rose-depth);color:#fffaf8}
+.collection-section .product-card {background:#f6e9eb;border:1px solid #eedee1}
+.collection-section .catalog-note .icon {color:#a56b7e}
+
+@media (max-width:1200px) {
+  .nav-shell {gap:14px}
+  .brand-image {width:138px}
+  .desktop-nav {gap:17px;margin-right:4px}
+  .desktop-nav a {font-size:.7rem}
+  .nav-withdraw {font-size:.62rem}
+  .selection-btn {padding-inline:12px}
+  .hero-copy {width:min(50%,520px)}
+  .hero-copy h1 {font-size:clamp(4.1rem,7.2vw,6rem)}
+  .hero-lead {max-width:340px}
+}
+@media (max-width:900px) {
+  .desktop-nav {gap:12px}
+  .nav-instagram {display:none}
+  .hero-section.container {padding-inline:32px}
+  .hero-copy {width:min(54%,490px)}
+  .hero-copy h1 {font-size:clamp(3.5rem,7.3vw,5rem)}
+}
+@media (max-width:790px) {
+  .site-header {margin-bottom:-70px}
+  .nav-shell {height:70px}
+  .brand-image {width:140px}
+  .desktop-nav {display:none}
+  .nav-withdraw {margin-left:auto}
+  .menu-toggle {display:grid;place-items:center}
+  .mobile-nav:not([hidden]) {background:#fff9f6;border-top:1px solid #e7d8d8;color:var(--rose-depth)}
+  .hero-section.container {min-height:max(780px,100svh);align-items:flex-start;padding:0 32px 54px}
+  .hero-background {top:auto;bottom:0;height:57%;object-position:63% center}
+  .hero-section::after {background:linear-gradient(180deg,#442733 0%,#442733 37%,rgba(68,39,51,.95) 48%,rgba(68,39,51,.25) 65%,transparent 82%)}
+  .hero-copy {align-self:flex-start;width:min(100%,560px);padding-top:clamp(132px,16svh,168px)}
+  .hero-copy h1 {font-size:clamp(4.1rem,11vw,6rem)}
+  .hero-lead {max-width:490px}
+}
+@media (max-width:540px) {
+  .site-header {margin-bottom:-66px}
+  .nav-shell {height:66px}
+  .brand-image {width:125px}
+  .header-actions {gap:6px}
+  .nav-withdraw {position:absolute;right:18px;top:66px;min-height:38px;font-size:.67rem;z-index:1}
+  .site-header.is-scrolled .nav-withdraw,.site-header:has(.mobile-nav:not([hidden])) .nav-withdraw {padding-inline:10px;border-radius:0 0 9px 9px;background:#fff9f6;color:var(--rose-depth)}
+  .selection-btn {padding:9px 10px;min-height:42px}
+  .hero-section.container {min-height:max(780px,100svh);padding:0 22px 36px}
+  .hero-background {height:49%;object-position:62% center}
+  .hero-section::after {background:linear-gradient(180deg,#442733 0%,#442733 42%,rgba(68,39,51,.92) 53%,rgba(68,39,51,.2) 69%,transparent 84%)}
+  .hero-copy {padding-top:128px}
+  .hero-copy h1 {font-size:clamp(3.45rem,14vw,4.8rem);line-height:1.03;margin-bottom:18px}
+  .hero-lead {font-size:.88rem;line-height:1.55;max-width:370px}
+  .hero-actions {gap:12px;margin-top:24px;flex-wrap:wrap}
+  .hero-actions .btn {min-height:45px;padding:10px 16px}
+  .hero-actions .text-link {min-height:44px}
+  .collection-section .product-card {border-radius:14px}
+}
+@media (max-width:370px) {
+  .hero-copy h1 {font-size:3.2rem}
+  .hero-actions {align-items:flex-start;flex-direction:column;gap:5px}
+}
