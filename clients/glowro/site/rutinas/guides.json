@@ -3,24 +3,24 @@
     "slug": "ritual-be",
     "title": "Ritual BE · Rutina completa",
     "eyebrow": "FACIAL · MAÑANA Y NOCHE",
-    "summary": "Una base simple de limpieza, humectación y cuidado diario con el kit facial BE.",
+    "summary": "Cuatro productos BE para ordenar tu cuidado facial: limpiar, humectar e incorporar el tónico exfoliante solo cuando corresponda.",
     "goal": "Hidratación y luminosidad del rostro.",
     "filters": ["facial", "mañana", "noche", "combos"],
     "heroId": "MLA3273725744",
     "heroImage": "https://http2.mlstatic.com/D_Q_NP_2X_879218-MLA110297395762_052026-AB.webp",
     "productIds": ["MLA3273725744"],
     "morning": [
-      {"label":"Limpiar","text":"Usá el gel de limpieza BE sobre rostro y cuello y enjuagá. Seguí las indicaciones del envase.","badge":"Componente declarado del kit"},
-      {"label":"Aplicar sérum","text":"Sobre la piel limpia, aplicá el sérum humectante antes de la crema.","badge":"Componente declarado del kit"},
-      {"label":"Hidratar","text":"Continuá con la crema ligera.","badge":"Componente declarado del kit"},
+      {"label":"Gel de limpieza","text":"Sobre el rostro húmedo, distribuí suavemente el gel de limpieza BE y enjuagá con agua. Secá la piel sin frotar antes del siguiente paso.","badge":"Componente del kit"},
+      {"label":"Sérum humectante","text":"Con la piel limpia, distribuí el sérum humectante por rostro y cuello con movimientos suaves. Dejá que se absorba antes de aplicar la crema.","badge":"Componente del kit"},
+      {"label":"Crema ligera","text":"Aplicá la crema ligera humectante sobre rostro y cuello para completar la hidratación.","badge":"Componente del kit"},
       {"label":"Proteger","text":"Completá con un protector solar de amplio espectro FPS 30 o superior.","badge":"Paso adicional · no incluido"}
     ],
     "night": [
-      {"label":"Limpiar","text":"Limpiá rostro y cuello con el gel de limpieza BE.","badge":"Componente declarado del kit"},
-      {"label":"Aplicar sérum","text":"Aplicá el sérum humectante sobre la piel limpia.","badge":"Componente declarado del kit"},
-      {"label":"Hidratar","text":"Finalizá con la crema ligera.","badge":"Componente declarado del kit"}
+      {"label":"Gel de limpieza","text":"Limpiá el rostro húmedo con el gel BE, enjuagá con agua y secá sin frotar.","badge":"Componente del kit"},
+      {"label":"Sérum humectante","text":"Aplicá el sérum humectante sobre la piel limpia y distribuí suavemente por rostro y cuello.","badge":"Componente del kit"},
+      {"label":"Crema ligera","text":"Terminá con la crema ligera humectante sobre rostro y cuello.","badge":"Componente del kit"}
     ],
-    "occasional": "El tónico exfoliante BE con ácido salicílico es un paso ocasional después de limpiar, según tolerancia y etiqueta. No lo uses la misma noche que retinol; suspendé si irrita.",
+    "occasional": "El tónico exfoliante BE con ácido salicílico va después de la limpieza y antes del sérum. Aplicalo suavemente con algodón, evitando el contorno de ojos, solo con la frecuencia que indique su etiqueta y según la tolerancia de tu piel. No lo combines con retinol la misma noche; suspendé si irrita.",
     "cautions": "No superpongas exfoliantes ni aumentes la frecuencia por tu cuenta. El protector solar se compra por separado: GlowRo no ofrece uno actualmente."
   },
   {
@@ -73,24 +73,21 @@
   },
   {
     "slug": "ritual-nocturno-retinol",
-    "title": "Ritual nocturno con retinol",
+    "title": "Rutina antiage de noche · Duval Retinol +",
     "eyebrow": "FACIAL · NOCHE",
-    "summary": "Tres opciones con retinol para conocer, sin convertirlas en capas obligatorias.",
-    "goal": "Cuidado cosmético nocturno según las instrucciones de cada envase.",
+    "summary": "Limpieza, sérum y crema Retinol + en una secuencia nocturna gradual.",
+    "goal": "Organizar el cuidado nocturno con el dúo de retinol del combo Duval.",
     "filters": ["facial", "noche", "combos"],
     "heroId": "MLA3590377816",
     "heroImage": "https://http2.mlstatic.com/D_Q_NP_2X_913917-MLA114388006301_072026-AB.webp",
     "productIds": ["MLA3590377816", "MLA1852505259", "product-a3c58b14"],
-    "productNote": "El combo y los productos individuales son alternativas de compra. No agregamos un kit y sus componentes a la vez.",
-    "morning": [
-      {"label":"Proteger","text":"Usá protector solar de amplio espectro FPS 30 o superior durante el día.","badge":"Paso adicional · no incluido"}
-    ],
+    "productNote": "El combo reúne sérum y crema Retinol +. Los productos individuales son alternativas de compra; no agregamos el combo y sus componentes a la vez.",
     "night": [
-      {"label":"Limpiar","text":"Prepará la piel con una limpieza suave.","badge":"Paso adicional · no incluido"},
-      {"label":"Elegir retinol","text":"Elegí el combo o un producto individual con retinol y seguí su etiqueta. Introducilo gradualmente según las indicaciones recibidas.","badge":"Elegí una alternativa"},
-      {"label":"Hidratar","text":"Si elegiste solo un sérum, completá con una hidratante adecuada sin otro retinol.","badge":"Paso adicional, si corresponde"}
+      {"label":"Limpieza","text":"Lavá el rostro con un limpiador suave y secalo bien con una toalla limpia. Aplicá el retinol sobre la piel completamente seca.","badge":"Paso adicional · no incluido"},
+      {"label":"Sérum Retinol +","text":"Distribuí una pequeña cantidad del sérum Retinol + sobre rostro y cuello con toques suaves, evitando el contorno de ojos y los labios. Esperá unos instantes a que se absorba.","badge":"Primer producto del combo · 30 ml"},
+      {"label":"Crema Retinol +","text":"Aplicá una pequeña cantidad de la crema Retinol + sobre rostro y cuello con movimientos suaves hasta que se absorba.","badge":"Segundo producto del combo · 50 g"}
     ],
-    "cautions": "No combines retinol y exfoliantes en la misma noche. No uses retinoides durante el embarazo. Si aparece irritación, suspendé y consultá a un profesional. No indicamos usar juntos el sérum y la crema con retinol del combo sin verificar su etiqueta. GlowRo no ofrece protector solar actualmente."
+    "cautions": "Usá el dúo solo de noche. Si recién comenzás con retinol, empezá 2 o 3 noches por semana y aumentá gradualmente según tolerancia y etiqueta. No combines retinol y exfoliantes la misma noche ni uses retinoides durante el embarazo. Si aparece irritación, suspendé y consultá a un profesional. De día usá protector solar de amplio espectro FPS 30 o superior; GlowRo no ofrece uno actualmente."
   },
   {
     "slug": "limpieza-equilibrada",
@@ -134,16 +131,27 @@
   },
   {
     "slug": "dia-y-noche-antiage",
-    "title": "Rutina de día y noche antiage · 5 pasos",
-    "eyebrow": "COMBO · COMPONENTES POR VERIFICAR",
-    "summary": "Conocé el kit y su precio actual. El detalle de sus cinco pasos necesita confirmación del fabricante.",
-    "goal": "Cuidado facial de día y noche según el contenido real del kit.",
+    "title": "Rutina antiage de día y noche · Duval",
+    "eyebrow": "COMBO · MAÑANA Y NOCHE",
+    "summary": "Tres pasos del kit por la mañana para hidratar y tres por la noche con Retinol +. El protector solar se suma por separado.",
+    "goal": "Acompañar la hidratación diurna y ordenar el uso nocturno del dúo Retinol +.",
     "filters": ["facial", "mañana", "noche", "combos"],
     "heroId": "MLA3268197470",
     "heroImage": "https://http2.mlstatic.com/D_Q_NP_2X_811152-MLA118975818549_102026-AB.webp",
     "productIds": ["MLA3268197470"],
-    "review": "La descripción publicada menciona retinol, vitamina C y activos humectantes, pero no identifica los cinco envases ni el orden de aplicación. Confirmá el contenido y las etiquetas antes de seguir una secuencia.",
-    "cautions": "No combines retinol y exfoliantes automáticamente. No uses retinoides durante el embarazo. Usá protección solar de amplio espectro FPS 30 o superior de día; no está en el catálogo GlowRo."
+    "review": "Los cinco componentes y su orden fueron informados por GlowRo para esta guía. La ficha pública del combo no enumera los envases: cotejá el contenido recibido y las instrucciones de cada etiqueta antes de usarlo.",
+    "morning": [
+      {"label":"Crema de limpieza","text":"Masajeá suavemente la crema de limpieza de pH balanceado sobre rostro y cuello. Retirá con agua tibia y secá sin frotar.","badge":"Componente informado del kit"},
+      {"label":"Sérum humectante","text":"Sobre la piel limpia, distribuí el sérum humectante con toques suaves y dejá que se absorba.","badge":"Componente informado del kit"},
+      {"label":"Crema ligera","text":"Aplicá la crema ligera ultrahumectante con Hydraskin y matcha sobre rostro y cuello, con movimientos suaves.","badge":"Componente informado del kit"},
+      {"label":"Protección solar","text":"Finalizá con protector solar de amplio espectro FPS 30 o superior.","badge":"Paso adicional · no incluido"}
+    ],
+    "night": [
+      {"label":"Crema de limpieza","text":"Limpiá el rostro y cuello para retirar las impurezas del día. Enjuagá y secá bien la piel antes de aplicar retinol.","badge":"Componente informado del kit"},
+      {"label":"Sérum Retinol +","text":"Distribuí una pequeña cantidad del sérum Retinol + con vitamina C sobre la piel seca, evitando el contorno de ojos y los labios. Esperá a que se absorba.","badge":"Componente informado del kit"},
+      {"label":"Crema Retinol +","text":"Terminá con una pequeña cantidad de la crema Retinol + con vitamina C sobre rostro y cuello, con movimientos suaves.","badge":"Componente informado del kit"}
+    ],
+    "cautions": "Introducí el dúo Retinol + gradualmente: comenzá 2 o 3 noches por semana y aumentá solo según tolerancia y etiqueta. No lo combines con exfoliantes la misma noche ni uses retinoides durante el embarazo. Suspendé si irrita y consultá a un profesional. El protector solar se compra por separado: GlowRo no ofrece uno actualmente."
   },
   {
     "slug": "limpieza-profunda",

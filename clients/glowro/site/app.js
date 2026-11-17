@@ -132,18 +132,6 @@ $('checkout-form').addEventListener('submit', async event => {
   }
 });
 
-const menu = $('mobile-nav');
-const menuToggle = $('menu-toggle');
-function closeMenu() { menu.hidden = true; menuToggle.setAttribute('aria-expanded', 'false'); menuToggle.setAttribute('aria-label', 'Abrir menú'); }
-menuToggle.addEventListener('click', () => {
-  const opening = !menu.hidden;
-  menu.hidden = opening;
-  menuToggle.setAttribute('aria-expanded', String(!opening));
-  menuToggle.setAttribute('aria-label', opening ? 'Abrir menú' : 'Cerrar menú');
-});
-menu.querySelectorAll('a').forEach(a => a.addEventListener('click', closeMenu));
-window.addEventListener('resize', () => { if (window.innerWidth > 790) closeMenu(); });
-
 $('filters').addEventListener('click', e => {
   const button = e.target.closest('[data-filter]'); if (!button) return;
   $('filters').querySelectorAll('[data-filter]').forEach(btn => {

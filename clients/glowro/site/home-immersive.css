@@ -107,8 +107,12 @@
   .hero-lead {max-width:340px}
 }
 @media (max-width:900px) {
-  .desktop-nav {gap:12px}
+  .desktop-nav {display:none}
   .nav-instagram {display:none}
+  .nav-withdraw {margin-left:auto}
+  .menu-toggle {display:grid;place-items:center}
+  .mobile-nav:not([hidden]) {display:flex;flex-direction:column;padding:10px 22px 23px;border-top:1px solid #e7d8d8;background:#fff9f6;color:var(--rose-depth)}
+  .mobile-nav a {padding:13px 0;font-size:14px;font-weight:750}
   .hero-section.container {padding-inline:32px}
   .hero-copy {width:min(54%,490px)}
   .hero-copy h1 {font-size:clamp(3.5rem,7.3vw,5rem)}
