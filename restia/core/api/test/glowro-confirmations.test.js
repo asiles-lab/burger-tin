@@ -75,7 +75,7 @@ test('webhook firmado valida estado e importe con Mercado Pago y encola una vez'
   const digest=await crypto.subtle.sign('HMAC',hmac,new TextEncoder().encode('id:123;request-id:request-1;ts:100;'));
   const signature=Buffer.from(digest).toString('hex');
   const request=()=>new Request('https://api.example/api/webhooks/mercadopago?store=glowro&data.id=123',{method:'POST',headers:{'x-signature':`ts=100,v1=${signature}`,'x-request-id':'request-1','content-type':'application/json'},body:'{}'});
-  let snapshot={id:123,status:'pending',currency_id:'ARS',external_reference:'glowro:1',transaction_amount:1250};
+  let snapshot={id:123,status:'pending',currency_id:'ARS',external_reference:'glowro:1',transaction_amount:1000,shipping_amount:250};
   const original=globalThis.fetch; globalThis.fetch=async()=>new Response(JSON.stringify(snapshot),{headers:{'content-type':'application/json'}});
   try {
     const invalid=request();invalid.headers.set('x-signature','ts=100,v1=bad');assert.equal((await worker.fetch(invalid,env,null)).status,401);
@@ -83,8 +83,8 @@ test('webhook firmado valida estado e importe con Mercado Pago y encola una vez'
       const saved=snapshot;snapshot={...snapshot,...change};await worker.fetch(request(),env,null);snapshot=saved;assert.equal(db.prepare('SELECT status FROM orders').get().status,'pending_payment');
     }
     await worker.fetch(request(),env,null); assert.equal(db.prepare('SELECT status FROM orders').get().status,'pending_payment');
-    snapshot={...snapshot,status:'approved',transaction_amount:1000}; await worker.fetch(request(),env,null); assert.equal(db.prepare('SELECT status FROM orders').get().status,'pending_payment');
-    snapshot={...snapshot,transaction_amount:1250}; await worker.fetch(request(),env,null); await worker.fetch(request(),env,null);
+    snapshot={...snapshot,status:'approved',shipping_amount:249}; await worker.fetch(request(),env,null); assert.equal(db.prepare('SELECT status FROM orders').get().status,'pending_payment');
+    snapshot={...snapshot,shipping_amount:250}; await worker.fetch(request(),env,null); await worker.fetch(request(),env,null);
     assert.equal(db.prepare('SELECT status FROM orders').get().status,'confirmed'); assert.equal(db.prepare('SELECT count(*) n FROM glowro_confirmation_emails').get().n,2);
     db.exec("UPDATE orders SET status='cancelled', mp_payment_id=NULL");
     await worker.fetch(request(),env,null);
@@ -102,14 +102,14 @@ test('reconcilia un pago aprobado tras perder el webhook, sin duplicar correos',
   const encrypted=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,new TextEncoder().encode('access-token'));
   db.prepare("INSERT INTO store_settings VALUES('glowro','mp_access_token',?)").run(`${Buffer.from(iv).toString('base64')}.${Buffer.from(encrypted).toString('base64')}`);
   const original=globalThis.fetch;
-  let payment={id:123,status:'approved',external_reference:'glowro:1',currency_id:'ARS',transaction_amount:1000};
+  let payment={id:123,status:'approved',external_reference:'glowro:1',currency_id:'ARS',transaction_amount:1000,shipping_amount:249};
   globalThis.fetch=async url=>String(url).includes('/payments/search')
     ? Response.json({paging:{total:1},results:[payment]})
     : Response.json(payment);
   try {
     await reconcileGlowroPendingPayments(env);
     assert.equal(db.prepare('SELECT status FROM orders').get().status,'pending_payment');
-    payment={...payment,transaction_amount:1250,currency_id:'USD'};
+    payment={...payment,shipping_amount:250,currency_id:'USD'};
     await reconcileGlowroPendingPayments(env);
     assert.equal(db.prepare('SELECT status FROM orders').get().status,'pending_payment');
     payment={...payment,currency_id:'ARS'};

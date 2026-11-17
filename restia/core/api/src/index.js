@@ -860,6 +860,16 @@ async function verifyWebhook(request, env, dataId, storeId) {
   return timingSafeEqualText(calculated, parts.v1);
 }
 
+function paymentMatchesOrderAmount(payment, order) {
+  const productAmount = Number(payment.transaction_amount);
+  const shippingAmount = payment.shipping_amount == null ? 0 : Number(payment.shipping_amount);
+  const expectedShipping = Number(order.shipping_fee || 0);
+  const expectedTotal = Number(order.total);
+  return [productAmount, shippingAmount, expectedShipping, expectedTotal].every(Number.isFinite)
+    && Math.round(productAmount * 100) === Math.round((expectedTotal - expectedShipping) * 100)
+    && Math.round(shippingAmount * 100) === Math.round(expectedShipping * 100);
+}
+
 async function mercadoPagoWebhook(request, env, ctx) {
   const url = new URL(request.url);
   const webhookStoreId = String(url.searchParams.get('store') || '').trim().toLowerCase();
@@ -882,8 +892,8 @@ async function mercadoPagoWebhook(request, env, ctx) {
 
   const [storeId, orderId] = String(payment.external_reference).split(':', 2);
   if (storeId !== webhookStoreId || !/^\d+$/.test(orderId || '') || payment.external_reference !== `${storeId}:${orderId}`) return new Response('', { status: 200 });
-  const order = await env.DB.prepare("SELECT id, code, COALESCE(total, subtotal) AS total, status, mp_payment_id FROM orders WHERE store_id = ? AND id = ? AND payment_method = 'mercadopago'").bind(storeId, Number(orderId)).first();
-  if (!order || (!['pending_payment','confirmed'].includes(order.status) && !(storeId === GLOWRO_STORE_ID && order.status === 'cancelled')) || (order.status === 'confirmed' && String(order.mp_payment_id) !== String(payment.id)) || Math.round(Number(payment.transaction_amount) * 100) !== Math.round(Number(order.total) * 100)) return new Response('', { status: 200 });
+  const order = await env.DB.prepare("SELECT id, code, COALESCE(total, subtotal) AS total, shipping_fee, status, mp_payment_id FROM orders WHERE store_id = ? AND id = ? AND payment_method = 'mercadopago'").bind(storeId, Number(orderId)).first();
+  if (!order || (!['pending_payment','confirmed'].includes(order.status) && !(storeId === GLOWRO_STORE_ID && order.status === 'cancelled')) || (order.status === 'confirmed' && String(order.mp_payment_id) !== String(payment.id)) || (storeId === GLOWRO_STORE_ID ? !paymentMatchesOrderAmount(payment, order) : Math.round(Number(payment.transaction_amount) * 100) !== Math.round(Number(order.total) * 100))) return new Response('', { status: 200 });
   if (payment.status !== 'approved') {
     if(storeId===GLOWRO_STORE_ID && ['pending','in_process','rejected','cancelled'].includes(payment.status)) await env.DB.prepare("UPDATE orders SET mp_status=? WHERE id=? AND store_id='glowro' AND status='pending_payment'").bind(payment.status,order.id).run();
     return new Response('',{status:200});
@@ -901,7 +911,7 @@ async function mercadoPagoWebhook(request, env, ctx) {
 }
 
 export async function reconcileGlowroPendingPayments(env) {
-  const orders = await env.DB.prepare("SELECT id, total FROM orders WHERE store_id='glowro' AND status='pending_payment' AND payment_method='mercadopago' AND mp_payment_id IS NULL ORDER BY id DESC LIMIT 20").bind().all();
+  const orders = await env.DB.prepare("SELECT id, total, shipping_fee FROM orders WHERE store_id='glowro' AND status='pending_payment' AND payment_method='mercadopago' AND mp_payment_id IS NULL ORDER BY id DESC LIMIT 20").bind().all();
   if (!orders.results?.length) return;
   const { accessToken } = await paymentCredentials(env, GLOWRO_STORE_ID);
   if (!accessToken) return;
@@ -917,12 +927,13 @@ export async function reconcileGlowroPendingPayments(env) {
       const detail = await fetch(`https://api.mercadopago.com/v1/payments/${encodeURIComponent(candidates[0].id)}`, { headers:{ authorization:`Bearer ${accessToken}` }, cache:'no-store' });
       if (!detail.ok) continue;
       const payment = await detail.json();
-      if (String(payment.id) !== String(candidates[0].id) || payment.status !== 'approved' || payment.external_reference !== reference || payment.currency_id !== 'ARS' || Math.round(Number(payment.transaction_amount) * 100) !== Math.round(Number(order.total) * 100)) continue;
+      if (String(payment.id) !== String(candidates[0].id) || payment.status !== 'approved' || payment.external_reference !== reference || payment.currency_id !== 'ARS' || !paymentMatchesOrderAmount(payment, order)) continue;
       await confirmOrder(env, GLOWRO_STORE_ID, order.id, String(payment.id), false);
       await queueGlowroConfirmations(env, order.id);
     } catch { /* A failed lookup leaves the order pending for the next scheduled check. */ }
   }
 }
+
 
 async function confirmOrder(env, storeId, orderId, paymentId = null, enqueuePrint = true, allowCancelledPaidOrder = false) {
   const now = new Date().toISOString();
