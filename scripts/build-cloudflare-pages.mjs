@@ -68,6 +68,9 @@ await cp(landingSource, landing, { recursive:true });
 for (const name of ['analytics-config.js','analytics.mjs']) await copyFrom(burgerSiteSource, name, landing);
 
 await cp(glowroSiteSource, glowro, { recursive:true });
+const ga4Id=process.env.GLOWRO_GA4_MEASUREMENT_ID || '';
+if(ga4Id && !/^G-[A-Z0-9]+$/.test(ga4Id)) throw new Error('GLOWRO_GA4_MEASUREMENT_ID inválido');
+await writeFile(join(glowro,'analytics-config.js'),`window.GLOWRO_GA4_ID = ${JSON.stringify(ga4Id)};\n`);
 await cp(glowroAdminSource, join(glowro, 'admin'), { recursive:true });
 await copyFrom(adminUiSource, 'print-devices.mjs', join(glowro, 'admin'));
 await writeRuntime(glowro, 'glowro');

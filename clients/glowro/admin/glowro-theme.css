@@ -27,7 +27,7 @@ html[data-theme=dark] input,html[data-theme=dark] textarea,html[data-theme=dark]
 html[data-theme=dark] .secondary,html[data-theme=dark] .icon-button,html[data-theme=dark] .row-photo label,html[data-theme=dark] .check-mp-button{background:var(--color-surface);color:var(--color-text);border-color:var(--color-border-strong)}
 html[data-theme=dark] .side-link.active{background:var(--color-accent-soft);color:var(--color-text)}html[data-theme=dark] .side-link.active>span{color:var(--color-accent)}
 
-/* Productos: el módulo conserva la misma jerarquía en oscuro sin alterar el tema claro. */
+/* Productos: el mÃ³dulo conserva la misma jerarquÃ­a en oscuro sin alterar el tema claro. */
 html[data-theme=dark] #products-area .products-head,
 html[data-theme=dark] #products-area .add-product-form,
 html[data-theme=dark] #products-area .product-row{color:var(--color-text)}
@@ -61,3 +61,7 @@ html[data-theme=dark] #products-area .save-note{color:var(--color-success)}
 html[data-theme=dark] .action-dialog{background:var(--color-surface);color:var(--color-text);border:1px solid var(--color-border)}
 html[data-theme=dark] .action-dialog-copy p{color:var(--color-text-muted)}
 html[data-theme=dark] .action-dialog-icon{background:var(--color-error-soft);color:var(--color-error)}
+
+.communications-dialog{width:min(760px,94vw);max-height:90dvh;overflow:auto;border:1px solid #d8baba;border-radius:20px;padding:24px}.communications-dialog::backdrop{background:#29212680}.communications-dialog label{display:grid;gap:8px;margin:12px 0}.communications-dialog input,.communications-dialog textarea,.communications-dialog select{width:100%;box-sizing:border-box;padding:12px;font:inherit}.communications-dialog form{margin:16px 0}.communications-dialog iframe{width:100%;height:65vh;border:0}.communications-dialog pre{white-space:pre-wrap;overflow-wrap:anywhere}.communications-dialog button{margin:5px;padding:10px;min-height:44px}
+
+dialog:modal{overscroll-behavior:contain}dialog::backdrop{overflow:hidden;overscroll-behavior:contain}

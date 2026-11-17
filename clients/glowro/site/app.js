@@ -5,8 +5,8 @@ const RUNTIME = window.RESTIA_CLIENT_CONFIG || window.BURGER_TIN_CHECKOUT || {};
 const API = String(RUNTIME.apiBaseUrl || '').replace(/\/$/, '');
 const STORE_ID = String(RUNTIME.storeId || 'glowro');
 const CONTACT = {
-  instagram: 'https://instagram.com/glowro_/',
-  dm: 'https://ig.me/m/glowro_'
+  instagram: 'https://www.instagram.com/glowro.ok/',
+  dm: 'https://www.instagram.com/glowro.ok/'
 };
 const ITEMS = Object.fromEntries(PRODUCTS.map(p => [p.id, p]));
 const $ = id => document.getElementById(id);
@@ -26,7 +26,7 @@ function persist() { try { localStorage.setItem(storageKey, JSON.stringify([...c
 function escapeHTML(value) { return String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function setCheckoutStatus(message, kind='action') { const status=$('checkout-status');status.textContent=message;if(message)status.dataset.kind=kind;else delete status.dataset.kind; }
 function resetShippingQuote(message='Ingresá tu localidad o código postal para ver las opciones disponibles.') { selectedShipping=null;availableShippingMethods=[];deliveryFee=null;$('shipping-methods').innerHTML=`<p>${escapeHTML(message)}</p>`;$('address-field').hidden=true;$('address-field').querySelector('input').required=false; }
-function applyShippingMethod(method) { selectedShipping=method;deliveryFee=typeof method.fee==='number'?method.fee:null;const needsAddress=method.id!=='pickup';$('address-field').hidden=!needsAddress;$('address-field').querySelector('input').required=needsAddress;if(method.id==='coordinate')$('shipping-note').textContent='Costo de envío a coordinar · no incluido en el pago';else if(method.fee===0)$('shipping-note').textContent=method.id==='pickup'?'Retiro sin cargo':'Envío sin cargo';else $('shipping-note').textContent=`Envío: ${pesos(method.fee)}`;renderSelection();}
+function applyShippingMethod(method) { track('add_shipping_info',analyticsCart()); selectedShipping=method;deliveryFee=typeof method.fee==='number'?method.fee:null;const needsAddress=method.id!=='pickup';$('address-field').hidden=!needsAddress;$('address-field').querySelector('input').required=needsAddress;if(method.id==='coordinate')$('shipping-note').textContent='Costo de envío a coordinar · no incluido en el pago';else if(method.fee===0)$('shipping-note').textContent=method.id==='pickup'?'Retiro sin cargo':'Envío sin cargo';else $('shipping-note').textContent=`Envío: ${pesos(method.fee)}`;renderSelection();}
 function renderShippingMethods(methods,outsideCoverage=false){if(!methods.length){resetShippingQuote(outsideCoverage?'Tu ubicación está fuera de las zonas configuradas. Contactá a GlowRo para consultar alternativas.':'No hay métodos de entrega disponibles.');return;}availableShippingMethods=methods;$('shipping-methods').innerHTML=methods.map(method=>`<label class="shipping-option"><input type="radio" name="shippingMethod" value="${escapeHTML(method.id)}"><span><strong>${escapeHTML(method.label)}</strong><small>${method.fee===null?'Costo a confirmar':method.fee===0?'Sin cargo':pesos(method.fee)}${method.zoneName?` · ${escapeHTML(method.zoneName)}`:''}</small>${method.address?`<em>${escapeHTML(method.address)}</em>`:''}${method.description?`<em>${escapeHTML(method.description)}</em>`:''}</span></label>`).join('');if(methods.length===1){const input=$('shipping-methods').querySelector('input');input.checked=true;applyShippingMethod(methods[0]);}}
 async function quoteShipping(){if(!checkoutReady||!cart.size)return;const button=$('quote-shipping'),form=$('checkout-form'),data=new FormData(form);button.disabled=true;button.textContent='Calculando…';setCheckoutStatus('');try{const response=await fetch(`${API}/api/shipping/quote`,{method:'POST',headers:{'content-type':'application/json','x-requested-with':'restia-web'},body:JSON.stringify({locality:data.get('locality'),postalCode:data.get('postalCode'),items:[...cart].map(([id,quantity])=>({id,quantity}))})}),result=await response.json();if(!response.ok)throw new Error(result.error||'No pudimos calcular el envío.');selectedShipping=null;deliveryFee=null;renderShippingMethods(result.methods||[],result.outsideCoverage);renderSelection();}catch(error){resetShippingQuote(error.message);setCheckoutStatus(error.message);renderSelection();}finally{button.disabled=false;button.textContent='Ver opciones para mi ubicación';}}
 function renderSelection() {
@@ -57,9 +57,14 @@ function renderSelection() {
   if(catalogLoaded&&!checkoutReady)setCheckoutStatus(shippingConfigured?'El pago online no está disponible en este momento.':'No hay métodos de entrega disponibles en este momento.','availability');
   else if(checkoutReady&&status.dataset.kind==='availability')setCheckoutStatus('');
 }
+const track=(event,data={})=>window.glowroAnalytics?.event(event,data);
+const analyticsItem=(id,quantity=1)=>({item_id:id,item_name:ITEMS[id]?.name,price:Number(ITEMS[id]?.price),quantity});
+const analyticsCart=()=>({items:[...cart].filter(([id])=>ITEMS[id]).map(([id,q])=>analyticsItem(id,q))});
 function addToCart(id) {
   if (!ITEMS[id]) return;
+  if((cart.get(id)||0)>=30)return;
   cart.set(id, Math.min(30, (cart.get(id) || 0) + 1));
+  track('add_to_cart',{items:[analyticsItem(id)]});
   persist(); resetShippingQuote(); renderSelection();
   toast('Agregado al carrito');
   openDrawer();
@@ -68,12 +73,12 @@ document.addEventListener('click', e => {
   const trigger = e.target.closest('[data-add]');
   if (trigger) addToCart(trigger.dataset.add);
   const remove = e.target.closest('[data-remove]');
-  if (remove) { const q = cart.get(remove.dataset.remove) || 0; if (q <= 1) cart.delete(remove.dataset.remove); else cart.set(remove.dataset.remove, q - 1); persist(); resetShippingQuote(); renderSelection(); }
+  if (remove) { track('remove_from_cart',{items:[analyticsItem(remove.dataset.remove)]}); const q = cart.get(remove.dataset.remove) || 0; if (q <= 1) cart.delete(remove.dataset.remove); else cart.set(remove.dataset.remove, q - 1); persist(); resetShippingQuote(); renderSelection(); }
 });
 
 const drawer = $('drawer-layer');
 let previouslyFocused = null;
-function openDrawer() { previouslyFocused = document.activeElement; drawer.hidden = false; document.body.classList.add('drawer-open'); $('close-drawer').focus(); }
+function openDrawer() { track('view_cart',analyticsCart()); previouslyFocused = document.activeElement; drawer.hidden = false; document.body.classList.add('drawer-open'); $('close-drawer').focus(); }
 function closeDrawer() { drawer.hidden = true; document.body.classList.remove('drawer-open'); previouslyFocused?.focus(); }
 $('open-drawer').addEventListener('click', openDrawer);
 $('mobile-selection').addEventListener('click', openDrawer);
@@ -114,7 +119,8 @@ $('checkout-form').addEventListener('submit', async event => {
   setCheckoutStatus('Preparando el pago seguro…');
   const data = new FormData(event.currentTarget);
   try {
-    const response = await fetch(`${API}/api/orders`, {method:'POST', headers:{'content-type':'application/json','x-requested-with':'restia-web'}, body:JSON.stringify({name:data.get('name'),phone:data.get('phone'),address:data.get('address'),locality:data.get('locality'),postalCode:data.get('postalCode'),notes:data.get('notes'),shippingMethod:selectedShipping.id,fulfillment:selectedShipping.id==='pickup'?'pickup':'delivery',paymentMethod:'mercadopago',items:[...cart].map(([id,quantity]) => ({id,quantity}))})});
+    track('add_payment_info',analyticsCart());
+    const response = await fetch(`${API}/api/orders`, {method:'POST', headers:{'content-type':'application/json','x-requested-with':'restia-web'}, body:JSON.stringify({name:data.get('name'),email:data.get('email'),phone:data.get('phone'),address:data.get('address'),locality:data.get('locality'),postalCode:data.get('postalCode'),notes:data.get('notes'),shippingMethod:selectedShipping.id,fulfillment:selectedShipping.id==='pickup'?'pickup':'delivery',paymentMethod:'mercadopago',items:[...cart].map(([id,quantity]) => ({id,quantity}))})});
     const result = await response.json();
     if (!response.ok || !result.checkoutUrl) throw new Error(result.error || 'No pudimos preparar el pago.');
     location.assign(result.checkoutUrl);
@@ -211,7 +217,7 @@ const labels = {kits:'KITS Y COMBOS',facial:'CUIDADO FACIAL',corporal:'CUIDADO C
 function renderProducts() {
   $('products-grid').innerHTML = PRODUCTS.length ? PRODUCTS.map(p => `<article class="product-card reveal is-visible" data-category="${escapeHTML(p.category)}" data-offer="${Boolean(p.previous)}" data-id="${escapeHTML(p.id)}">
   <div class="product-image"><img loading="lazy" src="${escapeHTML(p.image || 'assets/serums.svg')}" alt="${escapeHTML(p.name)}" width="560" height="630"><button type="button" class="add-btn" data-add="${escapeHTML(p.id)}" aria-label="Agregar ${escapeHTML(p.name)} al carrito" aria-pressed="false"><svg class="icon"><use href="#i-bag"/></svg></button></div>
-  <div class="product-details"><div><span class="product-overline">${escapeHTML(labels[p.category] || p.category)}</span><h3>${escapeHTML(p.name)}</h3><p>${escapeHTML(p.description || '')}</p><div class="catalog-price"><strong>${pesos(p.price)}</strong></div><button class="btn btn-dark ml-buy" type="button" data-add="${escapeHTML(p.id)}"><span class="ml-buy-long">Agregar al carrito</span><span class="ml-buy-short">Agregar</span><svg class="icon"><use href="#i-plus"/></svg></button></div></div></article>`).join('') : '<p>El catálogo está en actualización. Volvé a visitarnos pronto.</p>';
+  <div class="product-details"><div><span class="product-overline">${escapeHTML(labels[p.category] || p.category)}</span><h3><button type="button" data-product-detail="${escapeHTML(p.id)}">${escapeHTML(p.name)}</button></h3><p>${escapeHTML(p.description || '')}</p><div class="catalog-price"><strong>${pesos(p.price)}</strong></div><button class="btn btn-dark ml-buy" type="button" data-add="${escapeHTML(p.id)}"><span class="ml-buy-long">Agregar al carrito</span><span class="ml-buy-short">Agregar</span><svg class="icon"><use href="#i-plus"/></svg></button></div></div></article>`).join('') : '<p>El catálogo está en actualización. Volvé a visitarnos pronto.</p>';
   renderSelection();
 }
 
@@ -256,6 +262,42 @@ updateFloatingSelection();
 $('year').textContent = new Date().getFullYear();
 renderSelection();
 renderQuiz();
-const paymentReturn = new URLSearchParams(location.search).get('payment');
-if (paymentReturn === 'success' || paymentReturn === 'pending') setTimeout(() => toast('Volviste de Mercado Pago. El pedido se confirmará cuando se acredite el pago.'), 400);
-if (paymentReturn === 'failure') setTimeout(() => toast('El pago no se completó. Tu carrito sigue disponible.'), 400);
+const returnParams = new URLSearchParams(location.search);
+const paymentReturn = returnParams.get('payment');
+if (paymentReturn) {
+  let token = returnParams.get('token') || '';
+  try { if (token) sessionStorage.setItem('glowro-payment-token', token); else token = sessionStorage.getItem('glowro-payment-token') || ''; } catch (_) {}
+  history.replaceState(null, '', `${location.pathname}?payment=status`);
+  const result = $('payment-result'), message = $('payment-result-message'), retry = $('payment-result-retry');
+  result.hidden = false;
+  document.body.classList.add('payment-return-active');
+  result.querySelector('main').tabIndex = -1;
+  result.querySelector('main').focus();
+  let attempts = 0;
+  async function checkPayment() {
+    retry.hidden = true;
+    if (!token) { message.innerHTML = '<h1>No pudimos verificar tu pago</h1><p>Consultanos para conocer el estado de tu pedido.</p>'; return; }
+    try {
+      const response = await fetch(`${API}/api/glowro/order-status`, {method:'POST',headers:{'content-type':'application/json','x-requested-with':'restia-web'},body:JSON.stringify({token})});
+      const data = await response.json();
+      if (!response.ok) throw new Error('No pudimos consultar el estado.');
+      $('payment-result-order').textContent = `Pedido ${data.code}`;
+      if (data.status === 'approved') { track('purchase',data.purchase); window.glowroVerifiedPurchase=data.purchase; message.innerHTML = '<h1>¡Gracias por tu compra!</h1><p>Tu pago fue confirmado. Ya estamos preparando tu pedido con mucho cariño.</p><p>Te enviaremos el detalle por email.</p>'; return; }
+      if (data.status === 'rejected') { message.innerHTML = '<h1>El pago fue rechazado</h1><p>Tu compra no fue confirmada. Consultanos para volver a intentarlo.</p>'; return; }
+      if (data.status === 'cancelled') { message.innerHTML = '<h1>El pedido no se completó</h1><p>Consultanos si necesitás ayuda.</p>'; return; }
+      message.innerHTML = '<h1>Tu pago está pendiente</h1><p>Estamos esperando la confirmación de Mercado Pago. Te avisaremos por email cuando se acredite.</p>';
+      if (++attempts < 20) setTimeout(checkPayment, 3000); else retry.hidden = false;
+    } catch { message.innerHTML = '<h1>No pudimos verificar tu pago</h1><p>Tu pedido aún puede estar procesándose. Consultá nuevamente.</p>'; retry.hidden = false; }
+  }
+  retry.addEventListener('click', () => { attempts = 0; checkPayment(); });
+  checkPayment();
+}
+
+let checkoutStarted=false;
+$('checkout-form').addEventListener('focusin',()=>{if(!checkoutStarted&&cart.size){checkoutStarted=true;track('begin_checkout',analyticsCart());}});
+const seenProducts=new Set();
+const productObserver=new IntersectionObserver(entries=>{for(const entry of entries)if(entry.isIntersecting){const id=entry.target.dataset.id;if(!seenProducts.has(id)&&track('view_item_list',{items:[analyticsItem(id)]}))seenProducts.add(id);}}, {threshold:.5});
+function observeProducts(){document.querySelectorAll('.product-card[data-id]').forEach(el=>{productObserver.unobserve(el);productObserver.observe(el);});}
+new MutationObserver(observeProducts).observe($('products-grid'),{childList:true});observeProducts();
+document.addEventListener('glowro-analytics-ready',()=>{observeProducts();if(window.glowroVerifiedPurchase)track('purchase',window.glowroVerifiedPurchase);});
+document.addEventListener('click',event=>{const button=event.target.closest('[data-product-detail]');if(!button)return;const id=button.dataset.productDetail,p=ITEMS[id];if(!p)return;track('select_item',{items:[analyticsItem(id)]});const dialog=document.createElement('dialog');dialog.className='privacy-dialog';dialog.setAttribute('aria-label',p.name);dialog.innerHTML=`<form method="dialog"><button autofocus>Cerrar</button></form><h2>${escapeHTML(p.name)}</h2><p>${escapeHTML(p.description||'')}</p><p>${pesos(p.price)}</p>`;document.body.append(dialog);dialog.addEventListener('close',()=>dialog.remove(),{once:true});dialog.showModal();track('view_item',{items:[analyticsItem(id)]});});

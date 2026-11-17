@@ -1,7 +1,9 @@
+import { commerceRoute, withdrawal, processMessages, limited, CommerceInputError } from './glowro-commerce.js';
 import store from '../../../../clients/burger-tin/config/catalog.json' with { type: 'json' };
 import { checkoutPaymentMethods, formatMoney, formatOrderCode, timingSafeEqualText, validateOrderInput } from './domain.js';
 import { normalizeBusinessHours, orderingAvailability, validateBusinessHours } from './business-hours.js';
 import { processPendingSaleNotifications, queueSaleNotification, sendSaleNotification } from './sale-notifications.js';
+import { queueGlowroConfirmations, processGlowroConfirmations } from './glowro-confirmations.js';
 import { normalizeShippingConfig, publicShippingConfig, shippingMethodsForCart, validateShippingConfig } from './shipping.js';
 import { mercadoPagoCharge, orderPaymentAmounts } from './mercado-pago.js';
 
@@ -703,6 +705,9 @@ async function createOrder(request, env) {
     order.shippingFee = 0;
     order.total = order.productSubtotal;
     if (storeId === GLOWRO_STORE_ID) {
+      order.email = String(body.email || '').trim().toLowerCase();
+      if (order.email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(order.email)) throw new Error('Ingresá un correo electrónico válido.');
+      order.confirmationToken = crypto.randomUUID() + crypto.randomUUID();
       if (order.paymentMethod !== 'mercadopago') throw new Error('GlowRo acepta pagos mediante Mercado Pago.');
       if (order.phone.length < 10 || order.phone.length > 15) throw new Error('Ingresá un teléfono de contacto para la entrega.');
       const methods = shippingMethodsForCart(settings.shippingConfig, { subtotal:order.subtotal, locality:body.locality, postalCode:body.postalCode });
@@ -760,9 +765,9 @@ async function createOrder(request, env) {
   const now = new Date().toISOString();
   const status = order.paymentMethod === 'cash' ? 'pending_cash' : 'pending_payment';
   const inserted = await env.DB.prepare(`
-    INSERT INTO orders (code, customer_name, fulfillment, address, notes, payment_method, status, subtotal, product_subtotal, shipping_fee, total, created_at, store_id, customer_phone)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).bind(code, order.name, order.fulfillment, order.address || null, order.notes || null, order.paymentMethod, status, order.total, order.productSubtotal, order.shippingFee, order.total, now, storeId, order.phone || null).run();
+    INSERT INTO orders (code, customer_name, fulfillment, address, notes, payment_method, status, subtotal, product_subtotal, shipping_fee, total, created_at, store_id, customer_phone, customer_email, confirmation_token_hash)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(code, order.name, order.fulfillment, order.address || null, order.notes || null, order.paymentMethod, status, order.total, order.productSubtotal, order.shippingFee, order.total, now, storeId, order.phone || null, order.email || null, order.confirmationToken ? await sha256(order.confirmationToken) : null).run();
   const orderId = inserted.meta.last_row_id;
   await env.DB.batch(order.items.map(item => env.DB.prepare(`
     INSERT INTO order_items (order_id, product_id, name, quantity, unit_price, subtotal, store_id)
@@ -801,9 +806,9 @@ async function createMercadoPagoCheckout(env, storeId, orderId, code, order, pay
     external_reference: `${storeId}:${orderId}`,
     notification_url: `${env.PUBLIC_API_URL.replace(/\/$/, '')}/api/webhooks/mercadopago?store=${encodeURIComponent(storeId)}`,
     back_urls: {
-      success: `${siteUrl}?payment=success&order=${encodeURIComponent(code)}`,
-      pending: `${siteUrl}?payment=pending&order=${encodeURIComponent(code)}`,
-      failure: `${siteUrl}?payment=failure&order=${encodeURIComponent(code)}`
+      success: `${siteUrl}?payment=success&order=${encodeURIComponent(code)}${order.confirmationToken ? `&token=${encodeURIComponent(order.confirmationToken)}` : ''}`,
+      pending: `${siteUrl}?payment=pending&order=${encodeURIComponent(code)}${order.confirmationToken ? `&token=${encodeURIComponent(order.confirmationToken)}` : ''}`,
+      failure: `${siteUrl}?payment=failure&order=${encodeURIComponent(code)}${order.confirmationToken ? `&token=${encodeURIComponent(order.confirmationToken)}` : ''}`
     },
     auto_return: 'approved',
     ...(checkoutPaymentMethods(storeId) ? { payment_methods: checkoutPaymentMethods(storeId) } : {}),
@@ -870,17 +875,28 @@ async function mercadoPagoWebhook(request, env, ctx) {
   const paymentResponse = await fetch(`https://api.mercadopago.com/v1/payments/${encodeURIComponent(dataId)}`, {
     headers: { authorization:`Bearer ${credentials.accessToken}` }
   });
-  if (!paymentResponse.ok) return new Response('', { status: 200 });
+  if (!paymentResponse.ok) return new Response('', { status: 503 });
   const payment = await paymentResponse.json();
-  if (payment.status !== 'approved' || payment.currency_id !== 'ARS' || !payment.external_reference) return new Response('', { status: 200 });
+  if (String(payment.id) !== String(dataId)) return new Response('', {status:400});
+  if (payment.currency_id !== 'ARS' || !payment.external_reference) return new Response('', { status: 200 });
 
   const [storeId, orderId] = String(payment.external_reference).split(':', 2);
-  if (storeId !== webhookStoreId || !/^\d+$/.test(orderId || '')) return new Response('', { status: 200 });
-  const order = await env.DB.prepare("SELECT id, code, COALESCE(total, subtotal) AS total, status FROM orders WHERE store_id = ? AND id = ? AND payment_method = 'mercadopago'").bind(storeId, Number(orderId)).first();
-  if (!order || order.status !== 'pending_payment' || Math.round(Number(payment.transaction_amount) * 100) !== Math.round(Number(order.total) * 100)) return new Response('', { status: 200 });
+  if (storeId !== webhookStoreId || !/^\d+$/.test(orderId || '') || payment.external_reference !== `${storeId}:${orderId}`) return new Response('', { status: 200 });
+  const order = await env.DB.prepare("SELECT id, code, COALESCE(total, subtotal) AS total, status, mp_payment_id FROM orders WHERE store_id = ? AND id = ? AND payment_method = 'mercadopago'").bind(storeId, Number(orderId)).first();
+  if (!order || !['pending_payment','confirmed'].includes(order.status) || (order.status === 'confirmed' && String(order.mp_payment_id) !== String(payment.id)) || Math.round(Number(payment.transaction_amount) * 100) !== Math.round(Number(order.total) * 100)) return new Response('', { status: 200 });
+  if (payment.status !== 'approved') {
+    if(storeId===GLOWRO_STORE_ID && ['pending','in_process','rejected','cancelled'].includes(payment.status)) await env.DB.prepare("UPDATE orders SET mp_status=? WHERE id=? AND store_id='glowro' AND status='pending_payment'").bind(payment.status,order.id).run();
+    return new Response('',{status:200});
+  }
   await confirmOrder(env, storeId, order.id, String(payment.id), storeId === DEFAULT_STORE_ID);
-  const notificationId = await queueSaleNotification(env, storeId, order.id);
-  if (notificationId) ctx?.waitUntil(sendSaleNotification(env, notificationId));
+  if (storeId === GLOWRO_STORE_ID) {
+    await queueGlowroConfirmations(env, order.id);
+    if (ctx) ctx.waitUntil(processGlowroConfirmations(env));
+    ctx?.waitUntil(processMessages(env));
+  } else {
+    const notificationId = await queueSaleNotification(env, storeId, order.id);
+    if (notificationId) ctx?.waitUntil(sendSaleNotification(env, notificationId));
+  }
   return new Response('', { status: 200 });
 }
 
@@ -889,7 +905,7 @@ async function confirmOrder(env, storeId, orderId, paymentId = null, enqueuePrin
   const order = await env.DB.prepare('SELECT id, status FROM orders WHERE store_id = ? AND id = ?').bind(storeId, orderId).first();
   if (!order || order.status === 'cancelled') throw new Error('Pedido inexistente o cancelado.');
   if (order.status !== 'confirmed') {
-    await env.DB.prepare("UPDATE orders SET status = 'confirmed', confirmed_at = ?, mp_payment_id = COALESCE(?, mp_payment_id) WHERE store_id = ? AND id = ?")
+    await env.DB.prepare("UPDATE orders SET status = 'confirmed', confirmed_at = ?, mp_payment_id = COALESCE(?, mp_payment_id) WHERE store_id = ? AND id = ? AND status IN ('pending_payment','pending_cash')")
       .bind(now, paymentId, storeId, orderId).run();
   }
   if (enqueuePrint) {
@@ -933,6 +949,7 @@ async function listOrders(request, env) {
 async function clearHistory(request, env) {
   const identity = await requireAdmin(request, env, 'orders:manage');
   if (!identity) return publicJson(request, env, { error:'No autorizado.' }, 401);
+  if (identity.storeId === GLOWRO_STORE_ID) return publicJson(request,env,{error:'Los pedidos se conservan para seguimiento, comunicaciones y trazabilidad.'},409);
   const pending = await env.DB.prepare("SELECT COUNT(*) AS total FROM orders WHERE store_id = ? AND status IN ('pending_cash', 'pending_payment')").bind(identity.storeId).first();
   if (Number(pending?.total) > 0) return publicJson(request, env, { error:'Primero confirma o cancela todos los pedidos pendientes.' }, 409);
   await env.DB.batch([
@@ -1318,12 +1335,36 @@ export default {
     if (!csrfSafe(request)) return publicJson(request, env, { error:'Solicitud no válida.' }, 403);
     const declaredLength = Number(request.headers.get('content-length') || 0);
     if (declaredLength > 1000000) return publicJson(request, env, { error:'Solicitud demasiado grande.' }, 413);
+    if (['/api/auth/login','/api/auth/challenge','/api/glowro/order-status'].includes(url.pathname) && request.headers.get('origin') === 'https://glowro.restia.net.ar') {
+      const ipHash=await sha256(request.headers.get('cf-connecting-ip')||'local');
+      if(await limited(env,`sensitive:${url.pathname}:${ipHash}`,url.pathname.endsWith('order-status')?120:30)) return publicJson(request,env,{error:'Demasiados intentos. Esperá unos minutos.'},429);
+    }
+    if (url.pathname.startsWith('/api/admin/glowro/') || url.pathname === '/api/glowro/withdrawal') {
+      try {
+        let result;
+        if (url.pathname === '/api/glowro/withdrawal') {
+          if(request.method !== 'POST' || await publicStoreId(request,env) !== GLOWRO_STORE_ID) return publicJson(request,env,{error:'No autorizado.'},403);
+          result = await withdrawal(request,env,await sha256(request.headers.get('cf-connecting-ip') || 'local'));
+        } else result = await commerceRoute(request,env,await adminIdentity(request,env));
+        if(request.method !== 'GET') ctx?.waitUntil(processMessages(env));
+        return publicJson(request,env,result.data,result.status || 200);
+      } catch (error) { return publicJson(request,env,{error:error instanceof CommerceInputError ? error.message : 'No se pudo procesar la solicitud. Revisá los datos y el estado del pedido.'},400); }
+    }
     if (request.method === 'GET' && url.pathname === '/health') return json({ ok:true, service:'burger-tin-orders' });
     if (request.method === 'GET' && url.pathname === '/api/catalog') return getCatalog(request, env);
     if (request.method === 'POST' && url.pathname === '/api/shipping/quote') return quoteShipping(request, env);
     const catalogImageMatch = url.pathname.match(/^\/api\/catalog\/images\/([^/]+)$/);
     if (request.method === 'GET' && catalogImageMatch) return getCatalogImage(request, env, decodeURIComponent(catalogImageMatch[1]));
     if (request.method === 'POST' && url.pathname === '/api/orders') return createOrder(request, env);
+    if (request.method === 'POST' && url.pathname === '/api/glowro/order-status') {
+      const body = await readJson(request).catch(() => ({}));
+      const token = String(body.token || '');
+      if (!/^[0-9a-f-]{72}$/.test(token) || await publicStoreId(request, env) !== GLOWRO_STORE_ID) return publicJson(request, env, { error:'Consulta inválida.' }, 400);
+      const order = await env.DB.prepare("SELECT id, code, status, mp_status, mp_payment_id, total, shipping_fee FROM orders WHERE store_id = 'glowro' AND confirmation_token_hash = ? AND payment_method = 'mercadopago'").bind(await sha256(token)).first();
+      const approved=order?.status==='confirmed' && Boolean(order.mp_payment_id);
+      const purchase=approved ? {transaction_id:order.code,value:Number(order.total)-Number(order.shipping_fee||0),shipping:Number(order.shipping_fee||0),currency:'ARS',items:(await env.DB.prepare("SELECT product_id, name, quantity, unit_price FROM order_items WHERE order_id=? AND store_id='glowro'").bind(order.id).all()).results.map(i=>({item_id:i.product_id,item_name:i.name,price:Number(i.unit_price),quantity:Number(i.quantity)}))} : undefined;
+      return publicJson(request, env, order ? { code:order.code, status:approved ? 'approved' : order.status === 'cancelled' ? 'cancelled' : order.mp_status==='rejected' ? 'rejected' : order.mp_status==='cancelled' ? 'cancelled' : 'pending',purchase } : { error:'Pedido no encontrado.' }, order ? 200 : 404);
+    }
     if (request.method === 'POST' && url.pathname === '/api/auth/challenge') return passwordChallenge(request, env);
     if (request.method === 'POST' && url.pathname === '/api/auth/login') return login(request, env);
     if (request.method === 'POST' && url.pathname === '/api/auth/logout') return logoutSession(request, env);
@@ -1367,5 +1408,7 @@ export default {
   },
   async scheduled(_event, env, ctx) {
     ctx.waitUntil(processPendingSaleNotifications(env));
+    ctx.waitUntil(processGlowroConfirmations(env));
+    ctx?.waitUntil(processMessages(env));
   }
 };
